@@ -19,6 +19,9 @@ mod imp {
         pub pill: OnceCell<gtk::Box>,
         pub pill_label: OnceCell<gtk::Label>,
         pub focus_line: OnceCell<gtk::Box>,
+        pub context_line: OnceCell<gtk::DrawingArea>,
+        pub multi: Cell<bool>,
+        pub focused: Cell<bool>,
         pub dim: OnceCell<gtk::DrawingArea>,
         pub search: OnceCell<gtk::Revealer>,
         pub badge: OnceCell<gtk::Label>,
@@ -94,6 +97,20 @@ impl Pane {
             .visible(false)
             .build();
         overlay.add_overlay(&focus_line);
+
+        // Kontextfarbe (root/SSH): 3 px Linie oben in der Farbe des Schemas
+        let context_line = gtk::DrawingArea::builder().valign(gtk::Align::Start).height_request(3).can_target(false).visible(false).build();
+        {
+            let t = terminal.clone();
+            context_line.set_draw_func(move |_, cr, w, h| {
+                if let Some((line, _)) = t.context_accent() {
+                    cr.set_source_rgb(line.r as f64 / 255.0, line.g as f64 / 255.0, line.b as f64 / 255.0);
+                    cr.rectangle(0.0, 0.0, w as f64, h as f64);
+                    let _ = cr.fill();
+                }
+            });
+        }
+        overlay.add_overlay(&context_line);
 
         // Schwebender Titel, nur bei geteilten Tabs sichtbar (Entscheidung A+: schwebend)
         let pill_label = gtk::Label::builder().ellipsize(gtk::pango::EllipsizeMode::End).max_width_chars(28).build();
@@ -180,8 +197,7 @@ impl Pane {
             let weak = pane.downgrade();
             move || {
                 if let Some(p) = weak.upgrade() {
-                    let t = p.terminal();
-                    p.imp().pill_label.get().unwrap().set_label(&t.title().unwrap_or_else(|| "Shell".into()));
+                    p.refresh_title();
                 }
             }
         };
@@ -206,6 +222,7 @@ impl Pane {
         imp.pill.set(pill).ok();
         imp.pill_label.set(pill_label).ok();
         imp.focus_line.set(focus_line).ok();
+        imp.context_line.set(context_line).ok();
         imp.dim.set(dim).ok();
         imp.search.set(search).ok();
         imp.badge.set(badge).ok();
@@ -275,12 +292,41 @@ impl Pane {
         self.imp().id.get()
     }
 
+    /// Neue Id, wenn ein Bereich beim Wiederherstellen einen anderen Platz bekommt.
+    pub fn set_id(&self, id: u32) {
+        self.imp().id.set(id);
+    }
+
     pub fn terminal(&self) -> &Terminal {
         self.imp().terminal.get().expect("Terminal wird im Konstruktor gesetzt")
     }
 
     pub fn focus_terminal(&self) {
         self.terminal().vte().grab_focus();
+    }
+
+    /// Titel im schwebenden Feld, bei root/SSH mit farbigem Chip davor.
+    fn refresh_title(&self) {
+        let t = self.terminal();
+        let title = glib::markup_escape_text(&t.title().unwrap_or_else(|| "Shell".into())).to_string();
+        let chip = match (t.context(), t.context_accent()) {
+            (parkett_core::context::Context::Remote(host), Some((_, bg))) => Some((host, bg)),
+            (parkett_core::context::Context::Superuser, Some((_, bg))) => Some(("root".to_string(), bg)),
+            _ => None,
+        };
+        let label = self.imp().pill_label.get().unwrap();
+        match &chip {
+            Some((text, bg)) => label.set_markup(&format!(
+                "<span background=\"{}\" weight=\"bold\"> {} </span>  {title}",
+                bg.hex(),
+                glib::markup_escape_text(text)
+            )),
+            None => label.set_markup(&title),
+        }
+        let imp = self.imp();
+        imp.context_line.get().unwrap().set_visible(chip.is_some());
+        imp.context_line.get().unwrap().queue_draw();
+        self.update_visibility();
     }
 
     /// Nummer im Layout-Modus; `None` blendet sie aus.
@@ -293,6 +339,16 @@ impl Pane {
             }
             None => badge.set_visible(false),
         }
+    }
+
+    /// Titel-Feld und Linien: Titel bei geteilten Reitern oder Kontext (dann mit Chip),
+    /// Kontextlinie ersetzt die Fokuslinie.
+    fn update_visibility(&self) {
+        let imp = self.imp();
+        let context = self.terminal().context_accent().is_some();
+        let searching = imp.search.get().is_some_and(|s| s.is_visible());
+        imp.pill.get().unwrap().set_visible((imp.multi.get() || context) && !searching);
+        imp.focus_line.get().unwrap().set_visible(imp.multi.get() && imp.focused.get() && !context);
     }
 
     pub fn search_visible(&self) -> bool {
@@ -361,8 +417,9 @@ impl Pane {
     /// `multi`: Tab hat mehr als einen sichtbaren Bereich.
     pub fn set_state(&self, focused: bool, multi: bool) {
         let imp = self.imp();
-        imp.pill.get().unwrap().set_visible(multi && !imp.search.get().is_some_and(|s| s.is_visible()));
-        imp.focus_line.get().unwrap().set_visible(multi && focused);
+        imp.multi.set(multi);
+        imp.focused.set(focused);
+        self.update_visibility();
         imp.dim.get().unwrap().set_visible(multi && !focused && crate::settings::dim_unfocused());
         if focused {
             self.add_css_class("focused");

@@ -33,6 +33,10 @@ pub fn inherit_directory() -> bool {
     settings().string("new-terminal-directory") == "current"
 }
 
+pub fn context_colors() -> bool {
+    settings().boolean("context-colors")
+}
+
 pub fn scrollback_lines() -> i64 {
     settings().int("scrollback-lines").into()
 }

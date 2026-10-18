@@ -33,6 +33,11 @@
       <summary>Inaktive Bereiche abblenden</summary>
       <description>In geteilten Reitern die Bereiche ohne Fokus leicht abblenden.</description>
     </key>
+    <key name="context-colors" type="b">
+      <default>true</default>
+      <summary>Kontextfarbe für root und SSH</summary>
+      <description>Bereiche, in denen ein Programm mit Root-Rechten oder eine SSH-Verbindung läuft, mit Linie, Chip und getöntem Hintergrund kennzeichnen. Die Farben kommen aus dem Farbschema.</description>
+    </key>
     <key name="autohide-tab-bar" type="b">
       <default>true</default>
       <summary>Reiterleiste bei einem Reiter ausblenden</summary>

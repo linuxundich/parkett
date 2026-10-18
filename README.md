@@ -17,8 +17,8 @@ steht für das Fischgrät-Muster aus Terminal-Bereichen, das die Splits bilden.
   (Architektur, Testprotokoll, offene Entscheidungen).
 - **Phase 4 – MVP:** freigegeben; Schritt 1 Tabs und Splits fertig und in der VM getestet →
   [`docs/MVP.md`](docs/MVP.md). Schritte 2 (Meson, GSettings, Arch-Paket), 3 (Profile, 14 Farbschemata hell/dunkel, Import),
-  4/5 (Einstellungen, Suche, Links, änderbare Kürzel) und 6 (Befehlspalette, Layout-Modus,
-  Vorlagen) fertig. Weiter: Rückgängig beim Schließen, Kontextfarbe je Bereich.
+  4/5 (Einstellungen, Suche, Links, änderbare Kürzel), 6 (Befehlspalette, Layout-Modus,
+  Vorlagen) und 7 (Rückgängig, Kontextfarbe) fertig – MVP komplett. Weiter: Phase 5 (QA).
 
 ## Bauen und starten
 

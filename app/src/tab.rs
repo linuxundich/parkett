@@ -33,6 +33,10 @@ mod imp {
         pub zoom_banner: OnceCell<gtk::Box>,
         pub zoom_label: OnceCell<gtk::Label>,
         pub mode_bar: OnceCell<gtk::FlowBox>,
+        /// Geschlossene Bereiche, solange „Rückgängig“ angeboten wird: (Nummer, Bereich,
+        /// Layout davor, Layout danach)
+        pub closed: RefCell<Vec<(u64, Pane, Layout, Layout)>>,
+        pub closed_serial: std::cell::Cell<u64>,
         pub layout_mode: std::cell::Cell<bool>,
     }
 
@@ -52,6 +56,8 @@ mod imp {
                     Signal::builder("changed").build(),
                     // letzter Bereich wurde geschlossen
                     Signal::builder("empty").build(),
+                    // ein Bereich wurde geschlossen und kann wiederhergestellt werden (Nummer)
+                    Signal::builder("pane-closed").param_types([u64::static_type()]).build(),
                 ]
             })
         }
@@ -209,6 +215,13 @@ impl Tab {
     pub fn connect_changed(&self, f: impl Fn(&Self) + 'static) {
         self.connect_local("changed", false, move |args| {
             f(&args[0].get::<Tab>().unwrap());
+            None
+        });
+    }
+
+    pub fn connect_pane_closed(&self, f: impl Fn(&Self, u64) + 'static) {
+        self.connect_local("pane-closed", false, move |args| {
+            f(&args[0].get::<Tab>().unwrap(), args[1].get::<u64>().unwrap());
             None
         });
     }
@@ -374,18 +387,74 @@ impl Tab {
         true
     }
 
-    /// Schließt einen Bereich. Beim letzten Bereich meldet der Tab „empty“.
+    /// Schließt einen Bereich. Er bleibt samt Prozess erhalten, bis `discard_closed` kommt
+    /// (Vorschlag 4: Rückgängig). Beim letzten Bereich meldet der Reiter „empty“.
     pub fn close_pane(&self, id: PaneId) {
-        match self.layout().close(id) {
+        let before = self.layout();
+        match before.close(id) {
             Some(next) => {
                 let pane = self.imp().panes.borrow_mut().remove(&id);
                 if let Some(pane) = pane {
-                    pane.terminal().terminate();
                     detach(pane.upcast_ref());
+                    let serial = self.imp().closed_serial.get() + 1;
+                    self.imp().closed_serial.set(serial);
+                    self.imp().closed.borrow_mut().push((serial, pane, before, next.clone()));
+                    self.set_layout(next);
+                    self.emit_by_name::<()>("pane-closed", &[&serial]);
+                } else {
+                    self.set_layout(next);
                 }
-                self.set_layout(next);
             }
             None => self.emit_by_name::<()>("empty", &[]),
+        }
+    }
+
+    /// Holt einen geschlossenen Bereich zurück. Ist das Layout seitdem unverändert, an seinen
+    /// alten Platz; sonst neben den aktiven Bereich.
+    pub fn restore_closed(&self, serial: u64) {
+        let entry = {
+            let mut closed = self.imp().closed.borrow_mut();
+            closed.iter().position(|(s, ..)| *s == serial).map(|i| closed.remove(i))
+        };
+        let Some((_, pane, before, after)) = entry else { return };
+        let current = self.layout();
+        let next = if current == after {
+            before
+        } else {
+            let (w, h) = self.size();
+            match current.split_auto(current.focus(), w, h) {
+                Some((l, new_id)) => {
+                    pane.set_id(new_id);
+                    l
+                }
+                None => {
+                    pane.terminal().terminate();
+                    return;
+                }
+            }
+        };
+        self.imp().panes.borrow_mut().insert(pane.id(), pane);
+        self.set_layout(next);
+    }
+
+    /// „Rückgängig“ ist abgelaufen: Prozess des Bereichs beenden und freigeben.
+    pub fn discard_closed(&self, serial: u64) {
+        let entry = {
+            let mut closed = self.imp().closed.borrow_mut();
+            closed.iter().position(|(s, ..)| *s == serial).map(|i| closed.remove(i))
+        };
+        if let Some((_, pane, ..)) = entry {
+            pane.terminal().terminate();
+        }
+    }
+
+    /// Alle Prozesse dieses Reiters beenden (Reiter endgültig geschlossen).
+    pub fn terminate_all(&self) {
+        for pane in self.imp().panes.borrow().values() {
+            pane.terminal().terminate();
+        }
+        for (_, pane, ..) in self.imp().closed.borrow_mut().drain(..) {
+            pane.terminal().terminate();
         }
     }
 

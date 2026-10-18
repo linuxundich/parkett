@@ -13,6 +13,7 @@ use gtk::{gio, glib, pango};
 use gtk::glib::translate::{from_glib_full, ToGlibPtr};
 use vte::prelude::*;
 
+use parkett_core::context::{self, Context};
 use parkett_core::palette::Rgb;
 use parkett_core::profile::ExitAction;
 
@@ -40,6 +41,10 @@ struct Inner {
     shortcut_controller: RefCell<Option<gtk::ShortcutController>>,
     /// Text, der nach dem Start in die Shell getippt wird (Startbefehl einer Vorlage)
     pending_input: RefCell<Option<String>>,
+    /// root/SSH im Vordergrund (Kontextfarbe)
+    context: RefCell<Context>,
+    /// Akzentfarbe des Kontexts für Linie und Chip
+    accent: Cell<Option<(Rgb, Rgb)>>,
     child_pid: Cell<Option<glib::Pid>>,
     exit: Cell<Option<ExitStatus>>,
     on_state_changed: RefCell<Vec<Callback>>,
@@ -97,6 +102,8 @@ impl Terminal {
             actions: gio::SimpleActionGroup::new(),
             shortcut_controller: RefCell::new(None),
             pending_input: RefCell::new(None),
+            context: RefCell::new(Context::Local),
+            accent: Cell::new(None),
             child_pid: Cell::new(None),
             exit: Cell::new(None),
             on_state_changed: RefCell::default(),
@@ -107,6 +114,7 @@ impl Terminal {
         t.setup_actions();
         t.setup_signals();
         t.setup_links();
+        t.watch_context();
 
         let weak = Rc::downgrade(&t.0);
         restart.connect_clicked(move |_| {
@@ -195,6 +203,55 @@ impl Terminal {
                 unsafe { libc::kill(pid.0, libc::SIGHUP) };
             }
         }
+    }
+
+    pub fn context(&self) -> Context {
+        self.0.context.borrow().clone()
+    }
+
+    /// (Linie, Chip-Hintergrund) für den aktuellen Kontext; `None` = lokal oder abgeschaltet.
+    pub fn context_accent(&self) -> Option<(Rgb, Rgb)> {
+        self.0.accent.get()
+    }
+
+    /// Fragt einmal pro Sekunde den Vordergrundprozess ab (wie Ptyxis, aber je Bereich).
+    /// /proc lesen ist billig; der Timer endet mit dem Terminal.
+    fn watch_context(&self) {
+        let weak = Rc::downgrade(&self.0);
+        glib::timeout_add_local(Duration::from_millis(1000), move || {
+            let Some(inner) = weak.upgrade() else { return glib::ControlFlow::Break };
+            let t = Terminal(inner);
+            let now = t.detect_context();
+            if now != *t.0.context.borrow() {
+                *t.0.context.borrow_mut() = now;
+                t.apply_colors();
+                t.emit_state_changed();
+            }
+            glib::ControlFlow::Continue
+        });
+    }
+
+    fn detect_context(&self) -> Context {
+        if self.0.exit.get().is_some() {
+            return Context::Local;
+        }
+        let Some(pty) = self.0.vte.pty() else { return Context::Local };
+        let pgid = unsafe { libc::tcgetpgrp(pty.fd().as_raw_fd()) };
+        if pgid <= 0 {
+            return Context::Local;
+        }
+        let comm = std::fs::read_to_string(format!("/proc/{pgid}/comm")).unwrap_or_default();
+        let args: Vec<String> = std::fs::read(format!("/proc/{pgid}/cmdline"))
+            .unwrap_or_default()
+            .split(|b| *b == 0)
+            .filter(|a| !a.is_empty())
+            .map(|a| String::from_utf8_lossy(a).into_owned())
+            .collect();
+        // „Uid:\treal\teffektiv\t…“
+        let euid = std::fs::read_to_string(format!("/proc/{pgid}/status"))
+            .ok()
+            .and_then(|s| s.lines().find(|l| l.starts_with("Uid:")).and_then(|l| l.split_whitespace().nth(2)).and_then(|u| u.parse().ok()));
+        context::classify(comm.trim(), &args, euid)
     }
 
     /// Befehl in die Shell tippen und mit Eingabe abschicken (Vorschlag 5: Shell bleibt
@@ -393,12 +450,20 @@ impl Terminal {
         let face = palette.face(sm.is_dark());
         let colors: Vec<gtk::gdk::RGBA> = face.colors.iter().map(rgba).collect();
         let refs: Vec<&gtk::gdk::RGBA> = colors.iter().collect();
+        // Kontextfarbe: Hintergrund leicht in Richtung der Palettenfarbe für root/SSH tönen,
+        // Linie und Chip in der kräftigen Farbe (Rot bzw. Blau des Schemas)
+        let (background, accent) = match (&*self.0.context.borrow(), crate::settings::context_colors()) {
+            (Context::Superuser, true) => (face.background.mix(&face.superuser_background, 0.35), Some((face.colors[9], face.superuser_background))),
+            (Context::Remote(_), true) => (face.background.mix(&face.remote_background, 0.35), Some((face.colors[12], face.remote_background))),
+            _ => (face.background, None),
+        };
+        self.0.accent.set(accent);
         let vte = &self.0.vte;
-        vte.set_colors(Some(&rgba(&face.foreground)), Some(&rgba(&face.background)), &refs);
+        vte.set_colors(Some(&rgba(&face.foreground)), Some(&rgba(&background)), &refs);
         vte.set_color_cursor(face.cursor.as_ref().map(rgba).as_ref());
         vte.set_color_cursor_foreground(face.cursor_foreground.as_ref().map(rgba).as_ref());
         vte.set_font(Some(&pango::FontDescription::from_string(&sm.monospace_font_name())));
-        self.0.background.set(face.background);
+        self.0.background.set(background);
         for f in self.0.on_colors_changed.borrow().iter() {
             f();
         }
@@ -543,7 +608,16 @@ impl Terminal {
                 vte.set_scrollback_lines(crate::settings::scrollback_lines());
             }
         });
-        let scrollback = RefCell::new(Some(scrollback));
+        // Kontextfarbe ein/aus sofort übernehmen
+        let weak = Rc::downgrade(&self.0);
+        let ctx = crate::settings::settings().connect_changed(Some("context-colors"), move |_, _| {
+            if let Some(inner) = weak.upgrade() {
+                let t = Terminal(inner);
+                t.apply_colors();
+                t.emit_state_changed();
+            }
+        });
+        let scrollback = RefCell::new(Some((scrollback, ctx)));
         self.0.vte.connect_destroy(move |_| {
             if let Some((a, b, c)) = handlers.borrow_mut().take() {
                 let style = adw::StyleManager::default();
@@ -551,8 +625,9 @@ impl Terminal {
                 style.disconnect(b);
                 ProfileManager::get().disconnect(c);
             }
-            if let Some(id) = scrollback.borrow_mut().take() {
-                crate::settings::settings().disconnect(id);
+            if let Some((a, b)) = scrollback.borrow_mut().take() {
+                crate::settings::settings().disconnect(a);
+                crate::settings::settings().disconnect(b);
             }
         });
     }

@@ -13,7 +13,7 @@ Blueprint für Dialoge, GSettings + Dateien, serde, Meson, GPL-3.0-or-later, Pty
 | 4 | Einstellungen (AdwPreferencesDialog): Allgemein, Profile, Tastenkürzel | fertig |
 | 5 | Suche im Terminal, Links öffnen (Strg+Klick), änderbare Tastenkürzel | fertig, in VM getestet |
 | 6 | Befehlspalette, Layout-Modus, Vorlagen mit Startbefehlen (A+) | fertig, in VM getestet |
-| 7 | Rückgängig für Schließen, Kontextfarbe je Bereich (Vorschläge 1, 4) | offen |
+| 7 | Rückgängig für Schließen, Kontextfarbe je Bereich (Vorschläge 1, 4) | fertig, in VM getestet |
 
 ## Schritt 1: Tabs und Splits
 
@@ -285,3 +285,48 @@ Die Einstellungsseite „Tastenkürzel“ heißt jetzt „Kürzel“ (passte mit
 
 - Die Aufteilung einer Vorlage lässt sich im Editor nicht ändern; sie kommt aus dem Reiter.
 - Strg+Eingabe in der Palette („im neuen Bereich“, Mockup) ist nicht umgesetzt.
+
+## Schritt 7: Rückgängig und Kontextfarbe
+
+### Umgesetzt
+
+- **Kontextfarbe je Bereich** (Vorschlag 1): Jeder Bereich fragt einmal pro Sekunde seinen
+  Vordergrundprozess ab (`tcgetpgrp` + `/proc/<pgid>/{comm,cmdline,status}`). ssh, mosh,
+  autossh, et, telnet → **entfernt** (Hostname aus der Befehlszeile, ssh-Optionen mit Wert
+  werden übersprungen, `user@host` → `host`); effektive UID 0 oder sudo/su/doas/run0/pkexec →
+  **root** (deckt auch die Root-Shell nach `sudo -i` ab). Darstellung: Hintergrund 35 % in
+  Richtung `RemoteBackground`/`SuperuserBackground` des Farbschemas getönt, 3-px-Linie oben in
+  Blau bzw. Rot des Schemas, Chip mit Hostname bzw. „root“ im schwebenden Titel (dann auch bei
+  nur einem Bereich sichtbar). Abschaltbar: Einstellungen › Allgemein › „Kontextfarbe für root
+  und SSH“ (GSettings `context-colors`). Erkennung im Kern (`context.rs`, 2 Tests).
+- **Rückgängig** (Vorschlag 4): Geschlossene Bereiche und Reiter bleiben 8 s samt Prozessen
+  erhalten; Einblendung „Bereich geschlossen“ bzw. „Reiter „…“ geschlossen“ mit „Rückgängig“.
+  Bereich: zurück an den alten Platz, wenn sich das Layout seitdem nicht geändert hat, sonst
+  neben den aktiven Bereich. Reiter: zurück an die alte Position. Nach Ablauf wird die Shell
+  beendet (SIGHUP). Die Nachfrage bei laufenden Programmen bleibt davor bestehen. Beim letzten
+  Reiter schließt das Fenster wie bisher (ohne Rückgängig).
+
+### Tests (VM fedora44-wor)
+
+| Test | Ergebnis |
+|---|---|
+| `cargo test` (37 Kern + 1 App), `cargo clippy` | grün, keine Befunde |
+| `ssh localhost` (wartet auf Host-Schlüssel) → Bereich blau getönt, Linie, Chip „localhost“ | ok |
+| `sudo -i` → Bereich rot getönt, Linie, Chip „root“ | ok (`mvp-kontextfarbe-hell.png`) |
+| Dunkelmodus: Kontextfarben aus der dunklen Fassung | ok (`mvp-kontextfarbe-dunkel.png`) |
+| Bereich schließen → Einblendung, Shell läuft weiter; „Rückgängig“ → Bereich zurück | ok |
+| Einblendung ablaufen lassen → Shell des geschlossenen Bereichs beendet | ok |
+| Reiter mit `sleep 600` schließen (Nachfrage bestätigt) → Einblendung, `sleep` läuft; „Rückgängig“ → Reiter mit laufendem `sleep` zurück | ok (`mvp-rueckgaengig.png`) |
+| Reiter schließen und ablaufen lassen → `sleep` und Shell beendet | ok |
+
+Beobachtet: libadwaita hält den Ablauf an, solange der Zeiger auf der Einblendung liegt
+(gewolltes Verhalten von AdwToast); erst danach wird endgültig geschlossen.
+
+Nicht getestet: Schalter „Kontextfarbe“ zur Laufzeit, mosh/telnet, Wiederherstellen eines
+Bereichs nach zwischenzeitlicher Layout-Änderung (Platz neben dem aktiven Bereich).
+
+## Stand MVP
+
+Alle sieben Schritte von Phase 4 sind umgesetzt und in der VM geprüft. Nächste Phase laut
+Briefing: **Phase 5 – Qualitätssicherung** (systematische Tests: Prozesse, viele Terminals,
+Unicode, Langläufer, Last, Wayland/X11, Barrierefreiheit, Host-Test auf Arch).

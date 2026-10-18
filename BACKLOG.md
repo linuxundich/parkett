@@ -31,7 +31,8 @@
 - [x] Schritt 6: Befehlspalette, Layout-Modus, Vorlagen mit Startbefehlen (2026-10-18)
 - [ ] Aufteilung einer Vorlage im Editor ändern
 - [ ] Strg+Eingabe in der Palette: Ziel im neuen Bereich öffnen
-- [ ] Schritt 7: Rückgängig beim Schließen, Kontextfarbe je Bereich
+- [x] Schritt 7: Rückgängig beim Schließen, Kontextfarbe je Bereich (2026-10-18)
+- [ ] Phase 5: Qualitätssicherung (Briefing-Liste, Host-Test auf Arch, Orca)
 - [x] Begriff: durchgehend „Reiter“ (2026-10-18)
 - [ ] Cursor nach Schließen der Tab-Übersicht unsichtbar bis zur Eingabe – Ursache suchen
 - [ ] Tabs in neues Fenster ziehen und Trenner per Maus ziehen testen

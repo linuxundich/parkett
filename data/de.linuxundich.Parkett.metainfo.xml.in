@@ -15,6 +15,7 @@
       <li>14 Farbschemata mit heller und dunkler Fassung, Import von Ptyxis- und Tilix-Schemata</li>
       <li>Suche im Terminal, Links per Strg+Klick, änderbare Tastenkürzel</li>
       <li>Befehlspalette, Layout-Modus für die Tastatur und Vorlagen mit Startbefehlen</li>
+      <li>Kontextfarbe für Bereiche mit SSH oder Root-Rechten, Rückgängig beim Schließen</li>
       <li>Nachfrage beim Schließen, wenn noch ein Programm läuft</li>
       <li>Helles und dunkles Design nach Systemeinstellung</li>
     </ul>

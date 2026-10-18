@@ -223,10 +223,14 @@ impl Window {
             let Some(w) = weak.upgrade() else { return glib::Propagation::Proceed };
             let procs = page.child().downcast::<Tab>().map(|t| t.foreground_processes()).unwrap_or_default();
             if procs.is_empty() {
-                view.close_page_finish(page, true);
+                w.finish_close_page(page);
             } else {
                 let (view2, page2) = (view.clone(), page.clone());
-                w.confirm_close("Reiter schließen?", &procs, move |ok| view2.close_page_finish(&page2, ok));
+                let w2 = w.downgrade();
+                w.confirm_close("Reiter schließen?", &procs, move |ok| match (ok, w2.upgrade()) {
+                    (true, Some(w)) => w.finish_close_page(&page2),
+                    _ => view2.close_page_finish(&page2, false),
+                });
             }
             glib::Propagation::Stop
         });
@@ -256,6 +260,40 @@ impl Window {
         self.attach_tab(Tab::new(cwd, profile))
     }
 
+    /// Schließt einen Reiter endgültig, bietet aber 8 s lang „Rückgängig“ an (Vorschlag 4).
+    /// Bis dahin laufen seine Prozesse weiter. Beim letzten Reiter schließt das Fenster.
+    fn finish_close_page(&self, page: &adw::TabPage) {
+        let view = self.tab_view();
+        let tab = page.child().downcast::<Tab>().ok();
+        let position = view.page_position(page);
+        let title = tab.as_ref().map(|t| t.title()).unwrap_or_default();
+        let last = view.n_pages() <= 1;
+        view.close_page_finish(page, true);
+        let Some(tab) = tab else { return };
+        if last {
+            tab.terminate_all();
+            return;
+        }
+        let toast = adw::Toast::builder().title(format!("Reiter „{title}“ geschlossen")).button_label("Rückgängig").timeout(8).build();
+        let undone = std::rc::Rc::new(std::cell::Cell::new(false));
+        let weak = self.downgrade();
+        let (t2, u2) = (tab.clone(), undone.clone());
+        toast.connect_button_clicked(move |_| {
+            let Some(w) = weak.upgrade() else { return };
+            u2.set(true);
+            let view = w.tab_view();
+            let page = view.insert(&t2, position.min(view.n_pages()));
+            view.set_selected_page(&page);
+            w.update_page(&t2);
+        });
+        toast.connect_dismissed(move |_| {
+            if !undone.get() {
+                tab.terminate_all();
+            }
+        });
+        self.imp().toasts.get().unwrap().add_toast(toast);
+    }
+
     fn attach_tab(&self, tab: Tab) -> Tab {
         let page = self.tab_view().append(&tab);
         let weak = self.downgrade();
@@ -263,6 +301,25 @@ impl Window {
             if let Some(w) = weak.upgrade() {
                 w.update_page(tab);
             }
+        });
+        // geschlossener Bereich: „Rückgängig“ anbieten, danach Prozess beenden
+        let weak = self.downgrade();
+        tab.connect_pane_closed(move |tab, serial| {
+            let Some(w) = weak.upgrade() else { return };
+            let toast = adw::Toast::builder().title("Bereich geschlossen").button_label("Rückgängig").timeout(8).build();
+            let undone = std::rc::Rc::new(std::cell::Cell::new(false));
+            let (t2, u2) = (tab.clone(), undone.clone());
+            toast.connect_button_clicked(move |_| {
+                u2.set(true);
+                t2.restore_closed(serial);
+            });
+            let t3 = tab.clone();
+            toast.connect_dismissed(move |_| {
+                if !undone.get() {
+                    t3.discard_closed(serial);
+                }
+            });
+            w.imp().toasts.get().unwrap().add_toast(toast);
         });
         let weak = self.downgrade();
         tab.connect_empty(move |tab| {

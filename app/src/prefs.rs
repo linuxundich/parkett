@@ -30,7 +30,10 @@ fn general_page() -> adw::PreferencesPage {
     settings.bind("dim-unfocused", &dim, "active").build();
     let tabbar = adw::SwitchRow::builder().title("Reiterleiste bei einem Reiter ausblenden").build();
     settings.bind("autohide-tab-bar", &tabbar, "active").build();
+    let context = adw::SwitchRow::builder().title("Kontextfarbe für root und SSH").subtitle("Linie, Chip und getönter Hintergrund, Farben aus dem Farbschema").build();
+    settings.bind("context-colors", &context, "active").build();
     look.add(&dim);
+    look.add(&context);
     look.add(&tabbar);
     page.add(&look);
 

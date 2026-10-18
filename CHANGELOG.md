@@ -5,6 +5,11 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unreleased]
 
 ### Hinzugefügt
+- Kontextfarbe je Bereich: Bereiche mit SSH-Verbindung oder Root-Rechten werden getönt und
+  mit Linie und Chip (Hostname bzw. „root“) gekennzeichnet; Farben aus dem Farbschema,
+  abschaltbar.
+- Rückgängig: geschlossene Bereiche und Reiter lassen sich 8 s lang zurückholen, ihre
+  Programme laufen so lange weiter.
 - Befehlspalette (Strg+Umschalt+P oder Klick auf den Fenstertitel) für Reiter, Bereiche,
   Aktionen, Vorlagen und Profile; Präfixe >, @, #.
 - Layout-Modus (Strg+Umschalt+L): nummerierte Bereiche, Einzeltasten zum Teilen, Tauschen,
