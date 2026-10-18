@@ -12,7 +12,7 @@ Blueprint für Dialoge, GSettings + Dateien, serde, Meson, GPL-3.0-or-later, Pty
 | 3 | Profile und Farbschemata (Ptyxis-Format, Import, Kacheln mit Live-Vorschau) | fertig, in VM getestet |
 | 4 | Einstellungen (AdwPreferencesDialog): Allgemein, Profile, Tastenkürzel | fertig |
 | 5 | Suche im Terminal, Links öffnen (Strg+Klick), änderbare Tastenkürzel | fertig, in VM getestet |
-| 6 | Befehlspalette, Layout-Modus, Vorlagen (A+) | offen, eventuell nach MVP |
+| 6 | Befehlspalette, Layout-Modus, Vorlagen mit Startbefehlen (A+) | fertig, in VM getestet |
 | 7 | Rückgängig für Schließen, Kontextfarbe je Bereich (Vorschläge 1, 4) | offen |
 
 ## Schritt 1: Tabs und Splits
@@ -236,3 +236,52 @@ wurden für den Test in der TOML-Datei gesetzt, nicht über die Eingabefelder.
 
 Nicht getestet: Regex- und Groß/Klein-Schalter der Suche, Änderung eines Terminal-Kürzels
 (gleicher Mechanismus wie Fensterkürzel), `file://`-Links.
+
+## Schritt 6: Befehlspalette, Layout-Modus, Vorlagen
+
+### Umgesetzt
+
+- **Kern:** `fuzzy` (alle Wörter müssen vorkommen, Wortanfang und Textanfang zählen mehr;
+  Präfixe `>` Aktionen, `@` Reiter/Bereiche, `#` Vorlagen), `Layout::swap` und
+  `Layout::from_node`, `template` (Vorlage als Baum mit Profil, Startbefehl, Unterverzeichnis je
+  Bereich; TOML unter `~/.config/parkett/templates/`). 35 Kern-Tests.
+- **Befehlspalette** (Strg+Umschalt+P oder **Klick auf den Fenstertitel**, Vorschlag 2):
+  AdwDialog mit Suchfeld und Liste in Gruppen Reiter/Bereiche, Vorlagen, Aktionen (alle
+  Kürzel-Aktionen mit ihrem Kürzel, „Neuer Reiter mit Profil …“, „Als Vorlage speichern“).
+  Pfeiltasten bewegen die Auswahl, Eingabe führt aus, Esc schließt.
+- **Layout-Modus** (Strg+Umschalt+L): große Nummern auf den Bereichen (fokussierter in
+  Akzentfarbe), Hilfeleiste unten (bricht in schmalen Fenstern um), Hinweis im Fenstertitel.
+  Pfeile Fokus, Umschalt+Pfeil Größe, R/D/A teilen, M+Pfeil tauschen, Z maximieren,
+  = angleichen, X schließen (mit Nachfrage), 1–9 springen, Esc/Eingabe beendet; andere Tasten
+  werden verschluckt. Wechsel des Reiters beendet den Modus.
+- **Vorlagen:** „Aktuellen Reiter als Vorlage speichern …“ (Neu-Menü, Palette) übernimmt
+  Aufteilung, Verhältnisse, Profile, laufende Vordergrundbefehle (aus `/proc/<pgid>/cmdline`,
+  nur nötige Anführungszeichen) und Unterverzeichnisse relativ zum ersten Bereich. „Vorlage
+  öffnen“ fragt nach dem Verzeichnis (Ordnerwahl), zeigt alle Startbefehle und lässt sie
+  abschalten (Vorschlag 6); Startbefehle werden nach dem Start in die Shell getippt
+  (Vorschlag 5). Vorlagen erscheinen im Neu-Menü und in der Palette. Einstellungsseite
+  „Vorlagen“ mit Editor: Name, festes Verzeichnis, Vorschau der Aufteilung, je Bereich Name,
+  Profil, Startbefehl, Unterverzeichnis; Löschen.
+
+### Tests (VM fedora44-wor)
+
+| Test | Ergebnis |
+|---|---|
+| `cargo test` (35 Kern + 1 App), `cargo clippy` | grün, keine Befunde |
+| Palette „teil“ → drei Teilen-Aktionen mit Kürzeln; Pfeil runter + Eingabe → „Unten teilen“ | ok (`mvp-palette.png`) |
+| Klick auf den Fenstertitel öffnet die Palette; „@“ → Reiter und drei Bereiche | ok |
+| Layout-Modus: Nummern, Titelhinweis; M+← tauscht `sleep 600` nach links; „1“ fokussiert; Esc → Eingabe im Bereich 1 | ok |
+| Hilfeleiste im 960-px-Fenster vollständig | ok **nach Korrektur** (erst abgeschnitten) (`mvp-layout-modus.png`) |
+| Als Vorlage speichern (Palette): TOML mit Aufteilung, Verhältnissen, `command = "sleep 600"` | ok |
+| Vorlage aus dem Neu-Menü öffnen: Dialog mit Verzeichnis und Startbefehl, neuer Reiter mit gleicher Aufteilung, `sleep 600` läuft im dritten Bereich | ok (`mvp-vorlage-oeffnen.png`) |
+| Verzeichnis ohne Unterverzeichnis | ok **nach Korrektur** (erst `~/` statt `~`) |
+| Einstellungen › Vorlagen: Liste und Editor mit Vorschau | ok (`mvp-vorlage-editor.png`) |
+
+Nicht getestet: Ordnerwahl im Öffnen-Dialog, Bearbeiten über den Editor (Speichern beim
+Tippen), Präfix `#`, R/D/A/Z/=/X im Layout-Modus (gleiche Funktionen wie die Kürzel).
+Die Einstellungsseite „Tastenkürzel“ heißt jetzt „Kürzel“ (passte mit vier Seiten nicht mehr).
+
+### Offen / beobachtet
+
+- Die Aufteilung einer Vorlage lässt sich im Editor nicht ändern; sie kommt aus dem Reiter.
+- Strg+Eingabe in der Palette („im neuen Bereich“, Mockup) ist nicht umgesetzt.

@@ -38,6 +38,8 @@ struct Inner {
     menu_link: RefCell<Option<String>>,
     actions: gio::SimpleActionGroup,
     shortcut_controller: RefCell<Option<gtk::ShortcutController>>,
+    /// Text, der nach dem Start in die Shell getippt wird (Startbefehl einer Vorlage)
+    pending_input: RefCell<Option<String>>,
     child_pid: Cell<Option<glib::Pid>>,
     exit: Cell<Option<ExitStatus>>,
     on_state_changed: RefCell<Vec<Callback>>,
@@ -94,6 +96,7 @@ impl Terminal {
             menu_link: RefCell::new(None),
             actions: gio::SimpleActionGroup::new(),
             shortcut_controller: RefCell::new(None),
+            pending_input: RefCell::new(None),
             child_pid: Cell::new(None),
             exit: Cell::new(None),
             on_state_changed: RefCell::default(),
@@ -194,6 +197,43 @@ impl Terminal {
         }
     }
 
+    /// Befehl in die Shell tippen und mit Eingabe abschicken (Vorschlag 5: Shell bleibt
+    /// danach nutzbar). Läuft die Shell noch nicht, wird er nach dem Start getippt.
+    pub fn type_command(&self, command: &str) {
+        let text = format!("{}\n", command.trim_end());
+        if self.0.child_pid.get().is_some() && self.0.exit.get().is_none() {
+            self.0.vte.feed_child(text.as_bytes());
+        } else {
+            *self.0.pending_input.borrow_mut() = Some(text);
+        }
+    }
+
+    /// Befehlszeile des Vordergrundprozesses (für „Als Vorlage speichern“), sonst `None`.
+    pub fn foreground_command(&self) -> Option<String> {
+        self.foreground_process()?;
+        let child = self.0.child_pid.get()?.0;
+        let pty = self.0.vte.pty()?;
+        let pgid = unsafe { libc::tcgetpgrp(pty.fd().as_raw_fd()) };
+        if pgid <= 0 || pgid == child {
+            return None;
+        }
+        let raw = std::fs::read(format!("/proc/{pgid}/cmdline")).ok()?;
+        let args: Vec<String> = raw
+            .split(|b| *b == 0)
+            .filter(|a| !a.is_empty())
+            .map(|a| {
+                let a = String::from_utf8_lossy(a).into_owned();
+                // nur quoten, wo die Shell es braucht – „npm run dev“ statt „'npm' 'run' 'dev'“
+                if !a.is_empty() && a.chars().all(|c| c.is_alphanumeric() || "-_./:=@%+,~".contains(c)) {
+                    a
+                } else {
+                    glib::shell_quote(&a).to_string_lossy().into_owned()
+                }
+            })
+            .collect();
+        Some(args.join(" ")).filter(|s| !s.is_empty())
+    }
+
     /// Name des Vordergrundprozesses, wenn er nicht die Shell selbst ist (z. B. „vim“, „ssh“).
     /// Muster wie Ptyxis (`agent/ptyxis-process-impl.c`): tcgetpgrp auf der PTY gegen die
     /// PID der Shell vergleichen, Name aus /proc. Nur ohne Flatpak-Sandbox aussagekräftig.
@@ -267,7 +307,13 @@ impl Terminal {
             move |result| {
                 let Some(inner) = weak.upgrade() else { return };
                 match result {
-                    Ok(pid) => inner.child_pid.set(Some(pid)),
+                    Ok(pid) => {
+                        inner.child_pid.set(Some(pid));
+                        // Startbefehl erst jetzt tippen; die PTY puffert, bis die Shell liest
+                        if let Some(text) = inner.pending_input.borrow_mut().take() {
+                            inner.vte.feed_child(text.as_bytes());
+                        }
+                    }
                     Err(err) => Terminal(inner).fail(&program, err.message()),
                 }
             },

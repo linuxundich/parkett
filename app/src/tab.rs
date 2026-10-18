@@ -32,6 +32,8 @@ mod imp {
         pub overlay: OnceCell<gtk::Overlay>,
         pub zoom_banner: OnceCell<gtk::Box>,
         pub zoom_label: OnceCell<gtk::Label>,
+        pub mode_bar: OnceCell<gtk::FlowBox>,
+        pub layout_mode: std::cell::Cell<bool>,
     }
 
     #[glib::object_subclass]
@@ -66,6 +68,61 @@ glib::wrapper! {
 
 impl Tab {
     pub fn new(cwd: Option<String>, profile_id: &str) -> Self {
+        let tab = Tab::empty();
+        let first = tab.imp().layout.borrow().focus();
+        tab.add_pane(first, cwd, profile_id);
+        tab.rebuild();
+        tab
+    }
+
+    /// Reiter aus einer Vorlage im Verzeichnis `dir`. Mit `run_commands` werden die
+    /// Startbefehle in die Shells getippt.
+    pub fn from_template(template: &parkett_core::template::Template, dir: &std::path::Path, run_commands: bool) -> Self {
+        let tab = Tab::empty();
+        let (layout, specs) = template.instantiate();
+        let default = crate::profiles::ProfileManager::get().default_id();
+        for (id, spec) in specs {
+            // leeres Unterverzeichnis nicht anhängen, sonst endet der Pfad auf „/“
+            let sub = spec.subdir.trim();
+            let path = if sub.is_empty() { dir.to_path_buf() } else { dir.join(sub) };
+            let cwd = path.to_str().map(String::from);
+            let profile = if spec.profile.is_empty() { default.clone() } else { spec.profile.clone() };
+            let pane = tab.add_pane(id, cwd, &profile);
+            if run_commands && !spec.command.trim().is_empty() {
+                pane.terminal().type_command(&spec.command);
+            }
+        }
+        tab.set_custom_title(Some(template.name.clone()));
+        *tab.imp().layout.borrow_mut() = layout;
+        tab.rebuild();
+        tab
+    }
+
+    /// Vorlage aus diesem Reiter: Aufteilung, Profile, laufende Befehle; Unterverzeichnisse
+    /// relativ zum Verzeichnis des ersten Bereichs. Liefert auch dieses Verzeichnis.
+    pub fn to_template(&self, name: &str) -> (parkett_core::template::Template, Option<String>) {
+        use parkett_core::template::{relative_subdir, PaneSpec, Template};
+        let layout = self.layout();
+        let panes = self.imp().panes.borrow().clone();
+        let base = layout.panes().first().and_then(|id| panes[id].terminal().cwd());
+        let default = crate::profiles::ProfileManager::get().default_id();
+        let spec = |id: PaneId| {
+            let t = panes[&id].terminal();
+            let profile = t.profile_id();
+            PaneSpec {
+                name: t.foreground_process().unwrap_or_else(|| "Shell".into()),
+                profile: if profile == default { String::new() } else { profile },
+                command: t.foreground_command().unwrap_or_default(),
+                subdir: match (&base, t.cwd()) {
+                    (Some(b), Some(c)) => relative_subdir(std::path::Path::new(b), std::path::Path::new(&c)),
+                    _ => String::new(),
+                },
+            }
+        };
+        (Template::from_layout(name, &layout, &spec), base)
+    }
+
+    fn empty() -> Self {
         let tab: Tab = glib::Object::new();
         let overlay = gtk::Overlay::new();
 
@@ -90,10 +147,63 @@ impl Tab {
         imp.zoom_banner.set(banner).ok();
         imp.zoom_label.set(zoom_label).ok();
 
-        let first = imp.layout.borrow().focus();
-        tab.add_pane(first, cwd, profile_id);
-        tab.rebuild();
+        // Hilfeleiste des Layout-Modus (unten mittig)
+        let hints = [
+            ("←↑↓→", "Fokus"),
+            ("Umschalt+Pfeil", "Größe"),
+            ("R/D", "teilen"),
+            ("M+Pfeil", "tauschen"),
+            ("Z", "maximieren"),
+            ("=", "angleichen"),
+            ("X", "schließen"),
+            ("1–9", "springen"),
+            ("Esc", "fertig"),
+        ];
+        // FlowBox statt Box: bricht in schmalen Fenstern um, statt abgeschnitten zu werden
+        let bar = gtk::FlowBox::builder()
+            .css_classes(["parkett-mode-bar"])
+            .halign(gtk::Align::Center)
+            .valign(gtk::Align::End)
+            .margin_bottom(16)
+            .margin_start(16)
+            .margin_end(16)
+            .column_spacing(14)
+            .row_spacing(6)
+            .selection_mode(gtk::SelectionMode::None)
+            .max_children_per_line(10)
+            .can_target(false)
+            .visible(false)
+            .build();
+        bar.append(&gtk::Label::builder().label("LAYOUT").css_classes(["parkett-mode-tag"]).build());
+        for (key, what) in hints {
+            let item = gtk::Box::builder().spacing(5).build();
+            item.append(&gtk::Label::builder().label(key).css_classes(["parkett-key"]).build());
+            item.append(&gtk::Label::new(Some(what)));
+            bar.append(&item);
+        }
+        tab.imp().overlay.get().unwrap().add_overlay(&bar);
+        tab.imp().mode_bar.set(bar).ok();
         tab
+    }
+
+    /// Layout-Modus: Nummern auf den Bereichen und Hilfeleiste ein/aus.
+    pub fn set_layout_mode(&self, on: bool) {
+        let imp = self.imp();
+        imp.layout_mode.set(on);
+        imp.mode_bar.get().unwrap().set_visible(on);
+        self.update_states();
+    }
+
+    /// Fokussierten Bereich mit dem Nachbarn in Richtung `dir` tauschen.
+    pub fn swap_direction(&self, dir: Direction) {
+        let layout = self.layout();
+        let (w, h) = self.size();
+        let focus = layout.focus();
+        if let Some(n) = layout.neighbour(focus, dir, w, h) {
+            if let Some(next) = layout.swap(focus, n) {
+                self.set_layout(next);
+            }
+        }
     }
 
     pub fn connect_changed(&self, f: impl Fn(&Self) + 'static) {
@@ -158,6 +268,14 @@ impl Tab {
 
     pub fn layout(&self) -> Layout {
         self.imp().layout.borrow().clone()
+    }
+
+    pub fn pane(&self, id: PaneId) -> Option<Pane> {
+        self.imp().panes.borrow().get(&id).cloned()
+    }
+
+    pub fn layout_mode(&self) -> bool {
+        self.imp().layout_mode.get()
     }
 
     pub fn focused_pane(&self) -> Pane {
@@ -428,8 +546,12 @@ impl Tab {
         let imp = self.imp();
         let layout = self.layout();
         let multi = layout.zoomed().is_none() && layout.panes().len() > 1;
+        let order = layout.panes();
+        let mode = imp.layout_mode.get();
         for (id, pane) in imp.panes.borrow().iter() {
             pane.set_state(*id == layout.focus(), multi);
+            let number = order.iter().position(|p| p == id).map(|i| i as u32 + 1);
+            pane.set_badge(if mode && multi { number } else { None });
         }
         let hidden = imp.panes.borrow().len().saturating_sub(1);
         let banner = imp.zoom_banner.get().unwrap();

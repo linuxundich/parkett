@@ -1,5 +1,6 @@
 //! Parkett – Terminalemulator für GNOME mit Splits.
 
+mod commands;
 mod pane;
 mod prefs;
 mod profiles;
@@ -44,6 +45,23 @@ paned > separator { background: var(--border-color); }
   box-shadow: 0 0 0 1px var(--border-color), 0 2px 8px rgb(0 0 6 / 18%);
 }
 .parkett-search button { min-width: 28px; min-height: 28px; padding: 0 4px; }
+.parkett-badge {
+  min-width: 64px; min-height: 64px;
+  border-radius: 16px;
+  font-size: 30px; font-weight: 800;
+  background: color-mix(in srgb, var(--headerbar-bg-color) 92%, transparent);
+  box-shadow: 0 0 0 1px var(--border-color), 0 2px 8px rgb(0 0 6 / 18%);
+}
+parkett-pane.focused .parkett-badge { background: var(--accent-bg-color); color: var(--accent-fg-color); }
+.parkett-mode-bar > flowboxchild { padding: 0; }
+.parkett-mode-bar {
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: var(--popover-bg-color);
+  box-shadow: 0 0 0 1px var(--border-color), 0 2px 8px rgb(0 0 6 / 18%);
+}
+.parkett-mode-tag { font-weight: 800; padding: 2px 8px; border-radius: 6px; background: var(--accent-bg-color); color: var(--accent-fg-color); }
+.parkett-key { font-size: 0.85em; font-weight: 600; padding: 1px 5px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--border-color); }
 .parkett-zoom-banner {
   padding: 4px 4px 4px 12px;
   border-radius: 10px;

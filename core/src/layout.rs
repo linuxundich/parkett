@@ -80,6 +80,42 @@ impl Layout {
         Layout { root: Node::Pane(1), focus: 1, zoomed: None, next_id: 2 }
     }
 
+    /// Layout aus einem fertigen Baum (z. B. aus einer Vorlage). `None`, wenn Ids doppelt
+    /// vorkommen oder `focus` nicht im Baum liegt.
+    pub fn from_node(root: Node, focus: PaneId) -> Option<Layout> {
+        let mut ids = Vec::new();
+        collect(&root, &mut ids);
+        let mut sorted = ids.clone();
+        sorted.sort_unstable();
+        sorted.dedup();
+        if sorted.len() != ids.len() || !ids.contains(&focus) {
+            return None;
+        }
+        let next_id = sorted.last().copied().unwrap_or(0) + 1;
+        Some(Layout { root, focus, zoomed: None, next_id })
+    }
+
+    /// Tauscht die Plätze zweier Bereiche (Terminals wandern mit, der Fokus bleibt beim Terminal).
+    pub fn swap(&self, a: PaneId, b: PaneId) -> Option<Layout> {
+        if a == b || !self.contains(a) || !self.contains(b) {
+            return None;
+        }
+        fn walk(n: &Node, a: PaneId, b: PaneId) -> Node {
+            match n {
+                Node::Pane(id) if *id == a => Node::Pane(b),
+                Node::Pane(id) if *id == b => Node::Pane(a),
+                Node::Pane(_) => n.clone(),
+                Node::Split { orientation, ratio, first, second } => Node::Split {
+                    orientation: *orientation,
+                    ratio: *ratio,
+                    first: Box::new(walk(first, a, b)),
+                    second: Box::new(walk(second, a, b)),
+                },
+            }
+        }
+        Some(Layout { root: walk(&self.root, a, b), ..self.clone() })
+    }
+
     pub fn root(&self) -> &Node {
         &self.root
     }
@@ -487,6 +523,28 @@ mod tests {
         assert!(!l.can_split(2, Horizontal, 1000.0, 600.0, 300.0, 50.0));
         assert!(l.can_split(2, Vertical, 1000.0, 600.0, 300.0, 50.0));
         assert!(!l.can_split(42, Vertical, 1000.0, 600.0, 1.0, 1.0));
+    }
+
+    #[test]
+    fn swap_exchanges_places() {
+        let l = three();
+        let s = l.swap(1, 3).unwrap();
+        assert_eq!(s.panes(), vec![3, 2, 1]);
+        assert_eq!(s.focus(), l.focus(), "Fokus bleibt beim Terminal");
+        assert!(l.swap(1, 1).is_none());
+        assert!(l.swap(1, 9).is_none());
+    }
+
+    #[test]
+    fn from_node_validates() {
+        let root = Node::Split { orientation: Horizontal, ratio: 0.3, first: Box::new(Node::Pane(5)), second: Box::new(Node::Pane(7)) };
+        let l = Layout::from_node(root.clone(), 7).unwrap();
+        assert_eq!(l.panes(), vec![5, 7]);
+        let (_, new_id) = l.split(5, Vertical).unwrap();
+        assert_eq!(new_id, 8, "neue Ids nach der höchsten");
+        assert!(Layout::from_node(root.clone(), 1).is_none(), "Fokus nicht im Baum");
+        let dup = Node::Split { orientation: Horizontal, ratio: 0.5, first: Box::new(Node::Pane(2)), second: Box::new(Node::Pane(2)) };
+        assert!(Layout::from_node(dup, 2).is_none());
     }
 
     #[test]

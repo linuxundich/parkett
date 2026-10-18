@@ -16,6 +16,7 @@ pub fn show(parent: Option<&gtk::Window>) {
     let dialog = adw::PreferencesDialog::builder().title("Einstellungen").search_enabled(true).build();
     dialog.add(&general_page());
     dialog.add(&profiles_page(&dialog));
+    dialog.add(&templates_page(&dialog));
     dialog.add(&shortcuts_page(&dialog));
     dialog.present(parent);
 }
@@ -411,7 +412,7 @@ type ShortcutRow = (adw::ActionRow, gtk::Label, &'static str);
 
 fn shortcuts_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
     use crate::shortcuts;
-    let page = adw::PreferencesPage::builder().title("Tastenkürzel").icon_name("input-keyboard-symbolic").build();
+    let page = adw::PreferencesPage::builder().title("Kürzel").icon_name("input-keyboard-symbolic").build();
     let rows: Rc<RefCell<Vec<ShortcutRow>>> = Rc::default();
     for (n, section) in shortcuts::SECTIONS.iter().enumerate() {
         let group = adw::PreferencesGroup::builder().title(*section).build();
@@ -527,4 +528,190 @@ fn capture_shortcut(prefs: &adw::PreferencesDialog, action: &'static str) {
     });
     dialog.add_controller(keys);
     dialog.present(Some(prefs));
+}
+
+fn templates_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
+    let page = adw::PreferencesPage::builder().title("Vorlagen").icon_name("view-grid-symbolic").build();
+    let group = adw::PreferencesGroup::builder()
+        .title("Vorlagen")
+        .description("Eine Vorlage öffnet einen Reiter mit fertiger Aufteilung, Profilen und Startbefehlen. Neue Vorlagen entstehen aus einem laufenden Reiter: Menü am Neu-Knopf › „Aktuellen Reiter als Vorlage speichern …“.")
+        .build();
+    page.add(&group);
+    let rows: Rc<RefCell<Vec<gtk::Widget>>> = Rc::default();
+    let fill = {
+        let group = group.clone();
+        let rows = rows.clone();
+        let dialog = dialog.downgrade();
+        move || {
+            for r in rows.borrow_mut().drain(..) {
+                group.remove(&r);
+            }
+            let templates = ProfileManager::get().templates();
+            if templates.is_empty() {
+                let empty = adw::ActionRow::builder().title("Noch keine Vorlagen").subtitle("Teile einen Reiter wie gewünscht auf und speichere ihn als Vorlage").sensitive(false).build();
+                group.add(&empty);
+                rows.borrow_mut().push(empty.upcast());
+            }
+            for t in templates {
+                let n = t.layout.panes().len();
+                let dir = if t.directory.trim().is_empty() { "Verzeichnis beim Öffnen wählen".to_string() } else { t.directory.clone() };
+                let row = adw::ActionRow::builder()
+                    .title(glib::markup_escape_text(&t.name).as_str())
+                    .subtitle(format!("{n} {} · {dir}", if n == 1 { "Bereich" } else { "Bereiche" }).as_str())
+                    .activatable(true)
+                    .build();
+                row.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
+                let id = t.id.clone();
+                let dialog = dialog.clone();
+                row.connect_activated(move |_| {
+                    if let Some(d) = dialog.upgrade() {
+                        d.push_subpage(&template_editor(&d, &id));
+                    }
+                });
+                group.add(&row);
+                rows.borrow_mut().push(row.upcast());
+            }
+        }
+    };
+    fill();
+    let handler = RefCell::new(Some(ProfileManager::get().connect_changed(fill)));
+    dialog.connect_closed(move |_| {
+        if let Some(h) = handler.borrow_mut().take() {
+            ProfileManager::get().disconnect(h);
+        }
+    });
+    page
+}
+
+fn update_template(dialog: &adw::PreferencesDialog, id: &str, f: impl FnOnce(&mut parkett_core::template::Template)) {
+    let manager = ProfileManager::get();
+    let Some(mut t) = manager.template(id) else { return };
+    f(&mut t);
+    if let Err(e) = manager.save_template(&t) {
+        dialog.add_toast(adw::Toast::new(&format!("Nicht gespeichert: {e}")));
+    }
+}
+
+fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> adw::NavigationPage {
+    let manager = ProfileManager::get();
+    let template = manager.template(id).expect("Vorlage aus der Liste");
+    let id = template.id.clone();
+    let page = adw::PreferencesPage::new();
+
+    let general = adw::PreferencesGroup::new();
+    let name = adw::EntryRow::builder().title("Name").text(&template.name).build();
+    let d = dialog.downgrade();
+    let i = id.clone();
+    name.connect_changed(move |e| {
+        let text = e.text().trim().to_string();
+        if let (false, Some(d)) = (text.is_empty(), d.upgrade()) {
+            update_template(&d, &i, |t| t.name = text);
+        }
+    });
+    let dir = adw::EntryRow::builder().title("Festes Verzeichnis (leer = beim Öffnen wählen)").text(&template.directory).build();
+    let d = dialog.downgrade();
+    let i = id.clone();
+    dir.connect_changed(move |e| {
+        let text = e.text().trim().to_string();
+        if let Some(d) = d.upgrade() {
+            update_template(&d, &i, |t| t.directory = text);
+        }
+    });
+    general.add(&name);
+    general.add(&dir);
+    page.add(&general);
+
+    // Vorschau der Aufteilung mit Nummern
+    let preview = gtk::DrawingArea::builder().content_height(140).css_classes(["parkett-tile-preview"]).build();
+    preview.set_overflow(gtk::Overflow::Hidden);
+    let (layout, specs) = template.instantiate();
+    let names: Vec<String> = specs.iter().map(|(_, s)| if s.name.is_empty() { "Shell".into() } else { s.name.clone() }).collect();
+    preview.set_draw_func(move |area, cr, w, h| {
+        let fg = area.color();
+        let rects = layout.geometry(w as f32, h as f32);
+        for (n, (_, r)) in rects.iter().enumerate() {
+            cr.set_source_rgba(fg.red() as f64, fg.green() as f64, fg.blue() as f64, 0.08 + 0.04 * (n % 2) as f64);
+            cr.rectangle(r.x as f64 + 2.0, r.y as f64 + 2.0, r.w as f64 - 4.0, r.h as f64 - 4.0);
+            let _ = cr.fill();
+            cr.set_source_rgba(fg.red() as f64, fg.green() as f64, fg.blue() as f64, 0.9);
+            cr.move_to(r.x as f64 + 10.0, r.y as f64 + 22.0);
+            cr.set_font_size(13.0);
+            let _ = cr.show_text(&format!("{}  {}", n + 1, names.get(n).map(String::as_str).unwrap_or("")));
+        }
+    });
+    let pg = adw::PreferencesGroup::builder().title("Aufteilung").description("Die Aufteilung kommt aus dem Reiter, aus dem die Vorlage gespeichert wurde.").build();
+    pg.add(&preview);
+    page.add(&pg);
+
+    let profiles = manager.profiles();
+    let mut profile_names = vec!["Standardprofil".to_string()];
+    profile_names.extend(profiles.iter().map(|p| p.name.clone()));
+    let refs: Vec<&str> = profile_names.iter().map(String::as_str).collect();
+    for (n, spec) in template.layout.panes().iter().enumerate() {
+        let g = adw::PreferencesGroup::builder().title(format!("Bereich {}", n + 1).as_str()).build();
+        let pname = adw::EntryRow::builder().title("Name").text(&spec.name).build();
+        let profile = adw::ComboRow::builder().title("Profil").model(&gtk::StringList::new(&refs)).build();
+        profile.set_selected(profiles.iter().position(|p| p.id == spec.profile).map(|i| i as u32 + 1).unwrap_or(0));
+        let command = adw::EntryRow::builder().title("Startbefehl (wird in die Shell getippt)").text(&spec.command).build();
+        let subdir = adw::EntryRow::builder().title("Unterverzeichnis").text(&spec.subdir).build();
+        for (row, field) in [(&pname, 0u8), (&command, 1), (&subdir, 2)] {
+            let d = dialog.downgrade();
+            let i = id.clone();
+            row.connect_changed(move |e| {
+                let text = e.text().to_string();
+                if let Some(d) = d.upgrade() {
+                    update_template(&d, &i, |t| {
+                        if let Some(p) = t.layout.panes_mut().into_iter().nth(n) {
+                            match field {
+                                0 => p.name = text,
+                                1 => p.command = text,
+                                _ => p.subdir = text,
+                            }
+                        }
+                    });
+                }
+            });
+        }
+        let d = dialog.downgrade();
+        let i = id.clone();
+        let ids: Vec<String> = profiles.iter().map(|p| p.id.clone()).collect();
+        profile.connect_selected_notify(move |row| {
+            let value = match row.selected() {
+                0 => String::new(),
+                k => ids.get(k as usize - 1).cloned().unwrap_or_default(),
+            };
+            if let Some(d) = d.upgrade() {
+                update_template(&d, &i, |t| {
+                    if let Some(p) = t.layout.panes_mut().into_iter().nth(n) {
+                        p.profile = value;
+                    }
+                });
+            }
+        });
+        g.add(&pname);
+        g.add(&profile);
+        g.add(&command);
+        g.add(&subdir);
+        page.add(&g);
+    }
+
+    let danger = adw::PreferencesGroup::new();
+    let delete = gtk::Button::builder().label("Vorlage löschen").css_classes(["destructive-action", "pill"]).halign(gtk::Align::Center).build();
+    danger.add(&delete);
+    page.add(&danger);
+    let d = dialog.downgrade();
+    delete.connect_clicked(move |_| {
+        let Some(d) = d.upgrade() else { return };
+        match ProfileManager::get().delete_template(&id) {
+            Ok(()) => {
+                d.pop_subpage();
+            }
+            Err(e) => d.add_toast(adw::Toast::new(&e)),
+        }
+    });
+
+    let toolbar = adw::ToolbarView::new();
+    toolbar.add_top_bar(&adw::HeaderBar::new());
+    toolbar.set_content(Some(&page));
+    adw::NavigationPage::builder().title(template.name.as_str()).child(&toolbar).build()
 }

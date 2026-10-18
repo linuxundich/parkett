@@ -22,6 +22,9 @@ mod imp {
         /// Nachfrage beim Schließen wurde bestätigt
         pub force_close: Cell<bool>,
         pub shortcuts: std::cell::RefCell<Option<gtk::ShortcutController>>,
+        /// Layout-Modus aktiv; „M“ gedrückt, nächster Pfeil tauscht
+        pub layout_mode: Cell<bool>,
+        pub pending_swap: Cell<bool>,
     }
 
     #[glib::object_subclass]
@@ -161,6 +164,17 @@ impl Window {
         let find_button = gtk::Button::builder().icon_name("edit-find-symbolic").tooltip_text("Suchen (Strg+Umschalt+F)").action_name("win.find").build();
         let overview_button = adw::TabButton::builder().view(&tab_view).action_name("win.overview").build();
 
+        // Klick auf den Titel öffnet die Befehlspalette (Vorschlag 2)
+        let title_click = gtk::GestureClick::new();
+        let weak = self.downgrade();
+        title_click.connect_released(move |_, _, _, _| {
+            if let Some(w) = weak.upgrade() {
+                crate::commands::show(&w);
+            }
+        });
+        title.add_controller(title_click);
+        title.set_tooltip_text(Some("Befehlspalette (Strg+Umschalt+P)"));
+
         let header = adw::HeaderBar::builder().title_widget(&title).build();
         header.pack_start(&new_button);
         header.pack_end(&menu_button);
@@ -193,6 +207,7 @@ impl Window {
         let weak = self.downgrade();
         tab_view.connect_selected_page_notify(move |view| {
             let Some(w) = weak.upgrade() else { return };
+            w.set_layout_mode(false);
             if let Some(page) = view.selected_page() {
                 page.set_needs_attention(false);
                 if let Ok(tab) = page.child().downcast::<Tab>() {
@@ -238,7 +253,10 @@ impl Window {
     }
 
     pub fn add_tab_with_profile(&self, cwd: Option<String>, profile: &str) -> Tab {
-        let tab = Tab::new(cwd, profile);
+        self.attach_tab(Tab::new(cwd, profile))
+    }
+
+    fn attach_tab(&self, tab: Tab) -> Tab {
         let page = self.tab_view().append(&tab);
         let weak = self.downgrade();
         tab.connect_changed(move |tab| {
@@ -284,7 +302,11 @@ impl Window {
             Some(tab) => {
                 let t = tab.title();
                 title.set_title(&t);
-                title.set_subtitle(&tab.cwd().map(|c| tilde(&c)).unwrap_or_default());
+                if self.imp().layout_mode.get() {
+                    title.set_subtitle("Layout-Modus · Esc beendet");
+                } else {
+                    title.set_subtitle(&tab.cwd().map(|c| tilde(&c)).unwrap_or_default());
+                }
                 self.set_title(Some(&t));
             }
             None => title.set_title("Parkett"),
@@ -371,6 +393,29 @@ impl Window {
             let cwd = w.current_tab().and_then(|t| t.inherited_cwd());
             w.add_tab(cwd);
         });
+        action("palette", crate::commands::show);
+        action("layout-mode", |w| {
+            let on = !w.imp().layout_mode.get();
+            w.set_layout_mode(on);
+        });
+        action("save-template", |w| w.save_template());
+        let a = gio::SimpleAction::new("open-template", Some(glib::VariantTy::STRING));
+        let weak = self.downgrade();
+        a.connect_activate(move |_, param| {
+            if let (Some(w), Some(id)) = (weak.upgrade(), param.and_then(|p| p.get::<String>())) {
+                w.open_template(&id);
+            }
+        });
+        self.add_action(&a);
+        // Tasten im Layout-Modus (Capture-Phase, vor Terminal und Kürzeln)
+        let keys = gtk::EventControllerKey::new();
+        keys.set_propagation_phase(gtk::PropagationPhase::Capture);
+        let weak = self.downgrade();
+        keys.connect_key_pressed(move |_, key, _, state| match weak.upgrade() {
+            Some(w) if w.imp().layout_mode.get() => w.layout_key(key, state),
+            _ => glib::Propagation::Proceed,
+        });
+        self.add_controller(keys);
         let a = gio::SimpleAction::new("new-tab-profile", Some(glib::VariantTy::STRING));
         let weak = self.downgrade();
         a.connect_activate(move |_, param| {
@@ -482,6 +527,192 @@ impl Window {
         });
     }
 
+    pub fn select_tab(&self, index: usize) {
+        let view = self.tab_view();
+        if (index as i32) < view.n_pages() {
+            view.set_selected_page(&view.nth_page(index as i32));
+        }
+    }
+
+    /// Führt eine Aktion aus der Kürzel-Liste aus; `term.*` im fokussierten Terminal.
+    pub fn run_action(&self, action: &str) {
+        if action.starts_with("term.") {
+            if let Some(tab) = self.current_tab() {
+                let _ = tab.focused_pane().terminal().vte().activate_action(action, None);
+            }
+        } else {
+            let _ = WidgetExt::activate_action(self, action, None);
+        }
+    }
+
+    pub fn set_layout_mode(&self, on: bool) {
+        let imp = self.imp();
+        if imp.layout_mode.get() == on {
+            return;
+        }
+        imp.layout_mode.set(on);
+        imp.pending_swap.set(false);
+        if let Some(tab) = self.current_tab() {
+            tab.set_layout_mode(on);
+        }
+        self.update_title();
+    }
+
+    /// Tasten im Layout-Modus. Alles andere wird verschluckt, damit nichts in der Shell landet.
+    fn layout_key(&self, key: gtk::gdk::Key, state: gtk::gdk::ModifierType) -> glib::Propagation {
+        use gtk::gdk::Key;
+        let Some(tab) = self.current_tab() else { return glib::Propagation::Proceed };
+        let imp = self.imp();
+        let dir = match key {
+            Key::Left | Key::KP_Left => Some(Direction::Left),
+            Key::Right | Key::KP_Right => Some(Direction::Right),
+            Key::Up | Key::KP_Up => Some(Direction::Up),
+            Key::Down | Key::KP_Down => Some(Direction::Down),
+            _ => None,
+        };
+        if let Some(d) = dir {
+            if imp.pending_swap.replace(false) {
+                tab.swap_direction(d);
+            } else if state.contains(gtk::gdk::ModifierType::SHIFT_MASK) {
+                tab.resize(d);
+            } else {
+                tab.focus_direction(d);
+            }
+            return glib::Propagation::Stop;
+        }
+        match key.to_lower() {
+            Key::Escape | Key::Return | Key::KP_Enter => self.set_layout_mode(false),
+            Key::r => {
+                if !tab.split(Some(Orientation::Horizontal)) {
+                    self.toast("Zu wenig Platz zum Teilen");
+                }
+            }
+            Key::d => {
+                if !tab.split(Some(Orientation::Vertical)) {
+                    self.toast("Zu wenig Platz zum Teilen");
+                }
+            }
+            Key::a => {
+                if !tab.split(None) {
+                    self.toast("Zu wenig Platz zum Teilen");
+                }
+            }
+            Key::z => tab.toggle_zoom(),
+            Key::equal | Key::KP_Equal => tab.equalize(),
+            Key::x => {
+                let _ = WidgetExt::activate_action(self, "win.close-pane", None);
+            }
+            Key::m => imp.pending_swap.set(true),
+            k => {
+                if let Some(c) = k.to_unicode().and_then(|c| c.to_digit(10)).filter(|n| (1..=9).contains(n)) {
+                    tab.focus_index(c as usize);
+                }
+            }
+        }
+        // Nummern und Zustand nach Umbauten auffrischen (neuer Bereich, Schließen …)
+        if let Some(t) = self.current_tab() {
+            t.set_layout_mode(imp.layout_mode.get());
+        }
+        glib::Propagation::Stop
+    }
+
+    /// Dialog „Vorlage öffnen“: Verzeichnis wählen, Startbefehle zeigen und ein-/ausschalten.
+    pub fn open_template(&self, id: &str) {
+        let Some(t) = ProfileManager::get().template(id) else { return };
+        let home = glib::home_dir();
+        let start = if t.directory.trim().is_empty() {
+            self.current_tab().and_then(|tab| tab.cwd()).map(std::path::PathBuf::from).unwrap_or(home.clone())
+        } else {
+            let d = t.directory.trim();
+            match d.strip_prefix('~') {
+                Some(rest) => home.join(rest.trim_start_matches('/')),
+                None => std::path::PathBuf::from(d),
+            }
+        };
+        let dir = std::rc::Rc::new(std::cell::RefCell::new(start));
+        let n = t.layout.panes().len();
+        let dialog = adw::AlertDialog::new(Some(&format!("Vorlage „{}“ öffnen", t.name)), Some(&format!("Öffnet einen neuen Reiter mit {n} {}.", if n == 1 { "Bereich" } else { "Bereichen" })));
+        let list = gtk::ListBox::builder().css_classes(["boxed-list"]).selection_mode(gtk::SelectionMode::None).build();
+        let dir_row = adw::ActionRow::builder().title("Verzeichnis").subtitle(tilde(&dir.borrow().to_string_lossy())).build();
+        let pick = gtk::Button::builder().icon_name("folder-open-symbolic").valign(gtk::Align::Center).tooltip_text("Verzeichnis wählen").css_classes(["flat"]).build();
+        dir_row.add_suffix(&pick);
+        list.append(&dir_row);
+        let commands = t.commands();
+        let run = adw::SwitchRow::builder()
+            .title("Startbefehle ausführen")
+            .subtitle(if commands.is_empty() { "Keine Startbefehle".to_string() } else { commands.join(" · ") })
+            .active(!commands.is_empty())
+            .sensitive(!commands.is_empty())
+            .build();
+        list.append(&run);
+        dialog.set_extra_child(Some(&list));
+        dialog.add_responses(&[("cancel", "Abbrechen"), ("open", "Öffnen")]);
+        dialog.set_response_appearance("open", adw::ResponseAppearance::Suggested);
+        dialog.set_default_response(Some("open"));
+        dialog.set_close_response("cancel");
+        let d2 = dir.clone();
+        let row2 = dir_row.clone();
+        let weak = self.downgrade();
+        pick.connect_clicked(move |_| {
+            let Some(w) = weak.upgrade() else { return };
+            let chooser = gtk::FileDialog::builder().title("Verzeichnis für die Vorlage").initial_folder(&gtk::gio::File::for_path(&*d2.borrow())).modal(true).build();
+            let d3 = d2.clone();
+            let row3 = row2.clone();
+            chooser.select_folder(Some(&w), gtk::gio::Cancellable::NONE, move |res| {
+                if let Some(path) = res.ok().and_then(|f| f.path()) {
+                    row3.set_subtitle(&tilde(&path.to_string_lossy()));
+                    *d3.borrow_mut() = path;
+                }
+            });
+        });
+        let weak = self.downgrade();
+        dialog.connect_response(Some("open"), move |_, _| {
+            let Some(w) = weak.upgrade() else { return };
+            let dir = dir.borrow().clone();
+            if !dir.is_dir() {
+                w.toast(&format!("Verzeichnis „{}“ gibt es nicht", tilde(&dir.to_string_lossy())));
+                return;
+            }
+            w.attach_tab(Tab::from_template(&t, &dir, run.is_active()));
+        });
+        dialog.present(Some(self));
+    }
+
+    /// Dialog „Reiter als Vorlage speichern“.
+    fn save_template(&self) {
+        let Some(tab) = self.current_tab() else { return };
+        let suggestion = tab.custom_title().unwrap_or_else(|| tab.cwd().and_then(|c| c.rsplit('/').next().map(String::from)).unwrap_or_else(|| "Vorlage".into()));
+        let (preview, _) = tab.to_template(&suggestion);
+        let n = preview.layout.panes().len();
+        let commands = preview.commands();
+        let body = format!(
+            "Speichert Aufteilung und Profile der {n} {}{}. Das Verzeichnis wird beim Öffnen gefragt.",
+            if n == 1 { "Bereichs" } else { "Bereiche" },
+            if commands.is_empty() { String::new() } else { format!(" sowie die laufenden Befehle ({})", commands.join(", ")) }
+        );
+        let entry = gtk::Entry::builder().text(&suggestion).activates_default(true).build();
+        let dialog = adw::AlertDialog::new(Some("Reiter als Vorlage speichern"), Some(&body));
+        dialog.set_extra_child(Some(&entry));
+        dialog.add_responses(&[("cancel", "Abbrechen"), ("save", "Speichern")]);
+        dialog.set_response_appearance("save", adw::ResponseAppearance::Suggested);
+        dialog.set_default_response(Some("save"));
+        dialog.set_close_response("cancel");
+        let weak = self.downgrade();
+        let e2 = entry.clone();
+        dialog.connect_response(Some("save"), move |_, _| {
+            let Some(w) = weak.upgrade() else { return };
+            let name = e2.text().trim().to_string();
+            let name = if name.is_empty() { "Vorlage".to_string() } else { name };
+            let (t, _) = tab.to_template(&name);
+            match ProfileManager::get().save_template(&t) {
+                Ok(t) => w.toast(&format!("Vorlage „{}“ gespeichert", t.name)),
+                Err(e) => w.toast(&format!("Vorlage nicht gespeichert: {e}")),
+            }
+        });
+        dialog.present(Some(self));
+        entry.grab_focus();
+    }
+
     /// Fensterkürzel aus/ein, z. B. während der Einstellungsdialog ein Kürzel aufnimmt.
     pub fn set_shortcuts_enabled(&self, enabled: bool) {
         if let Some(c) = self.imp().shortcuts.borrow().as_ref() {
@@ -514,6 +745,14 @@ fn fill_new_menu(menu: &gio::Menu) {
         profiles.append_item(&item);
     }
     menu.append_section(Some("Neuer Reiter mit Profil"), &profiles);
+    let templates = gio::Menu::new();
+    for t in manager.templates() {
+        let item = gio::MenuItem::new(Some(&t.name), None);
+        item.set_action_and_target_value(Some("win.open-template"), Some(&t.id.to_variant()));
+        templates.append_item(&item);
+    }
+    templates.append(Some("Aktuellen Reiter als Vorlage speichern …"), Some("win.save-template"));
+    menu.append_section(Some("Vorlagen"), &templates);
     let more = gio::Menu::new();
     more.append(Some("Neues Fenster"), Some("app.new-window"));
     more.append(Some("Profile bearbeiten …"), Some("app.preferences"));

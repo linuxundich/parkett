@@ -5,6 +5,13 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unreleased]
 
 ### Hinzugefügt
+- Befehlspalette (Strg+Umschalt+P oder Klick auf den Fenstertitel) für Reiter, Bereiche,
+  Aktionen, Vorlagen und Profile; Präfixe >, @, #.
+- Layout-Modus (Strg+Umschalt+L): nummerierte Bereiche, Einzeltasten zum Teilen, Tauschen,
+  Maximieren, Angleichen und Schließen.
+- Vorlagen: aktuellen Reiter mit Aufteilung, Profilen und laufenden Befehlen speichern,
+  in einem gewählten Verzeichnis öffnen (Startbefehle abschaltbar), Bearbeiten in den
+  Einstellungen.
 - Tastenkürzel änderbar (Einstellungen › Tastenkürzel), mit Konfliktprüfung und
   „Alle zurücksetzen“; Fenster, Terminals und Übersicht übernehmen Änderungen sofort.
 - Suche im Terminal je Bereich (Strg+Umschalt+F; Groß/Klein, regulärer Ausdruck; Treffer

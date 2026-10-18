@@ -28,7 +28,9 @@
 - [ ] Profil-Felder Umgebung/Verzeichnis/Login-Shell und Löschen in der VM testen
 - [ ] Importierte Schemata sofort alphabetisch einsortieren
 - [x] Schritt 5: Suche, Links öffnen, änderbare Kürzel (2026-10-18)
-- [ ] Schritt 6: Befehlspalette, Layout-Modus, Vorlagen (A+)
+- [x] Schritt 6: Befehlspalette, Layout-Modus, Vorlagen mit Startbefehlen (2026-10-18)
+- [ ] Aufteilung einer Vorlage im Editor ändern
+- [ ] Strg+Eingabe in der Palette: Ziel im neuen Bereich öffnen
 - [ ] Schritt 7: Rückgängig beim Schließen, Kontextfarbe je Bereich
 - [x] Begriff: durchgehend „Reiter“ (2026-10-18)
 - [ ] Cursor nach Schließen der Tab-Übersicht unsichtbar bis zur Eingabe – Ursache suchen

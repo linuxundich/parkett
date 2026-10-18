@@ -11,6 +11,7 @@ use gtk::glib::subclass::Signal;
 use gtk::prelude::*;
 use parkett_core::palette::{self, Palette, DEFAULT_PALETTE};
 use parkett_core::profile::{Profile, ProfileStore};
+use parkett_core::template::{Template, TemplateStore};
 
 mod imp {
     use std::cell::{OnceCell, RefCell};
@@ -23,6 +24,8 @@ mod imp {
         pub store: OnceCell<ProfileStore>,
         pub profiles: RefCell<Vec<Profile>>,
         pub palettes: RefCell<Vec<Palette>>,
+        pub template_store: OnceCell<TemplateStore>,
+        pub templates: RefCell<Vec<Template>>,
         pub errors: RefCell<Vec<String>>,
     }
 
@@ -61,6 +64,7 @@ impl ProfileManager {
         let m: ProfileManager = glib::Object::new();
         let store = ProfileStore::new(glib::user_config_dir().join("parkett").join("profiles"));
         m.imp().store.set(store).ok();
+        m.imp().template_store.set(TemplateStore::new(glib::user_config_dir().join("parkett").join("templates"))).ok();
         m.reload();
         m
     }
@@ -101,6 +105,13 @@ impl ProfileManager {
             palettes.extend(user);
         }
         *imp.palettes.borrow_mut() = palettes;
+        match imp.template_store.get().unwrap().load_all() {
+            Ok((t, errs)) => {
+                errors.extend(errs);
+                *imp.templates.borrow_mut() = t;
+            }
+            Err(e) => errors.push(format!("Vorlagen: {e}")),
+        }
         for e in &errors {
             glib::g_warning!("parkett", "{e}");
         }
@@ -180,6 +191,40 @@ impl ProfileManager {
             let first = self.imp().profiles.borrow()[0].id.clone();
             let _ = crate::settings::settings().set_string("default-profile", &first);
         }
+        self.emit_changed();
+        Ok(())
+    }
+
+    pub fn templates(&self) -> Vec<Template> {
+        self.imp().templates.borrow().clone()
+    }
+
+    pub fn template(&self, id: &str) -> Option<Template> {
+        self.imp().templates.borrow().iter().find(|t| t.id == id).cloned()
+    }
+
+    /// Speichert eine Vorlage; ohne Id bekommt sie eine aus dem Namen.
+    pub fn save_template(&self, template: &Template) -> Result<Template, String> {
+        let mut t = template.clone();
+        if t.id.is_empty() {
+            t.id = self.imp().template_store.get().unwrap().new_id(&t.name);
+        }
+        self.imp().template_store.get().unwrap().save(&t).map_err(|e| e.to_string())?;
+        {
+            let mut list = self.imp().templates.borrow_mut();
+            match list.iter_mut().find(|x| x.id == t.id) {
+                Some(x) => *x = t.clone(),
+                None => list.push(t.clone()),
+            }
+            list.sort_by_key(|x| x.name.to_lowercase());
+        }
+        self.emit_changed();
+        Ok(t)
+    }
+
+    pub fn delete_template(&self, id: &str) -> Result<(), String> {
+        self.imp().template_store.get().unwrap().delete(id).map_err(|e| e.to_string())?;
+        self.imp().templates.borrow_mut().retain(|t| t.id != id);
         self.emit_changed();
         Ok(())
     }

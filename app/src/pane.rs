@@ -21,6 +21,7 @@ mod imp {
         pub focus_line: OnceCell<gtk::Box>,
         pub dim: OnceCell<gtk::DrawingArea>,
         pub search: OnceCell<gtk::Revealer>,
+        pub badge: OnceCell<gtk::Label>,
         pub search_entry: OnceCell<gtk::SearchEntry>,
         pub search_case: OnceCell<gtk::ToggleButton>,
         pub search_regex: OnceCell<gtk::ToggleButton>,
@@ -120,6 +121,16 @@ impl Pane {
         pill.append(&close);
         overlay.add_overlay(&pill);
 
+        // Nummer im Layout-Modus (mittig, groß)
+        let badge = gtk::Label::builder()
+            .css_classes(["parkett-badge"])
+            .halign(gtk::Align::Center)
+            .valign(gtk::Align::Center)
+            .can_target(false)
+            .visible(false)
+            .build();
+        overlay.add_overlay(&badge);
+
         // Suchleiste oben rechts (ersetzt dort den schwebenden Titel, solange sie offen ist)
         let entry = gtk::SearchEntry::builder().placeholder_text("Im Terminal suchen").width_chars(22).build();
         let case = gtk::ToggleButton::builder().label("Aa").tooltip_text("Groß-/Kleinschreibung beachten").css_classes(["flat"]).build();
@@ -197,6 +208,7 @@ impl Pane {
         imp.focus_line.set(focus_line).ok();
         imp.dim.set(dim).ok();
         imp.search.set(search).ok();
+        imp.badge.set(badge).ok();
         imp.search_entry.set(entry.clone()).ok();
         imp.search_case.set(case.clone()).ok();
         imp.search_regex.set(regex.clone()).ok();
@@ -269,6 +281,18 @@ impl Pane {
 
     pub fn focus_terminal(&self) {
         self.terminal().vte().grab_focus();
+    }
+
+    /// Nummer im Layout-Modus; `None` blendet sie aus.
+    pub fn set_badge(&self, number: Option<u32>) {
+        let badge = self.imp().badge.get().unwrap();
+        match number {
+            Some(n) => {
+                badge.set_label(&n.to_string());
+                badge.set_visible(true);
+            }
+            None => badge.set_visible(false),
+        }
     }
 
     pub fn search_visible(&self) -> bool {
