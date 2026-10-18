@@ -32,7 +32,10 @@
 - [ ] Aufteilung einer Vorlage im Editor ändern
 - [ ] Strg+Eingabe in der Palette: Ziel im neuen Bereich öffnen
 - [x] Schritt 7: Rückgängig beim Schließen, Kontextfarbe je Bereich (2026-10-18)
-- [ ] Phase 5: Qualitätssicherung (Briefing-Liste, Host-Test auf Arch, Orca)
+- [x] Phase 5: Qualitätssicherung (docs/QA.md, 2026-10-19)
+- [ ] Hoher Kontrast: Farbschema „Hoher Kontrast“ automatisch verwenden (Vorschlag aus QA)
+- [ ] Orca mit Sprachausgabe von Hand prüfen
+- [ ] CPU unter Dauerausgabe auf dem Host messen
 - [x] Begriff: durchgehend „Reiter“ (2026-10-18)
 - [ ] Cursor nach Schließen der Tab-Übersicht unsichtbar bis zur Eingabe – Ursache suchen
 - [ ] Tabs in neues Fenster ziehen und Trenner per Maus ziehen testen

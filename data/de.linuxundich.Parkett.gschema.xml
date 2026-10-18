@@ -7,6 +7,11 @@
     <value nick="home" value="1"/>
   </enum>
 
+  <enum id="de.linuxundich.Parkett.PaneTitle">
+    <value nick="floating" value="0"/>
+    <value nick="row" value="1"/>
+  </enum>
+
   <schema id="de.linuxundich.Parkett" path="/de/linuxundich/Parkett/">
     <key name="window-width" type="i">
       <default>960</default>
@@ -27,6 +32,16 @@
       <default>true</default>
       <summary>Vor dem Schließen nachfragen</summary>
       <description>Nachfragen, bevor ein Bereich, Reiter oder Fenster geschlossen wird, in dem noch ein Programm läuft.</description>
+    </key>
+    <key name="warn-multiline-paste" type="b">
+      <default>true</default>
+      <summary>Vor mehrzeiligem Einfügen warnen</summary>
+      <description>Mehrzeiligen Text beim Einfügen (Strg+Umschalt+V, Kontextmenü) erst zeigen und bestätigen lassen.</description>
+    </key>
+    <key name="pane-title" enum="de.linuxundich.Parkett.PaneTitle">
+      <default>'floating'</default>
+      <summary>Bereichstitel</summary>
+      <description>„floating“: schwebender Titel oben rechts (Standard), „row“: Titelzeile über jedem Bereich.</description>
     </key>
     <key name="dim-unfocused" type="b">
       <default>true</default>

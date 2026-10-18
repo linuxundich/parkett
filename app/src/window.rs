@@ -25,6 +25,8 @@ mod imp {
         /// Layout-Modus aktiv; „M“ gedrückt, nächster Pfeil tauscht
         pub layout_mode: Cell<bool>,
         pub pending_swap: Cell<bool>,
+        /// Einblendung „Rückgängig“ des zuletzt Geschlossenen; eine neue ersetzt sie
+        pub undo_toast: std::cell::RefCell<Option<adw::Toast>>,
     }
 
     #[glib::object_subclass]
@@ -176,6 +178,13 @@ impl Window {
         title.set_tooltip_text(Some("Befehlspalette (Strg+Umschalt+P)"));
 
         let header = adw::HeaderBar::builder().title_widget(&title).build();
+        // AdwSplitButton gibt beiden Teilen den Tooltip des Pfeils als Namen (QA: Orca läse
+        // „Weitere Möglichkeiten“ für den Neu-Knopf); daher ausdrücklich benennen.
+        new_button.upcast_ref::<gtk::Widget>().update_property(&[gtk::accessible::Property::Label("Neuer Reiter")]);
+        if let Some(main) = new_button.first_child() {
+            main.update_property(&[gtk::accessible::Property::Label("Neuer Reiter")]);
+        }
+        find_button.update_property(&[gtk::accessible::Property::Label("Suchen")]);
         header.pack_start(&new_button);
         header.pack_end(&menu_button);
         header.pack_end(&overview_button);
@@ -291,6 +300,16 @@ impl Window {
                 tab.terminate_all();
             }
         });
+        self.show_undo_toast(toast);
+    }
+
+    /// Zeigt eine Rückgängig-Einblendung. Eine noch offene wird vorher geschlossen – sonst
+    /// stünden die Einblendungen Schlange (je 8 s) und die Prozesse liefen so lange weiter
+    /// (in der QA gefunden: 7 geschlossene Reiter, nach 14 s noch 15 Shells).
+    fn show_undo_toast(&self, toast: adw::Toast) {
+        if let Some(old) = self.imp().undo_toast.replace(Some(toast.clone())) {
+            old.dismiss();
+        }
         self.imp().toasts.get().unwrap().add_toast(toast);
     }
 
@@ -319,7 +338,7 @@ impl Window {
                     t3.discard_closed(serial);
                 }
             });
-            w.imp().toasts.get().unwrap().add_toast(toast);
+            w.show_undo_toast(toast);
         });
         let weak = self.downgrade();
         tab.connect_empty(move |tab| {

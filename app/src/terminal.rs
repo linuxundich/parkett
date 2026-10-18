@@ -645,7 +645,9 @@ impl Terminal {
             group.add_action(&a);
         };
         add("copy", Box::new(|v| v.copy_clipboard_format(vte::Format::Text)));
-        add("paste", Box::new(|v| v.paste_clipboard()));
+        // Einfügen über Parkett: mehrzeiliger Text wird vorher gezeigt (Funktionsmatrix P0) –
+        // ohne Bracketed Paste der Shell würden die Zeilen sonst sofort ausgeführt
+        add("paste", Box::new(paste_with_check));
         add("select-all", Box::new(|v| v.select_all()));
         add("zoom-in", Box::new(|v| v.set_font_scale((v.font_scale() * 1.1).min(4.0))));
         add("zoom-out", Box::new(|v| v.set_font_scale((v.font_scale() / 1.1).max(0.3))));
@@ -737,6 +739,43 @@ const URL_PATTERNS: &[&str] = &[
 pub const PCRE2_FLAGS: u32 = 0x0008_0000 | 0x4000_0000 | 0x0002_0000 | 0x0000_0400;
 pub const PCRE2_CASELESS: u32 = 0x0000_0008;
 
+
+fn paste_with_check(vte: &vte::Terminal) {
+    let vte = vte.clone();
+    vte.clipboard().read_text_async(gio::Cancellable::NONE, move |res| {
+        let Ok(Some(text)) = res else { return };
+        let text = text.to_string();
+        let lines = text.trim_end_matches('\n').lines().count();
+        if lines <= 1 || !crate::settings::settings().boolean("warn-multiline-paste") {
+            vte.paste_text(&text);
+            return;
+        }
+        let preview: Vec<&str> = text.lines().take(6).collect();
+        let more = if lines > 6 { format!("\n… ({} weitere Zeilen)", lines - 6) } else { String::new() };
+        let body = format!("Der Text hat {lines} Zeilen. Unterstützt die Shell kein „Bracketed Paste“, werden sie sofort ausgeführt.");
+        let dialog = adw::AlertDialog::new(Some("Mehrzeiligen Text einfügen?"), Some(&body));
+        let label = gtk::Label::builder()
+            .label(format!("{}{more}", preview.join("\n")))
+            .xalign(0.0)
+            .wrap(true)
+            .selectable(true)
+            .css_classes(["monospace"])
+            .margin_top(8)
+            .margin_bottom(8)
+            .margin_start(10)
+            .margin_end(10)
+            .build();
+        let frame = gtk::Frame::builder().child(&label).build();
+        dialog.set_extra_child(Some(&frame));
+        dialog.add_responses(&[("cancel", "Abbrechen"), ("paste", "Einfügen")]);
+        dialog.set_response_appearance("paste", adw::ResponseAppearance::Destructive);
+        dialog.set_default_response(Some("cancel"));
+        dialog.set_close_response("cancel");
+        let v2 = vte.clone();
+        dialog.connect_response(Some("paste"), move |_, _| v2.paste_text(&text));
+        dialog.present(Some(&vte));
+    });
+}
 
 fn rgba(c: &Rgb) -> gtk::gdk::RGBA {
     gtk::gdk::RGBA::new(c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0, 1.0)

@@ -5,6 +5,16 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unreleased]
 
 ### Hinzugefügt
+- Einstellung „Bereichstitel bei geteilten Reitern: Als Zeile“ (Titelzeile über jedem Bereich).
+- Warnung beim Einfügen von mehrzeiligem Text, mit Vorschau (abschaltbar).
+
+### Behoben (Phase 5, QA)
+- Rückgängig-Einblendungen standen Schlange und hielten geschlossene Prozesse bis zu einer
+  Minute am Leben; eine neue Einblendung ersetzt jetzt die vorige.
+- Schwebender Bereichstitel verdeckte in schmalen Bereichen den Prompt; dort jetzt nur Knöpfe.
+- Screenreader-Namen: Neu-Knopf hieß „Weitere Möglichkeiten“, Suchknopf las das Kürzel mit.
+
+### Hinzugefügt (Schritte 1–7)
 - Kontextfarbe je Bereich: Bereiche mit SSH-Verbindung oder Root-Rechten werden getönt und
   mit Linie und Chip (Hostname bzw. „root“) gekennzeichnet; Farben aus dem Farbschema,
   abschaltbar.

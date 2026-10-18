@@ -21,6 +21,9 @@ mod imp {
         pub focus_line: OnceCell<gtk::Box>,
         pub context_line: OnceCell<gtk::DrawingArea>,
         pub multi: Cell<bool>,
+        pub narrow: Cell<bool>,
+        pub row: OnceCell<gtk::Box>,
+        pub row_label: OnceCell<gtk::Label>,
         pub focused: Cell<bool>,
         pub dim: OnceCell<gtk::DrawingArea>,
         pub search: OnceCell<gtk::Revealer>,
@@ -112,6 +115,26 @@ impl Pane {
         }
         overlay.add_overlay(&context_line);
 
+        // Breite des Bereichs beobachten: schmale Bereiche blenden den Text des schwebenden
+        // Titels aus, damit er die Prompt-Zeile nicht verdeckt (QA). Unsichtbare Zeichenfläche,
+        // weil AdwBin einen Layout-Manager hat und size_allocate nicht überschreibbar ist.
+        let probe = gtk::DrawingArea::builder().can_target(false).opacity(0.0).build();
+        let weak = pane.downgrade();
+        probe.connect_resize(move |_, width, _| {
+            let Some(p) = weak.upgrade() else { return };
+            let narrow = width < 380;
+            if narrow != p.imp().narrow.get() {
+                p.imp().narrow.set(narrow);
+                let w2 = p.downgrade();
+                glib::idle_add_local_once(move || {
+                    if let Some(p) = w2.upgrade() {
+                        p.update_visibility();
+                    }
+                });
+            }
+        });
+        overlay.add_overlay(&probe);
+
         // Schwebender Titel, nur bei geteilten Tabs sichtbar (Entscheidung A+: schwebend)
         let pill_label = gtk::Label::builder().ellipsize(gtk::pango::EllipsizeMode::End).max_width_chars(28).build();
         let zoom = gtk::Button::builder()
@@ -170,7 +193,43 @@ impl Pane {
             .build();
         overlay.add_overlay(&search);
 
-        pane.set_child(Some(&overlay));
+        // Titelzeile (Einstellung „Bereichstitel: Als Zeile“) über dem Terminal
+        let row_label = gtk::Label::builder().xalign(0.0).hexpand(true).ellipsize(gtk::pango::EllipsizeMode::End).build();
+        let row_zoom = gtk::Button::builder().icon_name("view-fullscreen-symbolic").tooltip_text("Bereich maximieren").css_classes(["flat"]).build();
+        let row_close = gtk::Button::builder().icon_name("window-close-symbolic").tooltip_text("Bereich schließen").css_classes(["flat"]).build();
+        let row = gtk::Box::builder().css_classes(["parkett-ptitle"]).spacing(4).visible(false).build();
+        row.append(&row_label);
+        row.append(&row_zoom);
+        row.append(&row_close);
+        for (button, action) in [(&row_zoom, "win.toggle-zoom"), (&row_close, "win.close-pane")] {
+            let weak = pane.downgrade();
+            button.connect_clicked(move |_| {
+                if let Some(p) = weak.upgrade() {
+                    p.focus_terminal();
+                    let _ = p.activate_action(action, None);
+                }
+            });
+        }
+        let column = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        column.append(&row);
+        column.append(&overlay);
+        overlay.set_vexpand(true);
+        pane.set_child(Some(&column));
+        pane.imp().row.set(row).ok();
+        pane.imp().row_label.set(row_label).ok();
+        // Umschalten schwebend ⇄ Zeile sofort übernehmen
+        let weak = pane.downgrade();
+        let id = crate::settings::settings().connect_changed(Some("pane-title"), move |_, _| {
+            if let Some(p) = weak.upgrade() {
+                p.update_visibility();
+            }
+        });
+        let id = std::cell::RefCell::new(Some(id));
+        pane.connect_destroy(move |_| {
+            if let Some(id) = id.borrow_mut().take() {
+                crate::settings::settings().disconnect(id);
+            }
+        });
 
         // Knöpfe wirken auf diesen Bereich: erst fokussieren, dann die Fensteraktion
         for (button, action) in [(&zoom, "win.toggle-zoom"), (&close, "win.close-pane")] {
@@ -314,15 +373,12 @@ impl Pane {
             (parkett_core::context::Context::Superuser, Some((_, bg))) => Some(("root".to_string(), bg)),
             _ => None,
         };
-        let label = self.imp().pill_label.get().unwrap();
-        match &chip {
-            Some((text, bg)) => label.set_markup(&format!(
-                "<span background=\"{}\" weight=\"bold\"> {} </span>  {title}",
-                bg.hex(),
-                glib::markup_escape_text(text)
-            )),
-            None => label.set_markup(&title),
-        }
+        let markup = match &chip {
+            Some((text, bg)) => format!("<span background=\"{}\" weight=\"bold\"> {} </span>  {title}", bg.hex(), glib::markup_escape_text(text)),
+            None => title.clone(),
+        };
+        self.imp().pill_label.get().unwrap().set_markup(&markup);
+        self.imp().row_label.get().unwrap().set_markup(&markup);
         let imp = self.imp();
         imp.context_line.get().unwrap().set_visible(chip.is_some());
         imp.context_line.get().unwrap().queue_draw();
@@ -343,12 +399,23 @@ impl Pane {
 
     /// Titel-Feld und Linien: Titel bei geteilten Reitern oder Kontext (dann mit Chip),
     /// Kontextlinie ersetzt die Fokuslinie.
-    fn update_visibility(&self) {
+    pub fn update_visibility(&self) {
         let imp = self.imp();
         let context = self.terminal().context_accent().is_some();
         let searching = imp.search.get().is_some_and(|s| s.is_visible());
-        imp.pill.get().unwrap().set_visible((imp.multi.get() || context) && !searching);
-        imp.focus_line.get().unwrap().set_visible(imp.multi.get() && imp.focused.get() && !context);
+        let row_mode = crate::settings::settings().string("pane-title") == "row";
+        let show = imp.multi.get() || context;
+        imp.pill.get().unwrap().set_visible(show && !row_mode && !searching);
+        imp.pill_label.get().unwrap().set_visible(!imp.narrow.get());
+        let row = imp.row.get().unwrap();
+        row.set_visible(show && row_mode);
+        if imp.focused.get() && imp.multi.get() {
+            row.add_css_class("focused");
+        } else {
+            row.remove_css_class("focused");
+        }
+        // In der Zeile zeigt die Einfärbung den Fokus; die Linie nur im schwebenden Modus
+        imp.focus_line.get().unwrap().set_visible(imp.multi.get() && imp.focused.get() && !context && !row_mode);
     }
 
     pub fn search_visible(&self) -> bool {

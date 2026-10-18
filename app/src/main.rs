@@ -62,6 +62,14 @@ parkett-pane.focused .parkett-badge { background: var(--accent-bg-color); color:
 }
 .parkett-mode-tag { font-weight: 800; padding: 2px 8px; border-radius: 6px; background: var(--accent-bg-color); color: var(--accent-fg-color); }
 .parkett-key { font-size: 0.85em; font-weight: 600; padding: 1px 5px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--border-color); }
+.parkett-ptitle {
+  padding: 1px 2px 1px 10px;
+  font-size: 0.86em;
+  background: var(--window-bg-color);
+  box-shadow: inset 0 -1px var(--border-color);
+}
+.parkett-ptitle button { min-width: 22px; min-height: 22px; padding: 0; }
+.parkett-ptitle.focused { background: color-mix(in srgb, var(--accent-bg-color) 14%, var(--window-bg-color)); font-weight: 600; }
 .parkett-zoom-banner {
   padding: 4px 4px 4px 12px;
   border-radius: 10px;

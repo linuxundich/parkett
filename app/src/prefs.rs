@@ -32,6 +32,15 @@ fn general_page() -> adw::PreferencesPage {
     settings.bind("autohide-tab-bar", &tabbar, "active").build();
     let context = adw::SwitchRow::builder().title("Kontextfarbe für root und SSH").subtitle("Linie, Chip und getönter Hintergrund, Farben aus dem Farbschema").build();
     settings.bind("context-colors", &context, "active").build();
+    let title = adw::ComboRow::builder()
+        .title("Bereichstitel bei geteilten Reitern")
+        .model(&gtk::StringList::new(&["Schwebend", "Als Zeile"]))
+        .build();
+    title.set_selected(if settings.string("pane-title") == "row" { 1 } else { 0 });
+    title.connect_selected_notify(|row| {
+        let _ = crate::settings::settings().set_string("pane-title", if row.selected() == 1 { "row" } else { "floating" });
+    });
+    look.add(&title);
     look.add(&dim);
     look.add(&context);
     look.add(&tabbar);
@@ -56,6 +65,9 @@ fn general_page() -> adw::PreferencesPage {
     settings.bind("scrollback-lines", &scrollback, "value").build();
     behaviour.add(&dir);
     behaviour.add(&confirm);
+    let paste = adw::SwitchRow::builder().title("Vor mehrzeiligem Einfügen warnen").subtitle("Zeigt den Text vorher; gilt für Strg+Umschalt+V und das Kontextmenü").build();
+    settings.bind("warn-multiline-paste", &paste, "active").build();
+    behaviour.add(&paste);
     behaviour.add(&scrollback);
     page.add(&behaviour);
     page
