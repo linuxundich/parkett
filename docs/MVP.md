@@ -9,8 +9,8 @@ Blueprint für Dialoge, GSettings + Dateien, serde, Meson, GPL-3.0-or-later, Pty
 |---|---|---|
 | 1 | **Tabs und Splits** (dieses Dokument, Abschnitt unten) | fertig, in VM getestet |
 | 2 | Meson-Build, GSettings-Schema, LICENSE, Arch-Paket | fertig, in VM getestet |
-| 3 | Basisprofile (Befehl, Verzeichnis, Farbschema, Verhalten bei Ende) | offen |
-| 4 | Einstellungen (AdwPreferencesDialog: Allgemein, Profile, Kürzel) | offen |
+| 3 | Profile und Farbschemata (Ptyxis-Format, Import, Kacheln mit Live-Vorschau) | fertig, in VM getestet |
+| 4 | Einstellungen (AdwPreferencesDialog) – Allgemein und Profile schon da, offen: Kürzel, Feinschliff | teilweise |
 | 5 | Suche im Terminal, Links öffnen (Strg+Klick) | offen |
 | 6 | Befehlspalette, Layout-Modus, Vorlagen (A+) | offen, eventuell nach MVP |
 | 7 | Rückgängig für Schließen, Kontextfarbe je Bereich (Vorschläge 1, 4) | offen |
@@ -130,3 +130,61 @@ Terminal, nicht als App-Accels (siehe PROTOTYP.md, gefundener Fehler).
 
 Nicht getestet: `new-terminal-directory home`, `scrollback-lines` zur Laufzeit, gespeicherte
 Fensterbreite nach Größenänderung per Maus.
+
+## Schritt 3: Profile und Farbschemata
+
+Entscheidung Christoph (2026-10-18): Ptyxis-Paletten-Format mit Hell/Dunkel-Paaren und
+root-/SSH-Farben, kuratierte Auswahl von 10–15, Import von Ptyxis- und Tilix-Schemata,
+Auswahl als Kacheln mit Live-Vorschau.
+
+### Umgesetzt
+
+- **Kern `palette`:** Parser für Ptyxis-Paletten (`[Palette]`, `[Light]`, `[Dark]`; ältere
+  Dateien mit Farben nur in `[Palette]` gelten für beide Fassungen), Ableitung fehlender
+  root-/SSH-Hintergründe nach den Regeln von Ptyxis, Import von Tilix-JSON, Rückschreiben im
+  Ptyxis-Format. 9 Tests, u. a.: alle eingebauten Schemata haben echte helle und dunkle Fassung,
+  Rundreise Lesen → Schreiben → Lesen ist verlustfrei.
+- **14 eingebaute Schemata** (`data/palettes`, Herkunft in `data/palettes/README.md`): GNOME,
+  Hoher Kontrast, Tango, Solarized, Selenized, Nord, Dracula, Catppuccin, Gruvbox, Everforest,
+  One, GitHub, Papercolor, VS Code – alle aus Ptyxis (GPL-3.0-or-later), Farben unverändert.
+- **Kern `profile`:** Profil als TOML-Datei (`~/.config/parkett/profiles/<id>.toml`) mit Name,
+  Farbschema, Befehl statt Shell, Login-Shell, Startverzeichnis, Umgebungsvariablen, Verhalten
+  bei Prozessende (Leiste / schließen bei Erfolg / neu starten). Unbekannte Felder stören nicht,
+  kaputte Dateien werden gemeldet statt gelöscht. 3 Tests.
+- **App:** Farben je Bereich aus der Palette seines Profils, Fassung nach Systemstil, live bei
+  Wechsel von Stil, Schema oder Profil. Abblendung in der Hintergrundfarbe des Schemas.
+  Neue Bereiche erben das Profil des aktiven Bereichs; „Neuer Reiter mit Profil“ im Menü am
+  Neu-Knopf (Standardprofil zuerst). Neustart-Schutz: endet ein Prozess innerhalb von 2 s,
+  startet er nicht automatisch neu. Reiter ohne OSC-Titel heißen nach dem Befehl des Profils.
+- **Einstellungen** (Strg+, und Menü): AdwPreferencesDialog mit „Allgemein“ (alle
+  GSettings-Schlüssel) und „Profile“ (Liste, neues Profil, Editor als Unterseite). Farbschemata
+  als Kacheln (links hell, rechts dunkel), Auswahl gilt sofort; „Importieren …“ mit Dateifilter.
+  Neue GSettings-Schlüssel `default-profile`.
+
+### Tests (VM fedora44-wor)
+
+| Test | Ergebnis |
+|---|---|
+| `cargo test`: 24 Kern-Tests + 1 App-Test, `cargo clippy` | grün, keine Befunde |
+| Erster Start legt `standard.toml` mit Schema „gnome“ an | ok |
+| Einstellungen: Seite „Allgemein“, Seite „Profile“, Editor mit Kacheln | ok (`mvp-farbschemata.png`) |
+| Kachel „Tango“ anklicken → beide laufenden Bereiche sofort Tango, Profil gespeichert | ok |
+| Dunkelmodus → dunkle Tango-Fassung, Abblendung passend | ok (`mvp-tango-hell-dunkel.png`) |
+| Import Tilix `monokai.json` → `monokai-dark.palette`, Hinweis „nur eine Fassung“, Profil nutzt es | ok (`mvp-import.png`) – Kachelauswahl folgte **erst nach Korrektur** |
+| Import Ptyxis-Palette mit nur `[Palette]` (Afterglow) → Kachel ausgewählt | ok |
+| „+“ legt neues Profil an, Umbenennen per Eingabefeld wird gespeichert | ok |
+| Profil mit Befehl `sleep 3` + „Neu starten“: neuer Prozess alle 3 s | ok |
+| „Bereich schließen (bei Erfolg)“: Reiter schließt nach Ende von `sleep 3`, keine Prozesse übrig | ok |
+| Menü „Neuer Reiter mit Profil“ öffnet Reiter mit gewähltem Profil, Titel „sleep 3“ | ok (**nach Korrektur**: erst „Standard (Standard)“ und „Shell“) |
+
+Nicht getestet: Umgebungsvariablen, festes Startverzeichnis, Login-Shell, Profil löschen,
+Fehlermeldung bei kaputter Importdatei, Neustart-Schutz (< 2 s). Befehl und Verhalten bei Ende
+wurden für den Test in der TOML-Datei gesetzt, nicht über die Eingabefelder.
+
+### Offen / beobachtet
+
+- Die Id eines Profils entsteht aus dem ersten Namen („neues-profil“) und bleibt beim
+  Umbenennen gleich – unsichtbar in der Oberfläche, aber in Dateinamen sichtbar.
+- Importierte Schemata erscheinen bis zum nächsten Start am Ende statt alphabetisch.
+- Kontextfarbe je Bereich (root/SSH) ist in den Paletten vorhanden, wird aber erst mit
+  Schritt 7 angewendet.

@@ -16,7 +16,8 @@ steht für das Fischgrät-Muster aus Terminal-Bereichen, das die Splits bilden.
   Split-Layout als getesteter Kern ohne GTK → [`docs/PROTOTYP.md`](docs/PROTOTYP.md)
   (Architektur, Testprotokoll, offene Entscheidungen).
 - **Phase 4 – MVP:** freigegeben; Schritt 1 Tabs und Splits fertig und in der VM getestet →
-  [`docs/MVP.md`](docs/MVP.md). Schritt 2 Meson, GSettings, LICENSE und Arch-Paket fertig. Weiter: Profile, Einstellungen, Suche.
+  [`docs/MVP.md`](docs/MVP.md). Schritte 2 (Meson, GSettings, Arch-Paket) und 3 (Profile, 14 Farbschemata hell/dunkel,
+  Import, Einstellungsdialog) fertig. Weiter: Suche, Links, Kürzel-Seite, Palette, Vorlagen.
 
 ## Bauen und starten
 

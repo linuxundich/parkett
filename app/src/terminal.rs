@@ -4,6 +4,7 @@
 //! nicht aus den seit VTE 0.78 veralteten Signalen.
 
 use std::cell::{Cell, RefCell};
+use std::time::{Duration, Instant};
 use std::os::fd::AsRawFd;
 use std::rc::Rc;
 
@@ -12,7 +13,10 @@ use gtk::{gio, glib, pango};
 use gtk::glib::translate::{from_glib_full, ToGlibPtr};
 use vte::prelude::*;
 
-use crate::colors::{self, Scheme};
+use parkett_core::palette::Rgb;
+use parkett_core::profile::ExitAction;
+
+use crate::profiles::ProfileManager;
 
 /// Kleinste sinnvolle Größe eines Bereichs in Zellen (siehe docs/ANALYSE.md, Funktionsmatrix).
 pub const MIN_COLUMNS: i64 = 20;
@@ -26,6 +30,10 @@ struct Inner {
     exit_bar: gtk::Revealer,
     exit_label: gtk::Label,
     cwd_at_start: Option<String>,
+    profile_id: RefCell<String>,
+    started_at: Cell<Option<Instant>>,
+    background: Cell<Rgb>,
+    on_colors_changed: RefCell<Vec<Callback>>,
     child_pid: Cell<Option<glib::Pid>>,
     exit: Cell<Option<ExitStatus>>,
     on_state_changed: RefCell<Vec<Callback>>,
@@ -36,7 +44,7 @@ struct Inner {
 pub struct Terminal(Rc<Inner>);
 
 impl Terminal {
-    pub fn new(cwd: Option<String>) -> Self {
+    pub fn new(cwd: Option<String>, profile_id: &str) -> Self {
         let vte = vte::Terminal::builder()
             .hexpand(true)
             .vexpand(true)
@@ -75,6 +83,10 @@ impl Terminal {
             exit_bar,
             exit_label,
             cwd_at_start: cwd,
+            profile_id: RefCell::new(profile_id.to_string()),
+            started_at: Cell::new(None),
+            background: Cell::new(Rgb { r: 255, g: 255, b: 255 }),
+            on_colors_changed: RefCell::default(),
             child_pid: Cell::new(None),
             exit: Cell::new(None),
             on_state_changed: RefCell::default(),
@@ -114,13 +126,36 @@ impl Terminal {
         self.0.on_state_changed.borrow_mut().push(Box::new(f));
     }
 
+    pub fn connect_colors_changed(&self, f: impl Fn() + 'static) {
+        self.0.on_colors_changed.borrow_mut().push(Box::new(f));
+    }
+
+    pub fn profile_id(&self) -> String {
+        self.0.profile_id.borrow().clone()
+    }
+
+    /// Wechselt das Profil für Farben und künftige Neustarts (laufender Prozess bleibt).
+    pub fn set_profile(&self, id: &str) {
+        *self.0.profile_id.borrow_mut() = id.to_string();
+        self.apply_colors();
+        self.emit_state_changed();
+    }
+
+    /// Hintergrundfarbe der aktiven Fassung (für die Abblendung im Bereich).
+    pub fn background(&self) -> Rgb {
+        self.0.background.get()
+    }
+
     pub fn connect_close(&self, f: impl Fn() + 'static) {
         self.0.on_close.borrow_mut().push(Box::new(f));
     }
 
-    /// Fenstertitel, den die Shell per OSC 0/2 gesetzt hat.
+    /// Fenstertitel, den die Shell per OSC 0/2 gesetzt hat; sonst der Befehl des Profils.
     pub fn title(&self) -> Option<String> {
-        self.0.vte.termprop_string("xterm.title").0.map(String::from).filter(|s| !s.is_empty())
+        self.0.vte.termprop_string("xterm.title").0.map(String::from).filter(|s| !s.is_empty()).or_else(|| {
+            let command = ProfileManager::get().profile(&self.profile_id()).command;
+            Some(command.trim().to_string()).filter(|c| !c.is_empty())
+        })
     }
 
     /// Arbeitsverzeichnis aus `vte.cwd` (OSC 7, setzt vte.sh in der Shell voraus).
@@ -185,16 +220,39 @@ impl Terminal {
         self.0.exit_bar.set_visible(false);
         self.0.exit.set(None);
         self.0.child_pid.set(None);
-        let shell = user_shell();
-        let cwd = self.0.cwd_at_start.clone().or_else(|| glib::home_dir().to_str().map(String::from));
+        self.0.started_at.set(Some(Instant::now()));
+        let profile = ProfileManager::get().profile(&self.profile_id());
+
+        // Befehl aus dem Profil (wie in einer Shell zerlegt), sonst die Login-Shell des Nutzers
+        let argv: Vec<String> = if profile.command.trim().is_empty() {
+            let mut a = vec![user_shell()];
+            if profile.login_shell {
+                a.push("-l".into());
+            }
+            a
+        } else {
+            match glib::shell_parse_argv(profile.command.trim()) {
+                Ok(v) => v.into_iter().map(|s| s.to_string_lossy().into_owned()).collect(),
+                Err(e) => {
+                    self.fail(&profile.command, e.message());
+                    return;
+                }
+            }
+        };
+        let dir = expand_home(profile.directory.trim())
+            .or_else(|| self.0.cwd_at_start.clone())
+            .or_else(|| glib::home_dir().to_str().map(String::from));
+        let env = profile.valid_environment();
+        let argv_ref: Vec<&str> = argv.iter().map(String::as_str).collect();
+        let env_ref: Vec<&str> = env.iter().map(String::as_str).collect();
         let weak = Rc::downgrade(&self.0);
-        let shell_for_error = shell.clone();
+        let program = argv[0].clone();
         self.0.vte.spawn_async(
             vte::PtyFlags::DEFAULT,
-            cwd.as_deref(),
-            &[shell.as_str()],
-            &[],
-            glib::SpawnFlags::DEFAULT,
+            dir.as_deref(),
+            &argv_ref,
+            &env_ref,
+            glib::SpawnFlags::SEARCH_PATH,
             || {},
             -1,
             gio::Cancellable::NONE,
@@ -202,17 +260,21 @@ impl Terminal {
                 let Some(inner) = weak.upgrade() else { return };
                 match result {
                     Ok(pid) => inner.child_pid.set(Some(pid)),
-                    Err(err) => {
-                    let t = Terminal(inner);
-                    t.0.exit.set(Some(ExitStatus::Code(-1)));
-                    t.show_exit(&format!("<b>{}</b> konnte nicht gestartet werden: {}",
-                        glib::markup_escape_text(&shell_for_error), glib::markup_escape_text(err.message())));
-                    t.emit_state_changed();
-                    }
+                    Err(err) => Terminal(inner).fail(&program, err.message()),
                 }
             },
         );
         self.0.vte.grab_focus();
+    }
+
+    fn fail(&self, program: &str, message: &str) {
+        self.0.exit.set(Some(ExitStatus::Code(-1)));
+        self.show_exit(&format!(
+            "<b>{}</b> konnte nicht gestartet werden: {}",
+            glib::markup_escape_text(program),
+            glib::markup_escape_text(message)
+        ));
+        self.emit_state_changed();
     }
 
     fn show_exit(&self, markup: &str) {
@@ -228,11 +290,33 @@ impl Terminal {
             let t = Terminal(inner);
             let exit = decode_wait_status(status);
             t.0.exit.set(Some(exit));
+            let action = ProfileManager::get().profile(&t.profile_id()).exit_action;
+            let quick = t.0.started_at.get().is_some_and(|s| s.elapsed() < Duration::from_secs(2));
+            match action {
+                ExitAction::Close if exit == ExitStatus::Code(0) => {
+                    // nach dem Signal-Handler schließen, nicht mitten im VTE-Callback
+                    let weak = Rc::downgrade(&t.0);
+                    glib::idle_add_local_once(move || {
+                        if let Some(inner) = weak.upgrade() {
+                            Terminal(inner).emit_close();
+                        }
+                    });
+                    t.emit_state_changed();
+                    return;
+                }
+                // Neustart, außer der Prozess endet sofort wieder (sonst Endlosschleife)
+                ExitAction::Restart if !quick => {
+                    t.spawn();
+                    return;
+                }
+                _ => {}
+            }
             let text = match exit {
                 ExitStatus::Code(0) => "<b>Prozess beendet</b>".to_string(),
                 ExitStatus::Code(c) => format!("<b>Prozess beendet</b> · Exit-Code {c}"),
                 ExitStatus::Signal(s) => format!("<b>Prozess beendet</b> · Signal {s}"),
             };
+            let text = if action == ExitAction::Restart { format!("{text} · kein automatischer Neustart, endete sofort") } else { text };
             t.show_exit(&text);
             t.emit_state_changed();
         });
@@ -247,41 +331,57 @@ impl Terminal {
         });
     }
 
+    /// Farben aus der Palette des Profils, Fassung nach Systemstil; Schrift nach System.
+    fn apply_colors(&self) {
+        let sm = adw::StyleManager::default();
+        let manager = ProfileManager::get();
+        let palette = manager.palette(&manager.profile(&self.profile_id()).palette);
+        let face = palette.face(sm.is_dark());
+        let colors: Vec<gtk::gdk::RGBA> = face.colors.iter().map(rgba).collect();
+        let refs: Vec<&gtk::gdk::RGBA> = colors.iter().collect();
+        let vte = &self.0.vte;
+        vte.set_colors(Some(&rgba(&face.foreground)), Some(&rgba(&face.background)), &refs);
+        vte.set_color_cursor(face.cursor.as_ref().map(rgba).as_ref());
+        vte.set_color_cursor_foreground(face.cursor_foreground.as_ref().map(rgba).as_ref());
+        vte.set_font(Some(&pango::FontDescription::from_string(&sm.monospace_font_name())));
+        self.0.background.set(face.background);
+        for f in self.0.on_colors_changed.borrow().iter() {
+            f();
+        }
+    }
+
     fn setup_style(&self) {
+        self.apply_colors();
+        // Nur schwache Referenzen: StyleManager, ProfileManager und GSettings leben so lange
+        // wie die App. Eine starke Referenz hielte das Terminal fest – es würde nie freigegeben
+        // und die Shell nie beendet (in der VM gefunden: Shell und „sleep“ liefen weiter).
         let style = adw::StyleManager::default();
-        // Nur schwache Referenz: der StyleManager lebt so lange wie die App. Eine starke
-        // Referenz hielte das VTE-Widget fest – es würde nie freigegeben und die Shell nie
-        // beendet (in der VM gefunden: Shell und „sleep“ liefen nach dem Schließen weiter).
-        let apply = {
-            let vte = self.0.vte.downgrade();
-            move |sm: &adw::StyleManager| {
-                let Some(vte) = vte.upgrade() else { return };
-                let s = if sm.is_dark() { &colors::DARK } else { &colors::LIGHT };
-                let palette: Vec<_> = s.palette.iter().map(|c| Scheme::rgba(c)).collect();
-                let refs: Vec<_> = palette.iter().collect();
-                vte.set_colors(Some(&Scheme::rgba(s.fg)), Some(&Scheme::rgba(s.bg)), &refs);
-                vte.set_font(Some(&pango::FontDescription::from_string(&sm.monospace_font_name())));
+        let weak = Rc::downgrade(&self.0);
+        let reapply = move || {
+            if let Some(inner) = weak.upgrade() {
+                Terminal(inner).apply_colors();
             }
         };
-        apply(&style);
-        let handlers = std::cell::RefCell::new(Some((
-            style.connect_dark_notify(apply.clone()),
-            style.connect_monospace_font_name_notify(apply),
+        let (r1, r2) = (reapply.clone(), reapply.clone());
+        let handlers = RefCell::new(Some((
+            style.connect_dark_notify(move |_| r1()),
+            style.connect_monospace_font_name_notify(move |_| r2()),
+            ProfileManager::get().connect_changed(reapply),
         )));
         // Verlaufslänge folgt der Einstellung
-        let settings = crate::settings::settings();
         let vte = self.0.vte.downgrade();
-        let scrollback = settings.connect_changed(Some("scrollback-lines"), move |_, _| {
+        let scrollback = crate::settings::settings().connect_changed(Some("scrollback-lines"), move |_, _| {
             if let Some(vte) = vte.upgrade() {
                 vte.set_scrollback_lines(crate::settings::scrollback_lines());
             }
         });
-        let scrollback = std::cell::RefCell::new(Some(scrollback));
+        let scrollback = RefCell::new(Some(scrollback));
         self.0.vte.connect_destroy(move |_| {
-            if let Some((a, b)) = handlers.borrow_mut().take() {
+            if let Some((a, b, c)) = handlers.borrow_mut().take() {
                 let style = adw::StyleManager::default();
                 style.disconnect(a);
                 style.disconnect(b);
+                ProfileManager::get().disconnect(c);
             }
             if let Some(id) = scrollback.borrow_mut().take() {
                 crate::settings::settings().disconnect(id);
@@ -365,6 +465,22 @@ const SHORTCUTS: &[(&str, &str)] = &[
     ("<Control>minus|<Control>KP_Subtract", "zoom-out"),
     ("<Control>0|<Control>KP_0", "zoom-reset"),
 ];
+
+fn rgba(c: &Rgb) -> gtk::gdk::RGBA {
+    gtk::gdk::RGBA::new(c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0, 1.0)
+}
+
+/// `~` und `~/…` zum Persönlichen Ordner auflösen; leer = keine Vorgabe.
+fn expand_home(dir: &str) -> Option<String> {
+    if dir.is_empty() {
+        return None;
+    }
+    let home = glib::home_dir();
+    match dir.strip_prefix('~') {
+        Some(rest) if rest.is_empty() || rest.starts_with('/') => Some(format!("{}{rest}", home.display())),
+        _ => Some(dir.to_string()),
+    }
+}
 
 /// Login-Shell des Benutzers laut VTE (passwd), sonst $SHELL, sonst /bin/sh.
 fn user_shell() -> String {

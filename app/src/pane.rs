@@ -19,7 +19,7 @@ mod imp {
         pub pill: OnceCell<gtk::Box>,
         pub pill_label: OnceCell<gtk::Label>,
         pub focus_line: OnceCell<gtk::Box>,
-        pub dim: OnceCell<gtk::Box>,
+        pub dim: OnceCell<gtk::DrawingArea>,
     }
 
     #[glib::object_subclass]
@@ -51,17 +51,33 @@ glib::wrapper! {
 }
 
 impl Pane {
-    pub fn new(id: u32, cwd: Option<String>) -> Self {
+    pub fn new(id: u32, cwd: Option<String>, profile_id: &str) -> Self {
         let pane: Pane = glib::Object::new();
         let imp = pane.imp();
         imp.id.set(id);
 
-        let terminal = Terminal::new(cwd);
+        let terminal = Terminal::new(cwd, profile_id);
         let overlay = gtk::Overlay::new();
         overlay.set_child(Some(terminal.widget()));
 
-        // Abblendung inaktiver Bereiche: halbtransparente Fläche in der Terminalfarbe
-        let dim = gtk::Box::builder().css_classes(["parkett-dim"]).can_target(false).visible(false).build();
+        // Abblendung inaktiver Bereiche: halbtransparente Fläche in der Hintergrundfarbe des
+        // Farbschemas (CSS kennt die Palette nicht, daher selbst gezeichnet)
+        let dim = gtk::DrawingArea::builder().can_target(false).visible(false).build();
+        {
+            let t = terminal.clone();
+            dim.set_draw_func(move |_, cr, w, h| {
+                let bg = t.background();
+                cr.set_source_rgba(bg.r as f64 / 255.0, bg.g as f64 / 255.0, bg.b as f64 / 255.0, 0.38);
+                cr.rectangle(0.0, 0.0, w as f64, h as f64);
+                let _ = cr.fill();
+            });
+        }
+        let d2 = dim.downgrade();
+        terminal.connect_colors_changed(move || {
+            if let Some(d) = d2.upgrade() {
+                d.queue_draw();
+            }
+        });
         overlay.add_overlay(&dim);
 
         // Fokus: 2 px Akzentlinie oben – nie nur Abblendung (Barrierefreiheit)

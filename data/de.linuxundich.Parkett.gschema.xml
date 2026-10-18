@@ -43,6 +43,11 @@
       <summary>Verzeichnis neuer Terminals</summary>
       <description>„current“: Verzeichnis des aktiven Bereichs übernehmen, „home“: im Persönlichen Ordner starten.</description>
     </key>
+    <key name="default-profile" type="s">
+      <default>'standard'</default>
+      <summary>Standardprofil</summary>
+      <description>Id des Profils für neue Reiter (Dateiname unter ~/.config/parkett/profiles ohne .toml).</description>
+    </key>
     <key name="scrollback-lines" type="i">
       <range min="-1" max="1000000"/>
       <default>10000</default>

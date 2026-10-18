@@ -5,6 +5,12 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unreleased]
 
 ### Hinzugefügt
+- Profile (TOML unter ~/.config/parkett/profiles): Farbschema, Befehl statt Shell,
+  Login-Shell, Startverzeichnis, Umgebungsvariablen, Verhalten bei Prozessende.
+- 14 Farbschemata mit heller und dunkler Fassung (aus Ptyxis), Wechsel live mit dem Systemstil.
+- Import von Ptyxis-Paletten und Tilix-Farbschemata.
+- Einstellungsdialog (Strg+,) mit Seiten „Allgemein“ und „Profile“, Farbschemata als Kacheln
+  mit Live-Vorschau; „Neuer Reiter mit Profil“ im Menü am Neu-Knopf.
 - Meson-Build mit .desktop, Metainfo, Icons und GSettings-Schema; Lizenztext GPL-3.0.
 - Einstellungen per GSettings: Fenstergröße merken, Nachfrage beim Schließen, Abblenden,
   Reiterleiste ausblenden, Startverzeichnis neuer Terminals, Länge des Verlaufs.

@@ -65,7 +65,7 @@ glib::wrapper! {
 }
 
 impl Tab {
-    pub fn new(cwd: Option<String>) -> Self {
+    pub fn new(cwd: Option<String>, profile_id: &str) -> Self {
         let tab: Tab = glib::Object::new();
         let overlay = gtk::Overlay::new();
 
@@ -91,7 +91,7 @@ impl Tab {
         imp.zoom_label.set(zoom_label).ok();
 
         let first = imp.layout.borrow().focus();
-        tab.add_pane(first, cwd);
+        tab.add_pane(first, cwd, profile_id);
         tab.rebuild();
         tab
     }
@@ -114,8 +114,8 @@ impl Tab {
         self.emit_by_name::<()>("changed", &[]);
     }
 
-    fn add_pane(&self, id: PaneId, cwd: Option<String>) -> Pane {
-        let pane = Pane::new(id, cwd);
+    fn add_pane(&self, id: PaneId, cwd: Option<String>, profile_id: &str) -> Pane {
+        let pane = Pane::new(id, cwd, profile_id);
         let weak = self.downgrade();
         pane.terminal().connect_state_changed(move || {
             if let Some(tab) = weak.upgrade() {
@@ -248,8 +248,10 @@ impl Tab {
             return false;
         }
         let cwd = self.inherited_cwd();
+        // neuer Bereich erbt das Profil des aktiven
+        let profile = self.focused_pane().terminal().profile_id();
         let Some((next, id)) = layout.split(focus, o) else { return false };
-        self.add_pane(id, cwd);
+        self.add_pane(id, cwd, &profile);
         self.set_layout(next);
         true
     }

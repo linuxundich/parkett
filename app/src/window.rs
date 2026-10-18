@@ -5,6 +5,7 @@ use adw::subclass::prelude::*;
 use gtk::{gio, glib};
 use parkett_core::layout::{Direction, Orientation};
 
+use crate::profiles::ProfileManager;
 use crate::tab::Tab;
 
 mod imp {
@@ -144,9 +145,17 @@ impl Window {
 
         let title = adw::WindowTitle::new("Parkett", "");
 
+        // Menü am Neu-Knopf: ein Eintrag je Profil, folgt Änderungen an den Profilen
         let new_menu = gio::Menu::new();
-        new_menu.append(Some("Neuer Reiter"), Some("win.new-tab"));
-        new_menu.append(Some("Neues Fenster"), Some("app.new-window"));
+        fill_new_menu(&new_menu);
+        let menu_ref = new_menu.clone();
+        let handler = ProfileManager::get().connect_changed(move || fill_new_menu(&menu_ref));
+        let handler = std::cell::RefCell::new(Some(handler));
+        self.connect_destroy(move |_| {
+            if let Some(h) = handler.borrow_mut().take() {
+                ProfileManager::get().disconnect(h);
+            }
+        });
         let new_button = adw::SplitButton::builder()
             .icon_name("tab-new-symbolic")
             .tooltip_text("Neuer Reiter (Strg+Umschalt+T)")
@@ -161,6 +170,7 @@ impl Window {
         s1.append(Some("Reiter umbenennen …"), Some("win.rename-tab"));
         main_menu.append_section(None, &s1);
         let s2 = gio::Menu::new();
+        s2.append(Some("Einstellungen"), Some("app.preferences"));
         s2.append(Some("Tastenkürzel"), Some("app.shortcuts"));
         s2.append(Some("Über Parkett"), Some("app.about"));
         main_menu.append_section(None, &s2);
@@ -245,7 +255,11 @@ impl Window {
     }
 
     pub fn add_tab(&self, cwd: Option<String>) -> Tab {
-        let tab = Tab::new(cwd);
+        self.add_tab_with_profile(cwd, &ProfileManager::get().default_id())
+    }
+
+    pub fn add_tab_with_profile(&self, cwd: Option<String>, profile: &str) -> Tab {
+        let tab = Tab::new(cwd, profile);
         let page = self.tab_view().append(&tab);
         let weak = self.downgrade();
         tab.connect_changed(move |tab| {
@@ -378,6 +392,14 @@ impl Window {
             let cwd = w.current_tab().and_then(|t| t.inherited_cwd());
             w.add_tab(cwd);
         });
+        let a = gio::SimpleAction::new("new-tab-profile", Some(glib::VariantTy::STRING));
+        let weak = self.downgrade();
+        a.connect_activate(move |_, param| {
+            let (Some(w), Some(id)) = (weak.upgrade(), param.and_then(|p| p.get::<String>())) else { return };
+            let cwd = w.current_tab().and_then(|t| t.inherited_cwd());
+            w.add_tab_with_profile(cwd, &id);
+        });
+        self.add_action(&a);
         action("close-tab", |w| {
             if let Some(page) = w.tab_view().selected_page() {
                 w.tab_view().close_page(&page);
@@ -461,6 +483,26 @@ impl Window {
         }
         self.add_controller(controller);
     }
+}
+
+fn fill_new_menu(menu: &gio::Menu) {
+    menu.remove_all();
+    let manager = ProfileManager::get();
+    let default = manager.default_id();
+    let profiles = gio::Menu::new();
+    // Standardprofil zuerst, danach alphabetisch
+    let mut list = manager.profiles();
+    list.sort_by_key(|p| p.id != default);
+    for p in list {
+        let item = gio::MenuItem::new(Some(&p.name), None);
+        item.set_action_and_target_value(Some("win.new-tab-profile"), Some(&p.id.to_variant()));
+        profiles.append_item(&item);
+    }
+    menu.append_section(Some("Neuer Reiter mit Profil"), &profiles);
+    let more = gio::Menu::new();
+    more.append(Some("Neues Fenster"), Some("app.new-window"));
+    more.append(Some("Profile bearbeiten …"), Some("app.preferences"));
+    menu.append_section(None, &more);
 }
 
 fn shortcut(accel: &str, action: &str) -> gtk::Shortcut {

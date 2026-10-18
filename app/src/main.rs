@@ -1,7 +1,8 @@
 //! Parkett – Terminalemulator für GNOME mit Splits.
 
-mod colors;
 mod pane;
+mod prefs;
+mod profiles;
 mod settings;
 mod tab;
 mod terminal;
@@ -20,8 +21,6 @@ vte-terminal { padding: 6px 8px; }
   background: color-mix(in srgb, var(--destructive-bg-color) 14%, var(--view-bg-color));
   box-shadow: inset 0 1px var(--border-color);
 }
-/* Terminalhintergrund = view_bg_color von libadwaita (siehe colors.rs) */
-.parkett-dim { background: color-mix(in srgb, var(--view-bg-color) 38%, transparent); }
 .parkett-focus-line { background: var(--accent-bg-color); }
 .parkett-pill {
   padding: 2px 2px 2px 9px;
@@ -34,6 +33,9 @@ vte-terminal { padding: 6px 8px; }
 .parkett-pill button { min-width: 22px; min-height: 22px; padding: 0; }
 parkett-pane:not(.focused) .parkett-pill { opacity: 0.75; }
 paned > separator { background: var(--border-color); }
+.parkett-tile-preview { border-radius: 8px; box-shadow: 0 0 0 1px var(--border-color); }
+.parkett-schemes > flowboxchild { border-radius: 12px; padding: 6px; }
+.parkett-schemes > flowboxchild:selected { background: color-mix(in srgb, var(--accent-bg-color) 18%, transparent); box-shadow: inset 0 0 0 2px var(--accent-bg-color); }
 .parkett-zoom-banner {
   padding: 4px 4px 4px 12px;
   border-radius: 10px;
@@ -102,6 +104,16 @@ fn setup_actions(app: &adw::Application) {
     });
     app.add_action(&about);
 
+    let preferences = gio::SimpleAction::new("preferences", None);
+    preferences.connect_activate({
+        let app = app.downgrade();
+        move |_, _| {
+            let Some(app) = app.upgrade() else { return };
+            prefs::show(app.active_window().as_ref());
+        }
+    });
+    app.add_action(&preferences);
+
     let shortcuts = gio::SimpleAction::new("shortcuts", None);
     shortcuts.connect_activate({
         let app = app.downgrade();
@@ -116,6 +128,7 @@ fn setup_actions(app: &adw::Application) {
     // Widgets (Capture-Phase), sonst würden sie doppelt oder gar nicht ausgelöst.
     app.set_accels_for_action("app.new-window", &["<Ctrl><Shift>n"]);
     app.set_accels_for_action("app.shortcuts", &["<Ctrl>question"]);
+    app.set_accels_for_action("app.preferences", &["<Ctrl>comma"]);
 }
 
 /// Übersicht aller Kürzel (AdwShortcutsDialog, libadwaita 1.8).

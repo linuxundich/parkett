@@ -11,6 +11,8 @@
     <ul>
       <li>Reiter mit Übersicht und Suche</li>
       <li>Bereiche rechts oder unten teilen, maximieren, angleichen und per Tastatur wechseln</li>
+      <li>Profile mit eigenem Befehl, Startverzeichnis und Verhalten bei Prozessende</li>
+      <li>14 Farbschemata mit heller und dunkler Fassung, Import von Ptyxis- und Tilix-Schemata</li>
       <li>Nachfrage beim Schließen, wenn noch ein Programm läuft</li>
       <li>Helles und dunkles Design nach Systemeinstellung</li>
     </ul>
