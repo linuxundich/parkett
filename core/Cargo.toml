@@ -1,0 +1,8 @@
+[package]
+name = "parkett-core"
+description = "Parkett: Split-Layout, Sitzungen und Profile ohne GTK"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]

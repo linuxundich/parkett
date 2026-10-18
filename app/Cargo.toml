@@ -1,0 +1,12 @@
+[package]
+name = "parkett"
+description = "Terminalemulator für GNOME mit Splits"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+parkett-core = { path = "../core" }
+gtk = { package = "gtk4", version = "0.11", features = ["v4_18"] }
+adw = { package = "libadwaita", version = "0.9", features = ["v1_7"] }
+vte = { package = "vte4", version = "0.10", features = ["v0_80"] }

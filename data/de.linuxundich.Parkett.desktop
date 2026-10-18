@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Parkett
+Comment=Terminal mit geteilten Bereichen
+Exec=parkett
+Icon=de.linuxundich.Parkett
+Terminal=false
+Type=Application
+Categories=System;TerminalEmulator;GTK;GNOME;
+Keywords=terminal;shell;console;split;tilix;
+StartupNotify=true
+DBusActivatable=false
+X-GNOME-UsesNotifications=true

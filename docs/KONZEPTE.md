@@ -220,7 +220,7 @@ für die offene Frage „Bereichstitel“).
 | Vorlagen mit Startbefehlen | B | im Menü am Neu-Knopf neben den Profilen; Dialog „Vorlage öffnen“ (Verzeichnis, Startbefehle ein/aus, zuletzt benutzte Verzeichnisse); „Aktuellen Tab als Vorlage speichern“; Editor als Unterseite der Einstellungen |
 | Layout-Editor | B | **nur für Vorlagen** – im laufenden Tab genügen Kontextmenü, Ziehen und Layout-Modus |
 
-### Neue Vorschläge in A+ (V – bitte prüfen)
+### Neue Vorschläge in A+ (übernommen am 2026-10-18)
 
 1. **Kontextfarbe je Bereich:** SSH/Root/Container-Bereiche bekommen eine farbige Linie oben,
    einen Host-Chip und einen leicht getönten Grund. Farbe aus dem Farbschema (Muster Ptyxis),
@@ -236,7 +236,7 @@ für die offene Frage „Bereichstitel“).
 6. **Startbefehle nie still ausführen:** Schalter im Öffnen-Dialog, Standard „an“ nur für eigene
    Vorlagen; importierte Vorlagen zeigen ihre Befehle vor dem ersten Lauf.
 
-### Offene Gestaltungsfrage: Bereichstitel
+### Gestaltungsfrage Bereichstitel (entschieden: schwebend)
 
 Im Mockup per Schalter „Titel schwebend / Titel als Zeile“ vergleichbar (gilt nur bei geteilten Tabs).
 
@@ -250,3 +250,8 @@ Im Mockup per Schalter „Titel schwebend / Titel als Zeile“ vergleichbar (gil
 
 **S:** Beide sind gleich teuer umzusetzen; als Einstellung lässt sich die andere Variante anbieten.
 Zu entscheiden ist der Standard.
+
+### Freigabe A+ (2026-10-18)
+
+Christoph hat A+ freigegeben: **Bereichstitel schwebend** als Standard („als Zeile“ als
+Einstellung), **Vorschläge 1–6 übernommen**. Weiter mit Phase 3, siehe `docs/PROTOTYP.md`.

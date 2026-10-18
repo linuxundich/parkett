@@ -11,10 +11,27 @@ steht für das Fischgrät-Muster aus Terminal-Bereichen, das die Splits bilden.
 - **Phase 2 – Design:** drei Konzepte als HTML-Mockups → [`docs/KONZEPTE.md`](docs/KONZEPTE.md),
   [`mockups/`](mockups/). Entschieden: A als Grundgerüst plus Befehlspalette und Layout-Modus aus C
   und Vorlagen mit Startbefehlen aus B → `mockups/combined.html` („Konzept A+“).
-  **Wartet auf Freigabe** von A+ (offen: Standard für Bereichstitel, neue Vorschläge 1–6).
-- Phase 3 (technischer Prototyp) beginnt erst nach Freigabe des Designs.
+  A+ ist freigegeben (Bereichstitel schwebend, Vorschläge 1–6 übernommen).
+- **Phase 3 – Prototyp:** Rust, App-ID `de.linuxundich.Parkett`; ein Fenster mit einem Terminal,
+  Split-Layout als getesteter Kern ohne GTK → [`docs/PROTOTYP.md`](docs/PROTOTYP.md)
+  (Architektur, Testprotokoll, offene Entscheidungen). **Wartet auf Freigabe für Phase 4 (MVP).**
 
-Es gibt noch keinen Anwendungscode.
+## Bauen und starten
+
+Abhängigkeiten: Rust, GTK ≥ 4.18, libadwaita ≥ 1.7, VTE (gtk4) ≥ 0.80
+(Arch: `gtk4 libadwaita vte4`; Fedora: `gtk4-devel libadwaita-devel vte291-gtk4-devel`).
+
+```bash
+cargo run -p parkett
+```
+
+```bash
+cargo test
+```
+
+Test in der VM `fedora44-wor` (GNOME Boxes, SSH-Port 2223): `build-aux/vm/deploy.sh` baut dort,
+installiert nach `~/.local` und startet wie GNOME Shell; `build-aux/vm/shot.sh datei.png` macht
+ein Bildschirmfoto, `build-aux/vm/click.py X Y` klickt.
 
 ## Mockups ansehen
 
