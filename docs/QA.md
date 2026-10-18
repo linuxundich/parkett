@@ -84,7 +84,7 @@ Mittelklick fügen weiter ohne Rückfrage ein (VTE-intern); moderne Shells schü
 | ID | Test | Ergebnis |
 |---|---|---|
 | D1 | Durchsatz: `seq` 3 Mio. Zeilen / 20 MB farbiger Text, maximiert | ✅ VM: Parkett 2,56–2,60 s / 1,17–1,28 s, Ptyxis 2,53–2,63 s / 1,17–1,24 s · Host: Parkett 2,50 s / 0,91 s, GNOME Console 2,79 s / 0,90 s |
-| D2 | Dauerlauf 15 min, 4 Bereiche mit je ≈ 1000 Zeilen/s | siehe unten |
+| D2 | Dauerlauf 15 min (VM), 4 Bereiche mit je ≈ 1000 Zeilen/s | ✅ RSS 283 → 296 MB, ab Minute 10 flach (295–296 MB: Verlauf von 10 000 Zeilen je Bereich gefüllt), Threads 41, CPU 36–60 % eines Kerns (Software-Rendering) |
 
 Erster Durchsatzlauf in der VM mit unterschiedlichen Fenstergrößen hatte Parkett 13–17 %
 langsamer gezeigt; maximiert sind beide gleichauf – die Fenstergröße war die Ursache.
