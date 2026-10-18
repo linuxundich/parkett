@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terminal-Konzepte</title>
+<link rel="stylesheet" href="shared/base.css">
+<style>
+  body { background: var(--window-bg); }
+  main { max-width: 1320px; margin: 0 auto; padding: 24px 16px 60px; }
+  h2 { font-size: 20px; margin: 32px 0 6px; }
+  p.lead { color: var(--dim); max-width: 860px; line-height: 1.5; margin: 6px 0 18px; }
+  .cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+  @media (max-width: 900px) { .cols { grid-template-columns: 1fr; } }
+  .cc { background: var(--card-bg); border-radius: 14px; box-shadow: 0 0 0 1px var(--card-shade), 0 1px 3px var(--card-shade); overflow: hidden; display: flex; flex-direction: column; }
+  .frame { position: relative; aspect-ratio: 1280 / 800; overflow: hidden; background: var(--desk-bg); }
+  .frame iframe { position: absolute; top: 0; left: 0; width: 1312px; height: 1100px; border: 0; transform-origin: 0 0; pointer-events: none; }
+  .cc .txt { padding: 14px 16px 16px; line-height: 1.45; font-size: 14px; }
+  .cc h3 { margin: 0 0 6px; font-size: 16px; }
+  .cc a.open { display: inline-block; margin-top: 10px; font-weight: 700; color: var(--accent); text-decoration: none; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; background: var(--card-bg); border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px var(--card-shade); }
+  th, td { text-align: left; padding: 9px 12px; vertical-align: top; }
+  tr + tr td, tr + tr th { box-shadow: inset 0 1px var(--border); }
+  thead th { background: var(--secondary-sidebar-bg); }
+  .seg { display: inline-flex; background: var(--hover); border-radius: 8px; padding: 2px; gap: 2px; margin-left: 10px; vertical-align: middle; }
+  .seg button { font: inherit; font-size: 13px; color: inherit; background: none; border: 0; border-radius: 6px; padding: 3px 10px; }
+  .seg button[aria-pressed="true"] { background: var(--card-bg); box-shadow: 0 1px 2px rgb(0 0 0 / 15%); }
+</style>
+</head>
+<body>
+<main>
+  <h1 style="font-size:26px;margin:0">Tilix-Nachfolger · Designkonzepte <span class="seg" id="theme"><button data-t="light">Hell</button><button data-t="dark">Dunkel</button></span></h1>
+  <p class="lead">Drei Richtungen mit identischem Inhalt: gleiche Fenstergröße (1280×800), gleiche fünf Sitzungen, gleiches Split-Layout. Farben aus libadwaita 1.10, Icons aus Adwaita. Jede Konzeptseite zeigt Hauptfenster, Navigation, Split-Verwaltung, Einstellungen und ein kleines Fenster – jeweils hell und dunkel. Ausführliche Bewertung in <code>docs/KONZEPTE.md</code>.</p>
+
+  <div class="cols" id="cols"></div>
+
+  <h2>Gegenüberstellung</h2>
+  <table>
+    <thead><tr><th></th><th>A · GNOME Native</th><th>B · Arbeitsbereiche</th><th>C · Terminalzentriert</th></tr></thead>
+    <tbody>
+      <tr><th>Hauptnavigation</th><td>Tab-Leiste + Tab-Übersicht</td><td>Seitenleiste Projekte → Terminals</td><td>Befehlspalette + Statuszeile</td></tr>
+      <tr><th>Splits bedienen</th><td>Kontextmenü mit Layout-Kacheln, Kürzel, Ziehen am schwebenden Titel</td><td>Knöpfe in Titelzeilen, grafischer Layout-Editor</td><td>Layout-Modus mit Nummern und Einzeltasten</td></tr>
+      <tr><th>Fokus</th><td>Akzentlinie + Abblenden</td><td>eingefärbte Titelzeile</td><td>Akzentrahmen + Abblenden</td></tr>
+      <tr><th>Terminalfläche 1280×800</th><td>89,0 % (≈94 % bei einem Tab)</td><td>70,9 % offen · ≈85 % eingeklappt</td><td>95,6 %</td></tr>
+      <tr><th>Terminalfläche 720×540</th><td>83,7 %</td><td>83,6 % (Leiste zu)</td><td>93,5 %</td></tr>
+      <tr><th>Entdeckbarkeit</th><td>hoch</td><td>sehr hoch</td><td>niedrig</td></tr>
+      <tr><th>Tastatur-Effizienz</th><td>gut</td><td>gut</td><td>sehr hoch</td></tr>
+      <tr><th>GNOME-Konformität</th><td>sehr hoch</td><td>hoch</td><td>mittel</td></tr>
+      <tr><th>Aufwand Oberfläche</th><td>niedrig–mittel</td><td>hoch</td><td>mittel</td></tr>
+      <tr><th>Stärkste Seite</th><td>vertraut, robust, viel aus Standard-Widgets</td><td>viele Projekte parallel, Vorlagen mit Startbefehlen</td><td>maximale Fläche, Tastatur</td></tr>
+      <tr><th>Schwächste Seite</th><td>wenig eigenes Profil</td><td>Fläche, Aufwand, neues Begriffsmodell</td><td>Funktionen unsichtbar, ungewohnt ohne Headerbar</td></tr>
+    </tbody>
+  </table>
+  <p class="lead" style="margin-top:14px"><b>Empfehlung (keine Entscheidung):</b> A als Grundgerüst, ergänzt um Befehlspalette und Layout-Modus aus C sowie Vorlagen mit Startbefehlen aus B.</p>
+</main>
+<script>
+  const C = [
+    ["a", "A · GNOME Native", "Headerbar + AdwTabBar, Tab = Sitzung mit Split-Baum. Splits über Kontextmenü, Kürzel und schwebende Bereichstitel. Tab-Übersicht, AdwPreferencesDialog."],
+    ["b", "B · Arbeitsbereiche", "Seitenleiste mit Projekten (Verzeichnis + Profil + Layout) und ihren Terminals, Vorlagen, flache Titelzeile je Bereich, grafischer Layout-Editor."],
+    ["c", "C · Terminalzentriert", "Keine Headerbar, schwebende Fenstersteuerung, Statuszeile, Befehlspalette, modaler Layout-Modus, Einstellungen als Seitenpanel mit Live-Vorschau."],
+  ];
+  let theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  function draw() {
+    document.documentElement.dataset.theme = theme;
+    document.querySelectorAll("#theme button").forEach(b => b.setAttribute("aria-pressed", b.dataset.t === theme));
+    const cols = document.getElementById("cols");
+    cols.innerHTML = "";
+    for (const [k, t, d] of C) {
+      const card = document.createElement("div");
+      card.className = "cc";
+      card.innerHTML = `<div class="frame"><iframe loading="lazy" src="concept-${k}.html#view=main&theme=${theme}&hints=0" title="${t}"></iframe></div><div class="txt"><h3>${t}</h3>${d}<br><a class="open" href="concept-${k}.html#view=main&theme=${theme}">Konzept öffnen →</a></div>`;
+      cols.append(card);
+    }
+    fit();
+  }
+  function fit() {
+    document.querySelectorAll(".frame").forEach(f => {
+      const ifr = f.querySelector("iframe");
+      // Fenster liegt im iframe bei (16, ~70); auf die Fensterkante zuschneiden
+      const s = f.clientWidth / 1280;
+      const w = ifr.contentDocument && ifr.contentDocument.querySelector(".window");
+      const r = w ? w.getBoundingClientRect() : { left: 16, top: 77 };
+      ifr.style.transform = `scale(${s}) translate(${-r.left}px, ${-r.top}px)`;
+      if (!w) ifr.onload = () => setTimeout(fit, 300);
+    });
+  }
+  document.querySelectorAll("#theme button").forEach(b => b.onclick = () => { theme = b.dataset.t; draw(); });
+  addEventListener("resize", fit);
+  draw();
+</script>
+</body>
+</html>

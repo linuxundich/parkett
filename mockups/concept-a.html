@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Konzept A – GNOME Native</title>
+<link rel="stylesheet" href="shared/base.css">
+<link rel="stylesheet" href="shared/icons.css">
+<style>
+  /* AdwTabBar */
+  .tabbar { height: 40px; flex: none; display: flex; align-items: center; gap: 0; padding: 0 6px; background: var(--headerbar-bg); box-shadow: inset 0 -1px var(--headerbar-shade); }
+  .tab { flex: 1 1 0; max-width: 220px; min-width: 120px; height: 32px; margin: 0 2px; border-radius: 6px; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 10px; font-size: 13px; font-weight: 600; position: relative; color: var(--dim); }
+  .tab .nm { flex: 1; min-width: 0; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tab.on { background: var(--active); color: var(--window-fg); }
+  .tab:not(.on) + .tab:not(.on)::before { content: ""; position: absolute; left: -3px; top: 9px; bottom: 9px; width: 1px; background: var(--border); }
+  .tab .x { opacity: 0; }
+  .tab.on .x, .tab:hover .x { opacity: 1; }
+  .tab .glyph { color: currentColor; }
+  .tab.attn::after { content: ""; position: absolute; left: 30%; right: 30%; bottom: 1px; height: 3px; border-radius: 2px; background: var(--accent-bg); }
+  .tab.pinned { flex: none; min-width: 0; width: 40px; justify-content: center; padding: 0; }
+  /* Overlay-Titel je Terminal (nur bei mehreren Bereichen) */
+  .pane-pill { position: absolute; top: 6px; right: 8px; z-index: 3; display: flex; align-items: center; gap: 2px; padding: 2px 2px 2px 9px; border-radius: 8px; font-size: 12px; font-weight: 600; background: color-mix(in srgb, var(--headerbar-bg) 88%, transparent); box-shadow: 0 0 0 1px var(--border), 0 1px 3px rgb(0 0 6 / 10%); color: var(--dim); }
+  .pane-pill .nm { margin-right: 4px; white-space: nowrap; }
+  .pane.focused .pane-pill { color: var(--window-fg); }
+  .pane.focused::after { content: ""; position: absolute; inset: 0; box-shadow: inset 0 2px 0 var(--accent-bg); pointer-events: none; }
+  .exited { flex: none; display: flex; align-items: center; gap: 10px; padding: 7px 10px; font-size: 13px; background: color-mix(in srgb, var(--destructive) 13%, var(--term-bg)); color: var(--window-fg); box-shadow: inset 0 1px var(--border); }
+  .exited .btn { height: 26px; font-size: 13px; background: var(--hover); }
+  /* AdwTabOverview */
+  .overview { position: absolute; inset: 0; background: var(--overview-bg); z-index: 20; display: flex; flex-direction: column; }
+  .overview .grid { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 26px; padding: 22px 60px; align-content: start; }
+  .card { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .thumb { height: 196px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px var(--border), 0 2px 6px rgb(0 0 6 / 10%); display: flex; background: var(--term-bg); position: relative; }
+  .card.on .thumb { box-shadow: 0 0 0 3px var(--accent-bg); }
+  .thumb .term { font-size: 6.5px; line-height: 8.5px; padding: 4px 5px; }
+  .thumb .pane.dimmed .term { opacity: .8; }
+  .card .cap { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; padding: 0 4px; }
+  .card .cap .sub { color: var(--dim); font-weight: 400; margin-left: auto; font-size: 12px; }
+  .thumb .closex { position: absolute; top: 6px; right: 6px; background: rgb(0 0 0 / 55%); color: #fff; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
+  .overview .newfab { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); }
+  .layout-tiles { display: grid; grid-template-columns: repeat(4, 64px); gap: 8px; padding: 6px 8px 8px; }
+  .layout-tiles .lt { height: 48px; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--border); display: flex; align-items: center; justify-content: center; color: var(--window-fg); }
+  .layout-tiles .lt.hover { background: var(--hover); box-shadow: inset 0 0 0 2px var(--accent-bg); }
+  .layout-tiles .lt .glyph { width: 30px; height: 22px; }
+  .drop-zone { position: absolute; z-index: 4; background: color-mix(in srgb, var(--accent-bg) 22%, transparent); border: 2px dashed var(--accent-bg); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--accent); font-weight: 700; font-size: 13px; }
+  /* Einstellungen: AdwPreferencesDialog */
+  .prefs { width: 640px; height: 640px; }
+  .prefs .hb { height: 47px; display: flex; align-items: center; justify-content: center; position: relative; }
+  .prefs .hb .x { position: absolute; right: 10px; }
+  .prefs .hb .s { position: absolute; left: 10px; }
+  .prefs .body { flex: 1; overflow: hidden; padding: 12px 40px; }
+</style>
+</head>
+<body>
+<div class="stage-bar"><h1>Konzept A · GNOME Native</h1><a href="index.html">Übersicht</a> <a href="concept-b.html">B</a> <a href="concept-c.html">C</a><span class="meter"></span></div>
+<div class="stage"><div class="scaler"></div><div class="caption"></div></div>
+
+<script type="module">
+import { TERMS, SESSIONS, el, icon, glyph, renderLayout, stage, hint, sessionState, sessionTerms, STATE_LABEL } from "./shared/content.js";
+
+const S = SESSIONS;
+
+function headerbar(win, { title = "lui-theme", sub = "~/05_Projekte/web/linuxundich/theme", overview = false } = {}) {
+  const hb = el("div", "headerbar");
+  hb.innerHTML = `
+    <span class="split-btn"><button class="btn" title="Neuer Tab (Strg+Umschalt+T)">${icon("tab-new")}</button><button class="btn" title="Profil wählen">${icon("pan-down")}</button></span>
+    <div class="title"><b>${title}</b><small>${sub}</small></div>
+    <span class="spacer"></span>
+    <button class="btn ${overview ? "on" : ""}" title="Tab-Übersicht (Strg+Umschalt+O)">${icon("view-grid")}</button>
+    <button class="btn" title="Suchen (Strg+Umschalt+F)">${icon("edit-find")}</button>
+    <button class="btn" title="Hauptmenü">${icon("open-menu")}</button>
+    <span class="wincontrols"><span>${icon("window-minimize")}</span><span>${icon("window-maximize")}</span><span>${icon("window-close")}</span></span>`;
+  win.append(hb);
+  return hb;
+}
+
+function tabbar(win, active = "theme", { narrow = false } = {}) {
+  const tb = el("div", "tabbar");
+  const list = narrow ? S.slice(0, 3) : S;
+  for (const s of list) {
+    const st = sessionState(s);
+    const t = el("div", "tab" + (s.id === active ? " on" : "") + (s.attention ? " attn" : ""));
+    const lead = st === "run" ? `<span class="dot run" title="Prozess läuft"></span>` : st === "err" ? icon("dialog-warning", "f1") : "";
+    t.innerHTML = `${lead || (typeof s.layout !== "string" ? "" : "")}<span class="nm">${s.name}</span><button class="btn sm circ x">${icon("window-close")}</button>`;
+    if (typeof s.layout !== "string") t.prepend(glyph(s.layout, s.focus));
+    tb.append(t);
+  }
+  if (narrow) tb.append(el("div", "", `<button class="btn sm" style="margin:0 4px">${icon("go-down")}</button>`));
+  win.append(tb);
+  return tb;
+}
+
+function paneChrome(multi) {
+  return (pane, id) => {
+    const t = TERMS[id];
+    if (multi) {
+      const pill = el("div", "pane-pill", `<span class="nm">${t.title}</span><button class="btn sm">${icon("view-fullscreen")}</button><button class="btn sm">${icon("window-close")}</button>`);
+      pane.append(pill);
+    }
+    if (t.state === "err") {
+      pane.append(el("div", "exited", `${icon("dialog-warning")}<span><b>Prozess beendet</b> · Exit-Code ${t.exit}</span><span class="spacer"></span><button class="btn">Neu starten</button><button class="btn">Schließen</button>`));
+    }
+    return pane;
+  };
+}
+
+function content(win, sid = "theme") {
+  const s = S.find((x) => x.id === sid);
+  const root = el("div", "splitroot");
+  const multi = typeof s.layout !== "string";
+  root.append(renderLayout(s.layout, { focus: s.focus, chrome: paneChrome(multi) }));
+  win.append(root);
+  return root;
+}
+
+function mainView(win) {
+  headerbar(win);
+  tabbar(win, "theme");
+  content(win, "theme");
+  hint(win, 1, "Split-Knopf: „+“ öffnet Tab mit Standardprofil, Pfeil wählt Profil oder Layout-Vorlage", { left: "10px", top: "52px" });
+  hint(win, 2, "AdwTabBar mit Layout-Symbol je Tab, Punkt = Prozess läuft, Strich = neue Ausgabe", { left: "300px", top: "92px" });
+  hint(win, 3, "Fokus: Akzentlinie oben, inaktive Bereiche leicht abgeblendet", { left: "40px", top: "300px" });
+  hint(win, 4, "Schwebender Titel je Bereich nur bei Splits: Maximieren, Schließen, Ziehen zum Verschieben", { right: "14px", top: "128px" });
+}
+
+function navView(win) {
+  headerbar(win, { title: "Alle Tabs", sub: "5 Tabs · 9 Terminals", overview: true });
+  const ov = el("div", "overview");
+  ov.style.top = "47px";
+  const top = el("div", "", "");
+  top.style.cssText = "display:flex;justify-content:center;padding:16px 0 0";
+  top.innerHTML = `<div class="entry" style="width:360px">${icon("system-search")} Tabs und Terminals durchsuchen …</div>`;
+  ov.append(top);
+  const grid = el("div", "grid");
+  for (const s of S) {
+    const c = el("div", "card" + (s.id === "theme" ? " on" : ""));
+    const th = el("div", "thumb");
+    th.append(renderLayout(s.layout, { focus: s.focus, dimUnfocused: false }));
+    th.querySelectorAll(".pane").forEach((p) => p.classList.add("thumb"));
+    th.append(el("span", "closex", icon("window-close")));
+    const st = sessionState(s);
+    c.append(th, el("div", "cap", `${st === "run" ? '<span class="dot run"></span>' : st === "err" ? icon("dialog-warning", "f1") : s.attention ? '<span class="dot act"></span>' : ""}${s.name}<span class="sub">${sessionTerms(s.layout).length} Terminal${sessionTerms(s.layout).length > 1 ? "s" : ""} · ${STATE_LABEL[st]}</span>`));
+    grid.append(c);
+  }
+  ov.append(grid);
+  ov.append(el("div", "newfab", `<button class="btn suggested" style="height:40px;padding:0 18px;border-radius:20px">${icon("tab-new")} Neuer Tab</button>`));
+  win.append(ov);
+  hint(win, 1, "AdwTabOverview: Vorschau aller Tabs inkl. Split-Aufteilung, Suche filtert nach Titel, Verzeichnis, Befehl", { left: "470px", top: "60px" });
+  hint(win, 2, "Status in Klartext: läuft / neue Ausgabe / beendet mit Fehler", { right: "40px", top: "300px" });
+}
+
+function splitView(win) {
+  headerbar(win);
+  tabbar(win, "theme");
+  const root = content(win, "theme");
+  // Kontextmenü am rechten oberen Terminal
+  const pop = el("div", "popover", `
+    <div class="item hover">${icon("view-dual")} Rechts teilen<span class="kbd">Strg+Alt+R</span></div>
+    <div class="item">${icon("view-paged")} Unten teilen<span class="kbd">Strg+Alt+D</span></div>
+    <div class="head">Layout dieses Tabs</div>
+    <div class="layout-tiles" id="lt"></div>
+    <hr>
+    <div class="item">${icon("view-fullscreen")} Bereich maximieren<span class="kbd">Strg+Umschalt+X</span></div>
+    <div class="item">${icon("view-restore")} Größen angleichen<span class="kbd">Strg+Alt+=</span></div>
+    <div class="item">${icon("go-next")} In neuen Tab verschieben</div>
+    <div class="item">${icon("document-save")} Layout als Vorlage speichern …</div>
+    <hr>
+    <div class="item">${icon("edit-copy")} Kopieren<span class="kbd">Strg+Umschalt+C</span></div>
+    <div class="item">${icon("edit-paste")} Einfügen<span class="kbd">Strg+Umschalt+V</span></div>
+    <hr>
+    <div class="item" style="color:var(--destructive)">${icon("window-close")} Bereich schließen<span class="kbd">Strg+Umschalt+W</span></div>`);
+  pop.style.cssText = "left:850px;top:150px;width:300px";
+  win.append(pop);
+  const lt = pop.querySelector("#lt");
+  const L = [
+    { d: "h", r: 0.5, a: "a", b: "b" },
+    { d: "v", r: 0.5, a: "a", b: "b" },
+    { d: "h", r: 0.56, a: "a", b: { d: "v", r: 0.5, a: "b", b: "c" } },
+    { d: "h", r: 0.5, a: { d: "v", r: 0.5, a: "a", b: "b" }, b: { d: "v", r: 0.5, a: "c", b: "d" } },
+  ];
+  L.forEach((l, i) => { const t = el("div", "lt" + (i === 2 ? " hover" : "")); t.append(glyph(l, "a")); lt.append(t); });
+  // Drop-Zone beim Ziehen eines Bereichs
+  const dz = el("div", "drop-zone", "Hier ablegen: unten teilen");
+  dz.style.cssText = "left:8px;top:470px;width:700px;height:316px";
+  win.append(dz);
+  hint(win, 1, "Rechtsklick oder Menütaste: Teilen, fertige Layouts, Maximieren, Angleichen – alles mit Kürzel", { left: "560px", top: "160px" });
+  hint(win, 2, "Bereich am schwebenden Titel ziehen: Ablagezonen links/rechts/oben/unten wie in Tilix", { left: "60px", top: "430px" });
+  hint(win, 3, "Trenner per Maus ziehen, per Tastatur Strg+Alt+Pfeil; Mindestgröße 20×5 Zeichen", { left: "530px", top: "740px" });
+}
+
+function prefsView(win) {
+  headerbar(win);
+  tabbar(win, "theme");
+  content(win, "theme");
+  const bd = el("div", "dialog-backdrop");
+  const d = el("div", "dialog prefs");
+  d.innerHTML = `
+    <div class="hb"><button class="btn s">${icon("system-search")}</button>
+      <div class="viewswitcher">
+        <div class="vs on">${icon("preferences-system")}Allgemein</div>
+        <div class="vs">${icon("applications-utilities")}Profile</div>
+        <div class="vs">${icon("view-grid")}Layouts</div>
+        <div class="vs">${icon("applications-engineering")}Kürzel</div>
+      </div><button class="btn sm circ x">${icon("window-close")}</button></div>
+    <div class="body">
+      <div class="pref-group"><h4>Erscheinungsbild</h4><div class="boxed">
+        <div class="row"><div class="lbl">Farbschema</div><span class="dropdown">System folgen ${icon("pan-down")}</span></div>
+        <div class="row"><div class="lbl">Inaktive Bereiche abblenden<small>Hilft, den Fokus in Splits zu erkennen</small></div><span class="switch on"></span></div>
+        <div class="row"><div class="lbl">Titel über Bereichen<small>Nur sichtbar, wenn ein Tab geteilt ist</small></div><span class="dropdown">Schwebend ${icon("pan-down")}</span></div>
+        <div class="row"><div class="lbl">Tableiste bei nur einem Tab</div><span class="dropdown">Ausblenden ${icon("pan-down")}</span></div>
+      </div></div>
+      <div class="pref-group"><h4>Verhalten</h4><div class="boxed">
+        <div class="row"><div class="lbl">Neue Terminals öffnen in</div><span class="dropdown">Aktuellem Verzeichnis ${icon("pan-down")}</span></div>
+        <div class="row"><div class="lbl">Vor dem Schließen nachfragen<small>Wenn noch ein Vordergrundprozess läuft</small></div><span class="switch on"></span></div>
+        <div class="row"><div class="lbl">Tabs beim Start wiederherstellen<small>Layout, Verzeichnisse und Profile – keine laufenden Prozesse</small></div><span class="switch on"></span></div>
+        <div class="row"><div class="lbl">Benachrichtigen, wenn lange Befehle enden</div><span class="switch"></span></div>
+      </div></div>
+    </div>`;
+  bd.append(d);
+  win.append(bd);
+  hint(win, 1, "AdwPreferencesDialog mit vier Seiten; Profile und Layout-Vorlagen sind eigene Seiten", { left: "960px", top: "100px" });
+}
+
+function smallView(win) {
+  headerbar(win, { title: "lui-theme", sub: "~/…/linuxundich/theme" });
+  tabbar(win, "theme", { narrow: true });
+  content(win, "theme");
+  hint(win, 1, "Unter ~600 px: Tableiste scrollt, Übersicht ersetzt das Durchklicken", { left: "260px", top: "92px" });
+  hint(win, 2, "Bereiche unter der Mindestgröße werden nicht kleiner – lieber maximieren (Strg+Umschalt+X)", { left: "400px", top: "380px" });
+}
+
+stage({
+  concept: "A",
+  views: [
+    { id: "main", label: "Hauptfenster", render: mainView, caption: "Klassische GNOME-App: Headerbar, darunter AdwTabBar (wie GNOME Console/Ptyxis), Splits darunter. Jeder Tab ist eine Tilix-„Sitzung“ mit eigenem Split-Baum." },
+    { id: "nav", label: "Navigation", render: navView, caption: "Navigation über viele Tabs: AdwTabOverview mit Live-Vorschau der Split-Aufteilung." },
+    { id: "split", label: "Splits verwalten", render: splitView, caption: "Splits über Kontextmenü (Rechtsklick/Menütaste) mit Layout-Kacheln, Ziehen per schwebendem Titel, Tastenkürzel für alles." },
+    { id: "prefs", label: "Einstellungen", render: prefsView, caption: "Einstellungen als AdwPreferencesDialog (Seiten Allgemein, Profile, Layouts, Kürzel)." },
+    { id: "small", label: "Kleines Fenster", render: smallView, small: true, caption: "Gleicher Inhalt bei 720×540 px." },
+  ],
+});
+</script>
+</body>
+</html>

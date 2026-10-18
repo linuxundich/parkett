@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Konzept C – Terminalzentriert</title>
+<link rel="stylesheet" href="shared/base.css">
+<link rel="stylesheet" href="shared/icons.css">
+<style>
+  .window { background: var(--term-bg); }
+  /* Keine Headerbar: dünner Ziehrand + schwebende Fenstersteuerung */
+  .topedge { height: 8px; flex: none; background: var(--term-bg); }
+  .floatctl { position: absolute; top: 6px; right: 8px; z-index: 6; display: flex; gap: 4px; align-items: center; padding: 3px; border-radius: 10px; background: color-mix(in srgb, var(--headerbar-bg) 92%, transparent); box-shadow: 0 0 0 1px var(--border), var(--shadow); }
+  .floatctl .wincontrols { padding: 0 2px 0 6px; gap: 6px; }
+  .floatctl .wincontrols span { width: 22px; height: 22px; }
+  .pane.focused::after { content: ""; position: absolute; inset: 0; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-bg) 70%, transparent); pointer-events: none; }
+  .exited { flex: none; display: flex; align-items: center; gap: 10px; padding: 5px 10px; font-size: 12px; background: color-mix(in srgb, var(--destructive) 13%, var(--term-bg)); color: var(--window-fg); }
+  .exited .kbd { color: var(--window-fg); }
+  /* Statuszeile unten */
+  .statusline { height: 26px; flex: none; display: flex; align-items: center; gap: 2px; padding: 0 6px; font-size: 12px; background: var(--window-bg); box-shadow: inset 0 1px var(--border); color: var(--dim); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; height: 20px; padding: 0 8px; border-radius: 5px; font-weight: 600; white-space: nowrap; }
+  .chip .n { font-variant-numeric: tabular-nums; opacity: .7; }
+  .chip.on { background: var(--active); color: var(--window-fg); }
+  .chip .glyph { width: 14px; height: 11px; }
+  .statusline .right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  /* Befehlspalette */
+  .scrim { position: absolute; inset: 0; z-index: 20; background: rgb(0 0 6 / 18%); }
+  .palette { position: absolute; z-index: 21; left: 50%; top: 90px; transform: translateX(-50%); width: 600px; background: var(--popover-bg); border-radius: 14px; box-shadow: 0 0 0 1px var(--border), var(--shadow); overflow: hidden; }
+  .palette .q { height: 50px; display: flex; align-items: center; gap: 10px; padding: 0 16px; font-size: 16px; box-shadow: inset 0 -1px var(--border); }
+  .palette .q .typed { color: var(--window-fg); }
+  .palette .q .caret { width: 1.5px; height: 20px; background: var(--accent-bg); margin-left: -8px; }
+  .palette .grp { font-size: 12px; font-weight: 700; color: var(--dim); padding: 10px 16px 4px; }
+  .palette .it { display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 16px; font-size: 14px; }
+  .palette .it.sel { background: color-mix(in srgb, var(--accent-bg) 16%, transparent); }
+  .palette .it .sub { color: var(--dim); font-size: 12px; }
+  .palette .it .kbd { margin-left: auto; }
+  .palette .foot span { white-space: nowrap; }
+  .palette .foot { display: flex; gap: 14px; padding: 8px 16px; font-size: 12px; color: var(--dim); box-shadow: inset 0 1px var(--border); }
+  mark { background: none; color: var(--accent); font-weight: 700; }
+  /* Split-Modus */
+  .modebar { position: absolute; z-index: 8; left: 50%; bottom: 40px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 8px 14px; border-radius: 12px; background: var(--popover-bg); box-shadow: 0 0 0 1px var(--border), var(--shadow); font-size: 13px; white-space: nowrap; }
+  .modebar .tag { font-weight: 800; color: var(--accent-fg); background: var(--accent-bg); padding: 2px 8px; border-radius: 6px; }
+  .pane .num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 4; pointer-events: none; }
+  .pane .num span { width: 64px; height: 64px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; background: color-mix(in srgb, var(--headerbar-bg) 90%, transparent); box-shadow: 0 0 0 1px var(--border), var(--shadow); color: var(--window-fg); }
+  .pane.focused .num span { background: var(--accent-bg); color: #fff; }
+  .pane.mode::before { content: ""; position: absolute; inset: 0; background: rgb(0 0 6 / 6%); z-index: 3; }
+  .arrow { position: absolute; z-index: 5; font-size: 12px; font-weight: 700; color: var(--accent); display: flex; align-items: center; gap: 4px; }
+  /* Einstellungen als Seitenpanel mit Live-Vorschau */
+  .sidepanel { position: absolute; z-index: 15; top: 0; right: 0; bottom: 0; width: 420px; background: var(--dialog-bg); box-shadow: -1px 0 var(--border), -8px 0 30px rgb(0 0 6 / 14%); display: flex; flex-direction: column; }
+  .sidepanel .headerbar { background: transparent; }
+  .sidepanel .body { flex: 1; overflow: hidden; padding: 6px 16px; }
+  .ttl { font-weight: 700; margin-left: 6px; }
+</style>
+</head>
+<body>
+<div class="stage-bar"><h1>Konzept C · Terminalzentriert</h1><a href="index.html">Übersicht</a> <a href="concept-a.html">A</a> <a href="concept-b.html">B</a><span class="meter"></span></div>
+<div class="stage"><div class="scaler"></div><div class="caption"></div></div>
+
+<script type="module">
+import { TERMS, SESSIONS, el, icon, glyph, renderLayout, stage, hint, sessionState, sessionTerms } from "./shared/content.js";
+
+const S = SESSIONS;
+
+function chrome(pane, id) {
+  const t = TERMS[id];
+  if (t.state === "err") pane.append(el("div", "exited", `${icon("dialog-warning")}<b>Beendet · Exit ${t.exit}</b><span class="spacer"></span><span class="kbd">Eingabe</span> neu starten <span class="kbd">Strg+Umschalt+W</span> schließen`));
+  return pane;
+}
+
+function statusline(win, active = "theme", { narrow = false } = {}) {
+  const sl = el("div", "statusline");
+  S.forEach((s, i) => {
+    if (narrow && i > 2) return;
+    const st = sessionState(s);
+    const c = el("span", "chip" + (s.id === active ? " on" : ""), `<span class="n">${i + 1}</span>${s.name}${st === "run" ? ' <span class="dot run"></span>' : st === "err" ? ' <span class="dot err"></span>' : s.attention ? ' <span class="dot act"></span>' : ""}`);
+    if (typeof s.layout !== "string" && s.id === active) c.querySelector(".n").after(glyph(s.layout, s.focus));
+    sl.append(c);
+  });
+  if (narrow) sl.append(el("span", "chip", "+2"));
+  sl.append(el("span", "right", narrow ? `<span class="kbd">Strg+Umschalt+P</span>` : `<span>zsh · ~/05_Projekte/web/linuxundich/theme</span><span>Standard</span><span class="kbd">Strg+Umschalt+P</span> Befehle`));
+  win.append(sl);
+}
+
+function body(win, sid = "theme", { ctl = true } = {}) {
+  const s = S.find((x) => x.id === sid);
+  win.append(el("div", "topedge"));
+  const root = el("div", "splitroot");
+  root.append(renderLayout(s.layout, { focus: s.focus, chrome }));
+  win.append(root);
+  if (ctl) win.append(el("div", "floatctl", `<button class="btn sm">${icon("tab-new")}</button><button class="btn sm">${icon("open-menu")}</button><span class="wincontrols"><span>${icon("window-minimize")}</span><span>${icon("window-maximize")}</span><span>${icon("window-close")}</span></span>`));
+  return root;
+}
+
+function mainView(win) {
+  body(win);
+  statusline(win);
+  hint(win, 1, "Keine Headerbar: oben 8 px Ziehrand, Fenstersteuerung schwebt ein, wenn der Zeiger oben rechts ist", { right: "200px", top: "16px" });
+  hint(win, 2, "Fokus: feiner Akzentrahmen, inaktive Bereiche abgeblendet; keine Titel über den Bereichen", { left: "60px", top: "330px" });
+  hint(win, 3, "Statuszeile (26 px, abschaltbar): Sitzungen mit Nummer für Alt+1…9, Status-Punkte, Befehle-Hinweis", { left: "260px", top: "730px" });
+}
+
+function navView(win) {
+  body(win, "theme", { ctl: false });
+  statusline(win);
+  win.append(el("div", "scrim"));
+  const p = el("div", "palette");
+  const items = [
+    ["grp", "Sitzungen"],
+    ["it sel", `${icon("network-server")}<span><mark>be</mark>nder</span><span class="sub">journalctl -f · neue Ausgabe</span><span class="kbd">Alt+2</span>`],
+    ["it", `${icon("folder-projects")}<span>lui-theme › ssh <mark>be</mark>nder</span><span class="sub">Bereich 3 von 3</span><span class="kbd">Alt+1</span>`],
+    ["grp", "Aktionen"],
+    ["it", `${icon("view-dual")}<span>Rechts teilen mit Profil „Server (<mark>be</mark>nder)“</span><span class="kbd">Strg+Alt+R</span>`],
+    ["it", `${icon("tab-new")}<span>Neue Sitzung: Server (<mark>be</mark>nder)</span><span class="kbd">Strg+Umschalt+T</span>`],
+    ["grp", "Layouts"],
+    ["it", `${icon("view-grid")}<span>Vorlage „Server-Wartung“ öffnen</span><span class="sub">2 Bereiche · ssh <mark>be</mark>nder</span>`],
+  ];
+  p.innerHTML = `<div class="q">${icon("system-search")}<span class="typed">be</span><span class="caret"></span><span class="spacer"></span><span class="kbd">Esc</span></div>` +
+    items.map(([c, h]) => c === "grp" ? `<div class="grp">${h}</div>` : `<div class="${c}">${h}</div>`).join("") +
+    `<div class="foot"><span><span class="kbd">↑↓</span> wählen</span><span><span class="kbd">Eingabe</span> öffnen</span><span><span class="kbd">Strg+Eingabe</span> im neuen Bereich</span><span style="margin-left:auto">&gt; nur Befehle · @ nur Sitzungen</span></div>`;
+  win.append(p);
+  hint(win, 1, "Befehlspalette (Strg+Umschalt+P) findet Sitzungen, Bereiche, Aktionen, Vorlagen und Profile", { left: "880px", top: "100px" });
+}
+
+function splitView(win) {
+  const root = body(win, "theme", { ctl: false });
+  statusline(win);
+  const order = ["git", "dev", "bender"];
+  root.querySelectorAll(".pane").forEach((p) => {
+    p.classList.add("mode");
+    p.append(el("div", "num", `<span>${order.indexOf(p.dataset.term) + 1}</span>`));
+  });
+  win.append(el("div", "modebar", `<span class="tag">LAYOUT</span><span><span class="kbd">←↑↓→</span> Fokus</span><span><span class="kbd">Umschalt+Pfeil</span> Größe</span><span><span class="kbd">R</span>/<span class="kbd">D</span> teilen</span><span><span class="kbd">M</span> tauschen</span><span><span class="kbd">Z</span> zoomen</span><span><span class="kbd">=</span> angleichen</span><span><span class="kbd">X</span> schließen</span><span><span class="kbd">1–9</span> springen</span><span><span class="kbd">Esc</span> fertig</span>`));
+  const a = el("div", "arrow", "◀ ▶ 56 % | 44 %");
+  a.style.cssText = "left:600px;top:372px;background:var(--popover-bg);padding:2px 6px;border-radius:6px";
+  win.append(a);
+  hint(win, 1, "Layout-Modus (Strg+Umschalt+L): ein Kürzel, danach Einzeltasten – wie tmux/Zellij, aber mit sichtbarer Hilfe", { left: "60px", top: "60px" });
+  hint(win, 2, "Maus geht weiter: Trenner ziehen, Rechtsklick-Menü wie in A", { left: "780px", top: "430px" });
+}
+
+function prefsView(win) {
+  body(win, "theme", { ctl: false });
+  statusline(win);
+  const sp = el("div", "sidepanel");
+  sp.innerHTML = `
+    <div class="headerbar"><span class="ttl">Einstellungen</span><span class="spacer"></span><button class="btn">${icon("document-edit")}</button><button class="btn sm circ">${icon("window-close")}</button></div>
+    <div class="body">
+      <div class="entry" style="margin-bottom:14px">${icon("system-search")} Einstellung suchen …</div>
+      <div class="pref-group"><h4>Profil „Standard“</h4><p>Änderungen wirken sofort auf die Terminals links</p><div class="boxed">
+        <div class="row"><div class="lbl">Schrift</div><span class="val">Adwaita Mono</span><span class="spin">13 <button class="btn sm">−</button><button class="btn sm">+</button></span></div>
+        <div class="row"><div class="lbl">Zeilenhöhe</div><span class="spin">1,0 <button class="btn sm">−</button><button class="btn sm">+</button></span></div>
+        <div class="row"><div class="lbl">Cursor</div><span class="dropdown">Block ${icon("pan-down")}</span></div>
+      </div></div>
+      <div class="pref-group"><h4>Farbschema</h4><div class="schemes">
+        <div class="scheme on" style="background:#fff;color:#1e1e22"><span style="color:#26a269">$</span> ls<br><span style="color:#1e78e4">src</span> <span style="color:#c01c28">x</span><div class="nm">Adwaita</div></div>
+        <div class="scheme" style="background:#1d1d20;color:#e4e3e6"><span style="color:#57e389">$</span> ls<br><span style="color:#62a0ea">src</span> <span style="color:#ff7b72">x</span><div class="nm">Adwaita Dunkel</div></div>
+        <div class="scheme" style="background:#fdf6e3;color:#586e75"><span style="color:#859900">$</span> ls<br><span style="color:#268bd2">src</span> <span style="color:#dc322f">x</span><div class="nm">Solarized</div></div>
+        <div class="scheme" style="background:#1e1e2e;color:#cdd6f4"><span style="color:#a6e3a1">$</span> ls<br><span style="color:#89b4fa">src</span> <span style="color:#f38ba8">x</span><div class="nm">Catppuccin</div></div>
+      </div></div>
+      <div class="pref-group"><h4>Oberfläche</h4><div class="boxed">
+        <div class="row"><div class="lbl">Statuszeile</div><span class="dropdown">Immer ${icon("pan-down")}</span></div>
+        <div class="row"><div class="lbl">Fenstersteuerung</div><span class="dropdown">Beim Überfahren ${icon("pan-down")}</span></div>
+        <div class="row"><div class="lbl">Inaktive Bereiche abblenden</div><span class="switch on"></span></div>
+      </div></div>
+    </div>`;
+  win.append(sp);
+  hint(win, 1, "Einstellungen als Seitenpanel: Terminal bleibt sichtbar und zeigt Änderungen live", { left: "560px", top: "40px" });
+  hint(win, 2, "Stift-Knopf öffnet die Konfigurationsdatei (TOML) – für Dotfile-Nutzer", { right: "40px", top: "52px" });
+}
+
+function smallView(win) {
+  body(win);
+  statusline(win, "theme", { narrow: true });
+  hint(win, 1, "Bei kleinen Fenstern bleibt fast alles Terminal; Statuszeile kürzt auf Nummern + Zähler", { left: "60px", top: "460px" });
+}
+
+stage({
+  concept: "C",
+  views: [
+    { id: "main", label: "Hauptfenster", render: mainView, caption: "Kein dauerhafter Rahmen außer einer 26-px-Statuszeile. Bedienung über Tastatur, Befehlspalette und Kontextmenü." },
+    { id: "nav", label: "Navigation", render: navView, caption: "Befehlspalette als zentrale Navigation: tippen, wählen, fertig." },
+    { id: "split", label: "Splits verwalten", render: splitView, caption: "Modaler Layout-Modus mit nummerierten Bereichen und eingeblendeter Tastenhilfe." },
+    { id: "prefs", label: "Einstellungen", render: prefsView, caption: "Einstellungen als Seitenpanel neben dem echten Terminal (Live-Vorschau), plus Konfigurationsdatei." },
+    { id: "small", label: "Kleines Fenster", render: smallView, small: true, caption: "Gleicher Inhalt bei 720×540 px." },
+  ],
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Konzept B – Arbeitsbereiche</title>
+<link rel="stylesheet" href="shared/base.css">
+<link rel="stylesheet" href="shared/icons.css">
+<style>
+  .cols { flex: 1; min-height: 0; display: flex; }
+  .sidebar { width: 260px; flex: none; display: flex; flex-direction: column; background: var(--sidebar-bg); box-shadow: inset -1px 0 var(--sidebar-border); }
+  .sidebar .headerbar { background: transparent; box-shadow: none; }
+  .sidebar .list { flex: 1; overflow: hidden; padding: 0 8px 8px; }
+  .sb-head { font-size: 12px; font-weight: 700; color: var(--dim); padding: 12px 10px 6px; display: flex; align-items: center; }
+  .sb-head .btn { margin-left: auto; height: 22px; min-width: 22px; }
+  .ws { border-radius: 8px; }
+  .ws-row { display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 8px 0 10px; border-radius: 8px; font-weight: 600; font-size: 14px; }
+  .ws-row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ws-row .glyph { color: var(--window-fg); }
+  .ws.on > .ws-row { background: var(--selected); }
+  .ws.open { background: color-mix(in srgb, var(--window-fg) 4%, transparent); }
+  .ws .terms { padding: 0 0 6px 0; }
+  .t-row { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px 0 36px; border-radius: 6px; font-size: 13px; color: var(--dim); }
+  .t-row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .t-row.on { color: var(--window-fg); background: var(--selected); }
+  .t-row .err { color: var(--destructive); font-size: 12px; font-weight: 700; }
+  .sb-foot { padding: 8px; box-shadow: inset 0 1px var(--sidebar-border); display: flex; gap: 6px; }
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--window-bg); }
+  .main .headerbar .title { text-align: left; position: static; transform: none; max-width: none; margin-left: 4px; }
+  .crumb { display: flex; align-items: center; gap: 6px; }
+  .crumb .sep2 { color: var(--dim); }
+  /* Titelzeile je Terminal (Tilix-Erbe, aber flach) */
+  .ptitle { height: 28px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 4px 0 10px; font-size: 12px; background: var(--window-bg); box-shadow: inset 0 -1px var(--border); color: var(--dim); }
+  .ptitle .nm { font-weight: 700; color: var(--window-fg); white-space: nowrap; flex: none; }
+  .ptitle .cwd { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pane.focused .ptitle { background: color-mix(in srgb, var(--accent-bg) 12%, var(--window-bg)); }
+  .pane.focused .ptitle .nm { color: var(--accent); }
+  .ptitle .chip { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: var(--hover); color: var(--window-fg); }
+  .ptitle .chip.remote { background: color-mix(in srgb, var(--c6) 20%, transparent); }
+  .exited { flex: none; display: flex; align-items: center; gap: 10px; padding: 7px 10px; font-size: 13px; background: color-mix(in srgb, var(--destructive) 13%, var(--term-bg)); color: var(--window-fg); box-shadow: inset 0 1px var(--border); }
+  .exited .btn { height: 26px; font-size: 13px; background: var(--hover); }
+  /* Layout-Editor */
+  .editor { position: absolute; inset: 47px 0 0 260px; background: var(--window-bg); z-index: 10; display: flex; }
+  .editor .canvas { flex: 1; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+  .editor .canvas .frame { flex: 1; display: flex; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px var(--border); background: var(--view-bg); }
+  .blk { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; position: relative; background: var(--card-bg); font-size: 13px; }
+  .blk .t { font-weight: 700; font-size: 14px; }
+  .blk .s { color: var(--dim); font-family: var(--mono); font-size: 12px; }
+  .blk.sel { box-shadow: inset 0 0 0 2px var(--accent-bg); background: color-mix(in srgb, var(--accent-bg) 7%, var(--card-bg)); }
+  .blk .tools { position: absolute; top: 8px; right: 8px; display: flex; gap: 2px; }
+  .blk .pct { position: absolute; bottom: 8px; left: 10px; font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+  .gutter { flex: none; background: var(--border); position: relative; }
+  .gutter.h { width: 8px; cursor: col-resize; }
+  .gutter.v { height: 8px; cursor: row-resize; }
+  .gutter::after { content: ""; position: absolute; inset: 0; margin: auto; border-radius: 2px; background: var(--dim); }
+  .gutter.h::after { width: 2px; height: 28px; }
+  .gutter.v::after { height: 2px; width: 28px; }
+  .editor .side { width: 340px; flex: none; background: var(--secondary-sidebar-bg); box-shadow: inset 1px 0 var(--sidebar-border); padding: 18px 16px; overflow: hidden; }
+  .editor .side h3 { margin: 0 0 14px; font-size: 15px; }
+  /* Einstellungen in der Seitenleiste */
+  .settings-main { flex: 1; overflow: hidden; padding: 24px 0; display: flex; justify-content: center; background: var(--window-bg); }
+  .settings-main .inner { width: 620px; }
+  .nav-row { display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 10px; border-radius: 8px; font-size: 14px; font-weight: 500; }
+  .nav-row.on { background: var(--selected); font-weight: 700; }
+  .profile-preview { border-radius: 10px; padding: 10px 12px; font-family: var(--mono); font-size: 12px; line-height: 16px; background: var(--term-bg); color: var(--term-fg); box-shadow: 0 0 0 1px var(--border); white-space: pre; }
+  /* Übersicht */
+  .ovgrid { flex: 1; padding: 22px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; overflow: hidden; background: var(--window-bg); }
+  .wcard { min-width: 0; border-radius: 12px; overflow: hidden; background: var(--card-bg); box-shadow: 0 0 0 1px var(--card-shade), 0 1px 3px var(--card-shade); display: flex; flex-direction: column; }
+  .wcard.on { box-shadow: 0 0 0 2px var(--accent-bg); }
+  .wcard .thumbs { height: 180px; display: flex; background: var(--term-bg); }
+  .wcard .thumbs .term { font-size: 6.5px; line-height: 8.5px; padding: 4px 5px; }
+  .wcard .meta { padding: 10px 12px; display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .wcard .meta b { font-size: 14px; }
+  .wcard .meta small { color: var(--dim); display: block; }
+</style>
+</head>
+<body>
+<div class="stage-bar"><h1>Konzept B · Arbeitsbereiche</h1><a href="index.html">Übersicht</a> <a href="concept-a.html">A</a> <a href="concept-c.html">C</a><span class="meter"></span></div>
+<div class="stage"><div class="scaler"></div><div class="caption"></div></div>
+
+<script type="module">
+import { TERMS, SESSIONS, el, icon, glyph, renderLayout, stage, hint, sessionState, sessionTerms, STATE_LABEL } from "./shared/content.js";
+
+const S = SESSIONS;
+const wcontrols = `<span class="wincontrols"><span>${icon("window-minimize")}</span><span>${icon("window-maximize")}</span><span>${icon("window-close")}</span></span>`;
+
+function sidebar({ active = "theme", mode = "ws" } = {}) {
+  const sb = el("div", "sidebar");
+  sb.innerHTML = `<div class="headerbar"><button class="btn">${icon("sidebar-show")}</button><span class="spacer"></span><button class="btn" title="Neuer Arbeitsbereich (Strg+Umschalt+N)">${icon("list-add")}</button><button class="btn">${icon("open-menu")}</button></div>`;
+  const list = el("div", "list");
+  if (mode === "ws") {
+    list.append(el("div", "sb-head", `Arbeitsbereiche<button class="btn sm">${icon("system-search")}</button>`));
+    for (const s of S.filter((x) => x.workspace)) {
+      const open = s.id === active || s.id === "blocksatz";
+      const w = el("div", "ws" + (s.id === active ? " on" : "") + (open ? " open" : ""));
+      const st = sessionState(s);
+      const row = el("div", "ws-row", `<span class="nm">${s.name}</span>${st === "run" ? '<span class="dot run" title="Läuft"></span>' : st === "err" ? '<span class="dot err" title="Fehler"></span>' : s.attention ? '<span class="dot act" title="Neue Ausgabe"></span>' : ""}`);
+      row.prepend(typeof s.layout === "string" ? el("span", "", icon(s.icon)) : glyph(s.layout, s.focus));
+      w.append(row);
+      if (open) {
+        const ts = el("div", "terms");
+        for (const t of sessionTerms(s.layout)) {
+          const T = TERMS[t];
+          ts.append(el("div", "t-row" + (s.id === active && t === s.focus ? " on" : ""),
+            `<span class="dot ${T.state}"></span><span class="nm">${T.title}</span>${T.state === "err" ? `<span class="err">Exit ${T.exit}</span>` : ""}`));
+        }
+        w.append(ts);
+      }
+      list.append(w);
+    }
+    list.append(el("div", "sb-head", "Lose Terminals"));
+    const h = el("div", "ws", "");
+    h.append(el("div", "ws-row", `${icon("user-home")}<span class="nm">~</span>`));
+    list.append(h);
+    list.append(el("div", "sb-head", `Vorlagen<button class="btn sm">${icon("list-add")}</button>`));
+    for (const [n, l] of [["Web-Projekt", { d: "h", r: 0.56, a: "a", b: { d: "v", r: 0.5, a: "b", b: "c" } }], ["Rust-Crate", { d: "v", r: 0.6, a: "a", b: "b" }], ["Server-Wartung", { d: "h", r: 0.5, a: "a", b: "b" }]]) {
+      const r = el("div", "ws-row", `<span class="nm" style="font-weight:500">${n}</span>`);
+      r.prepend(glyph(l, "a"));
+      r.style.color = "var(--dim)";
+      list.append(r);
+    }
+  }
+  sb.append(list);
+  return sb;
+}
+
+function paneChrome(pane, id) {
+  const t = TERMS[id];
+  const chip = t.remote ? `<span class="chip remote">bender</span>` : "";
+  const bar = el("div", "ptitle", `<span class="dot ${t.state}"></span><span class="nm">${t.title}</span>${chip}<span class="cwd">${t.cwd}</span><span class="spacer"></span><button class="btn sm">${icon("view-dual")}</button><button class="btn sm">${icon("view-paged")}</button><button class="btn sm">${icon("view-fullscreen")}</button><button class="btn sm">${icon("window-close")}</button>`);
+  pane.prepend(bar);
+  if (t.state === "err") pane.append(el("div", "exited", `${icon("dialog-warning")}<span><b>Prozess beendet</b> · Exit-Code ${t.exit}</span><span class="spacer"></span><button class="btn">Neu starten</button><button class="btn">Schließen</button>`));
+  return pane;
+}
+
+function mainHeader(s, { extra = "" } = {}) {
+  return el("div", "headerbar", `
+    <div class="title"><div class="crumb"><b>${s.name}</b></div><small>${s.id === "theme" ? "~/05_Projekte/web/linuxundich/theme · Vorlage „Web-Projekt“" : "~/05_Projekte/apps/" + s.name}</small></div>
+    <span class="spacer"></span>${extra}
+    <button class="btn" title="Rechts teilen (Strg+Alt+R)">${icon("view-dual")}</button>
+    <button class="btn" title="Unten teilen (Strg+Alt+D)">${icon("view-paged")}</button>
+    <button class="btn" title="Suchen">${icon("edit-find")}</button>
+    <button class="btn" title="Arbeitsbereich-Menü">${icon("view-more")}</button>${wcontrols}`);
+}
+
+function workspace(win, sid = "theme", { sidebarOn = true } = {}) {
+  const s = S.find((x) => x.id === sid);
+  const cols = el("div", "cols");
+  if (sidebarOn) cols.append(sidebar({ active: sid }));
+  const main = el("div", "main");
+  const hb = mainHeader(s);
+  if (!sidebarOn) hb.prepend(el("button", "btn", icon("sidebar-show")));
+  main.append(hb);
+  const root = el("div", "splitroot");
+  root.append(renderLayout(s.layout, { focus: s.focus, chrome: paneChrome, dimUnfocused: false }));
+  main.append(root);
+  cols.append(main);
+  win.append(cols);
+}
+
+function mainView(win) {
+  workspace(win, "theme");
+  hint(win, 1, "Arbeitsbereich = Projekt mit Verzeichnis, Profil und Split-Layout; aufgeklappt zeigt er seine Terminals", { left: "14px", top: "300px" });
+  hint(win, 2, "Vorlagen öffnen ein fertiges Layout im gewählten Verzeichnis", { left: "14px", top: "650px" });
+  hint(win, 3, "Flache Titelzeile je Terminal (Tilix-Erbe): Prozess, Host, Verzeichnis, Teilen/Maximieren/Schließen", { left: "560px", top: "86px" });
+  hint(win, 4, "Fokus: Titelzeile in Akzentfarbe statt Abblenden", { left: "300px", top: "90px" });
+}
+
+function navView(win) {
+  const cols = el("div", "cols");
+  cols.append(sidebar({ active: "theme" }));
+  const main = el("div", "main");
+  main.append(el("div", "headerbar", `<div class="title" style="position:static;transform:none;text-align:left;margin-left:4px"><b>Alle Arbeitsbereiche</b><small>4 Arbeitsbereiche · 1 loses Terminal · 9 Terminals</small></div><span class="spacer"></span><div class="entry" style="width:260px">${icon("system-search")} Filtern …</div>${wcontrols}`));
+  const g = el("div", "ovgrid");
+  for (const s of S) {
+    const c = el("div", "wcard" + (s.id === "theme" ? " on" : ""));
+    const th = el("div", "thumbs no-measure");
+    th.append(renderLayout(s.layout, { focus: s.focus, dimUnfocused: false }));
+    const st = sessionState(s);
+    const meta = el("div", "meta", `<div style="flex:1"><b>${s.name}</b><small>${sessionTerms(s.layout).length} Terminals · ${STATE_LABEL[st]}</small></div><button class="btn sm">${icon("view-more")}</button>`);
+    meta.prepend(typeof s.layout === "string" ? el("span", "", icon(s.icon)) : glyph(s.layout, s.focus));
+    c.append(th, meta);
+    g.append(c);
+  }
+  main.append(g);
+  cols.append(main);
+  win.append(cols);
+  hint(win, 1, "Seitenleiste schneller Wechsel (Strg+1…9), Übersicht für den Gesamtblick", { left: "560px", top: "60px" });
+}
+
+function splitView(win) {
+  workspace(win, "theme");
+  const ed = el("div", "editor");
+  ed.innerHTML = `
+    <div class="canvas">
+      <div style="display:flex;align-items:center;gap:10px"><b style="font-size:15px">Layout bearbeiten · lui-theme</b><span class="spacer"></span><button class="btn raised">Als Vorlage speichern …</button><button class="btn suggested">Fertig</button></div>
+      <div class="frame">
+        <div class="blk" style="flex:56"><div class="tools"><button class="btn sm">${icon("view-dual")}</button><button class="btn sm">${icon("view-paged")}</button><button class="btn sm">${icon("window-close")}</button></div><span class="t">zsh</span><span class="s">~/…/theme</span><span class="pct">56 % · 89×43</span></div>
+        <div class="gutter h"></div>
+        <div style="flex:44;display:flex;flex-direction:column">
+          <div class="blk sel"><div class="tools"><button class="btn sm">${icon("view-dual")}</button><button class="btn sm">${icon("view-paged")}</button><button class="btn sm">${icon("window-close")}</button></div><span class="t">npm run dev</span><span class="s">~/…/theme</span><span class="pct">50 % · 70×20</span></div>
+          <div class="gutter v"></div>
+          <div class="blk"><div class="tools"><button class="btn sm">${icon("view-dual")}</button><button class="btn sm">${icon("view-paged")}</button><button class="btn sm">${icon("window-close")}</button></div><span class="t">ssh bender</span><span class="s">Profil Server (bender)</span><span class="pct">50 % · 70×20</span></div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--dim)">Ziehen an den Trennern ändert Anteile · Pfeiltasten wählen Bereich · Strg+Pfeil verschiebt Trenner · Entf schließt · Laufende Terminals bleiben beim Umbau erhalten</div>
+    </div>
+    <div class="side">
+      <h3>Bereich „npm run dev“</h3>
+      <div class="pref-group"><div class="boxed">
+        <div class="row"><div class="lbl">Profil</div><span class="dropdown">Standard ${icon("pan-down")}</span></div>
+        <div class="row"><div class="lbl">Startbefehl<small>Wird beim Öffnen des Arbeitsbereichs ausgeführt</small></div></div>
+        <div class="row" style="min-height:44px"><div class="entry" style="flex:1;color:var(--window-fg);font-family:var(--mono);font-size:13px">npm run dev</div></div>
+        <div class="row"><div class="lbl">Verzeichnis</div><span class="val">Arbeitsbereich ${icon("pan-end")}</span></div>
+        <div class="row"><div class="lbl">Bei Prozessende</div><span class="dropdown">Offen lassen ${icon("pan-down")}</span></div>
+      </div></div>
+      <div class="pref-group"><h4>Größe</h4><div class="boxed">
+        <div class="row"><div class="lbl">Anteil im Stapel</div><span class="spin">50 % <button class="btn sm">−</button><button class="btn sm">+</button></span></div>
+        <div class="row"><div class="lbl">Mindestgröße</div><span class="val">20×5 Zeichen</span></div>
+      </div></div>
+    </div>`;
+  win.append(ed);
+  hint(win, 1, "Layout-Editor: Struktur sehen und umbauen, ohne dass Terminals neu starten", { left: "300px", top: "100px" });
+  hint(win, 2, "Pro Bereich Profil, Startbefehl, Verhalten bei Prozessende – Grundlage für Vorlagen", { right: "20px", top: "70px" });
+}
+
+function prefsView(win) {
+  const cols = el("div", "cols");
+  const sb = el("div", "sidebar");
+  sb.innerHTML = `<div class="headerbar"><button class="btn">${icon("pan-start")}</button><b style="margin-left:4px">Einstellungen</b></div>`;
+  const list = el("div", "list");
+  for (const [n, i, on] of [["Allgemein", "preferences-system"], ["Aussehen", "view-grid"], ["Profile", "applications-utilities", 1], ["Arbeitsbereiche", "folder-projects"], ["Vorlagen", "view-dual"], ["Tastenkürzel", "applications-engineering"], ["Erweitert", "view-more"]])
+    list.append(el("div", "nav-row" + (on ? " on" : ""), `${icon(i)}${n}`));
+  sb.append(list);
+  cols.append(sb);
+  const main = el("div", "main");
+  main.append(el("div", "headerbar", `<div class="title"><b>Profil „Server (bender)“</b></div><span class="spacer"></span><button class="btn">${icon("view-more")}</button>${wcontrols}`));
+  const m = el("div", "settings-main");
+  m.innerHTML = `<div class="inner">
+    <div class="pref-group"><div class="profile-preview"><span class="f6 b">toff@bender</span>:<span class="f4 b">~</span>$ systemctl status nginx
+<span class="f2">●</span> nginx.service - A high performance web server
+     Active: <span class="f2 b">active (running)</span> since Thu 2026-10-16
+<span class="f6 b">toff@bender</span>:<span class="f4 b">~</span>$ <span class="cur"> </span></div></div>
+    <div class="pref-group"><h4>Start</h4><div class="boxed">
+      <div class="row"><div class="lbl">Befehl</div><span class="val" style="font-family:var(--mono)">ssh bender</span></div>
+      <div class="row"><div class="lbl">Automatisch verwenden für<small>Wechselt das Profil, wenn der Host per OSC 7 erkannt wird</small></div><span class="val">Host „bender“ ${icon("pan-end")}</span></div>
+      <div class="row"><div class="lbl">Umgebungsvariablen</div><span class="val">1 ${icon("pan-end")}</span></div>
+    </div></div>
+    <div class="pref-group"><h4>Aussehen</h4><div class="boxed">
+      <div class="row"><div class="lbl">Schrift</div><span class="val">Adwaita Mono 11 ${icon("pan-end")}</span></div>
+      <div class="row"><div class="lbl">Farbschema</div><span class="val">Adwaita Teal ${icon("pan-end")}</span></div>
+      <div class="row"><div class="lbl">Akzent für Titelzeile und Seitenleiste<small>Markiert Server-Terminals auf einen Blick</small></div><span class="switch on"></span></div>
+    </div></div></div>`;
+  main.append(m);
+  cols.append(main);
+  win.append(cols);
+  hint(win, 1, "Einstellungen ersetzen die Seitenleiste (Navigation zurück); Profile mit Live-Vorschau", { left: "280px", top: "60px" });
+}
+
+function smallView(win) {
+  workspace(win, "theme", { sidebarOn: false });
+  hint(win, 1, "Unter ~860 px klappt die Seitenleiste ein (AdwOverlaySplitView), Knopf oder F9 holt sie als Overlay", { left: "50px", top: "52px" });
+  hint(win, 2, "Titelzeilen kosten je Bereich 28 px – bei kleinen Fenstern spürbar", { left: "260px", top: "300px" });
+}
+
+stage({
+  concept: "B",
+  views: [
+    { id: "main", label: "Hauptfenster", render: mainView, caption: "Seitenleiste mit Arbeitsbereichen (Projekt + Verzeichnis + Profil + Layout). Statt Tabs wählt man Arbeitsbereiche; jedes Terminal ist dort einzeln sichtbar." },
+    { id: "nav", label: "Navigation", render: navView, caption: "Übersicht aller Arbeitsbereiche als Karten mit Live-Vorschau." },
+    { id: "split", label: "Splits verwalten", render: splitView, caption: "Grafischer Layout-Editor mit Eigenschaften je Bereich – Grundlage für speicherbare Vorlagen." },
+    { id: "prefs", label: "Einstellungen", render: prefsView, caption: "Einstellungen im Fenster (Seitenleiste wechselt in die Einstellungs-Navigation), Profil mit Vorschau." },
+    { id: "small", label: "Kleines Fenster", render: smallView, small: true, caption: "Gleicher Inhalt bei 720×540 px, Seitenleiste eingeklappt." },
+  ],
+});
+</script>
+</body>
+</html>
