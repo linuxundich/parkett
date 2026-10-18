@@ -1,4 +1,4 @@
-# Phase 1 – Analyse: Tilix-Nachfolger für GTK4/libadwaita
+# Phase 1 – Analyse: Parkett, ein Tilix-Nachfolger für GTK4/libadwaita
 
 Stand: 2026-10-18. Grundlage sind die Quelltexte (flache Klone vom 2026-10-18),
 die lokal installierten Bibliotheken (gtk4 4.24.1, libadwaita 1.10.0, vte4 0.84.1,

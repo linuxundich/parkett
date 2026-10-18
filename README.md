@@ -1,8 +1,8 @@
-# Tilix-Nachfolger (Arbeitstitel)
+# Parkett
 
 Moderner Terminalemulator für GNOME auf Basis von GTK4, libadwaita und VTE, der die Stärken von
-Tilix (Splits, Sitzungen mit Layout, Profile) übernimmt und die Oberfläche neu denkt. Der Name ist
-noch offen; „Tilix“ ist der Name eines fremden Projekts und kommt als Produktname nicht in Frage.
+Tilix (Splits, Sitzungen mit Layout, Profile) übernimmt und die Oberfläche neu denkt. Der Name
+steht für das Fischgrät-Muster aus Terminal-Bereichen, das die Splits bilden.
 
 ## Stand
 
@@ -36,3 +36,10 @@ Aufbau:
 | `mockups/shared/base.css` | Farben aus libadwaita 1.10, Grundbausteine |
 | `mockups/shared/content.js` | gemeinsamer Beispielinhalt, Split-Renderer, Flächenmessung |
 | `mockups/shared/icons.css` | Adwaita-Symbolic-Icons (CC-BY-SA 3.0 / LGPL-3.0) als Masken |
+
+## Icon
+
+App-Icon und symbolisches Icon liegen in [`icon/`](icon/): `parkett.svg` (Fischgrät-Parkett mit
+eingelassenem Terminal-Bereich, erzeugt von `icon/gen_icon.py` – dort ändern) und
+`parkett-symbolic.svg` (16 px). Vorschau in `icon/vorschau.png`, verworfene Entwürfe in
+`icon/entwuerfe/`. Sobald die App-ID feststeht, wandern beide unter `data/icons/hicolor/`.
