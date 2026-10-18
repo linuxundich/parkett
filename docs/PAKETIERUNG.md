@@ -39,6 +39,9 @@ Pakete); dann als eigener Schritt mit Host-Agent.
 
 ## Empfehlung
 
+**Entscheidung 2026-10-19:** vorerst nur lokal, Tag `v0.1.0`; einziger Weg ist das Arch-Repo
+auf bender. Die übrigen Wege bleiben Vorschlag für später.
+
 1. Arch-Repo bleibt der Hauptweg (läuft).
 2. Für eine Veröffentlichung zuerst ein öffentliches Git-Repo; daraus AUR und Fedora COPR.
 3. .deb nur bei Bedarf, nach Prüfung in den Ubuntu-/TUXEDO-VMs.

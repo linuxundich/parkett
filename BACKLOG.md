@@ -41,7 +41,8 @@
 - [x] Doku: Architektur, Bedienung, README; Beispiele in der Bedienung als Test
 - [x] Paketierungswege untersucht (docs/PAKETIERUNG.md)
 - [x] Lizenzen geprüft (docs/LIZENZEN.md)
-- [ ] Entscheidung Veröffentlichung: Version 0.1.0 taggen, öffentliches Repo (GitHub, dann Englisch), AUR, COPR
+- [x] Entscheidung Veröffentlichung (2026-10-19): Tag v0.1.0, vorerst nur lokal; einziger Weg ist das Arch-Repo auf bender
+- [ ] Später: öffentliches Repo (GitHub, dann Englisch), AUR, COPR
 
 ## Entwicklungsplan
 

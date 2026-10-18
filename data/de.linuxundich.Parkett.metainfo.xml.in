@@ -41,9 +41,9 @@
     <category>TerminalEmulator</category>
   </categories>
   <releases>
-    <release version="0.1.0" date="2026-10-18" type="development">
+    <release version="0.1.0" date="2026-10-19" type="stable">
       <description>
-        <p>Erster Entwicklungsstand: Reiter, geteilte Bereiche, Nachfrage beim Schließen.</p>
+        <p>Erste Version: Reiter und geteilte Bereiche, Befehlspalette, Layout-Modus, Vorlagen mit Startbefehlen, Profile, Farbschemata mit heller und dunkler Fassung, Kontextfarbe für root und SSH, Rückgängig beim Schließen, Suche, Links und änderbare Tastenkürzel.</p>
       </description>
     </release>
   </releases>

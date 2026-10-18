@@ -4,6 +4,11 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-19
+
+Erste Version: MVP (Phase 4), Qualitätssicherung (Phase 5) und Stabilisierung (Phase 6).
+Nur lokal; Paket im eigenen Arch-Repo `linuxundich` auf bender.
+
 ### Phase 6
 - Dokumentation: Bedienung (`docs/BEDIENUNG.md`, Beispiele für Profile und Vorlagen werden
   von `cargo test` geladen), Architektur, Paketierungswege, Lizenzen; README überarbeitet.
