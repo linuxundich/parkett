@@ -7,12 +7,23 @@
     <value nick="home" value="1"/>
   </enum>
 
+  <enum id="de.linuxundich.Parkett.Style">
+    <value nick="system" value="0"/>
+    <value nick="light" value="1"/>
+    <value nick="dark" value="2"/>
+  </enum>
+
   <enum id="de.linuxundich.Parkett.PaneTitle">
     <value nick="floating" value="0"/>
     <value nick="row" value="1"/>
   </enum>
 
   <schema id="de.linuxundich.Parkett" path="/de/linuxundich/Parkett/">
+    <key name="style" enum="de.linuxundich.Parkett.Style">
+      <default>'system'</default>
+      <summary>Stil</summary>
+      <description>„system“: Hell/Dunkel nach GNOME, „light“/„dark“: von Hand festgelegt.</description>
+    </key>
     <key name="window-width" type="i">
       <default>960</default>
       <summary>Fensterbreite</summary>

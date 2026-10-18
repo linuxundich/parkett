@@ -32,6 +32,20 @@ fn general_page() -> adw::PreferencesPage {
     settings.bind("autohide-tab-bar", &tabbar, "active").build();
     let context = adw::SwitchRow::builder().title("Kontextfarbe für root und SSH").subtitle("Linie, Chip und getönter Hintergrund, Farben aus dem Farbschema").build();
     settings.bind("context-colors", &context, "active").build();
+    let style = adw::ComboRow::builder()
+        .title("Stil")
+        .model(&gtk::StringList::new(&["Systemstil folgen", "Hell", "Dunkel"]))
+        .build();
+    style.set_selected(match settings.string("style").as_str() {
+        "light" => 1,
+        "dark" => 2,
+        _ => 0,
+    });
+    style.connect_selected_notify(|row| {
+        let v = ["system", "light", "dark"][row.selected().min(2) as usize];
+        let _ = crate::settings::settings().set_string("style", v);
+    });
+    look.add(&style);
     let title = adw::ComboRow::builder()
         .title("Bereichstitel bei geteilten Reitern")
         .model(&gtk::StringList::new(&["Schwebend", "Als Zeile"]))

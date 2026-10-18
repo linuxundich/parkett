@@ -126,3 +126,10 @@ Kerns; auf dem Host mit GPU nicht gemessen.
 - CPU unter Dauerausgabe auf dem Host messen.
 - Host-Test ohne Bildschirmfotos: Die deskwright-Erweiterung lief in der Host-Shell nicht;
   geprüft wurde über Prozesse, Protokoll, AT-SPI und D-Bus.
+
+## Rückmeldung Christoph nach eigenem Test (r13, 2026-10-19)
+
+| Wunsch | Umsetzung | Test (VM) |
+|---|---|---|
+| Knöpfe zum Teilen wie bei Tilix | „Rechts teilen“ und „Unten teilen“ links in der Kopfleiste neben „Neuer Reiter“; eigene symbolische Symbole (`data/icons/hicolor/scalable/actions/parkett-split-*-symbolic.svg`, Adwaita hat keine passenden); Tooltip mit aktuellem Kürzel; Screenreader-Namen | ✅ beide Knöpfe teilen den aktiven Bereich (`kopfleiste-teilen-stil.png`) |
+| Hell/Dunkel von Hand | GSettings `style` (system/light/dark) → `AdwStyleManager::set_color_scheme`; Stilwahl mit drei runden Knöpfen oben im Hauptmenü (Muster GNOME Text Editor) und „Stil“ in Einstellungen › Allgemein | ✅ „Dunkel“ bei hellem System, „Hell“ bei dunklem System; Terminals folgen |

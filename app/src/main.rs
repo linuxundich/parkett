@@ -6,6 +6,7 @@ mod prefs;
 mod profiles;
 mod settings;
 mod shortcuts;
+mod style;
 mod tab;
 mod terminal;
 mod window;
@@ -70,6 +71,25 @@ parkett-pane.focused .parkett-badge { background: var(--accent-bg-color); color:
 }
 .parkett-ptitle button { min-width: 22px; min-height: 22px; padding: 0; }
 .parkett-ptitle.focused { background: color-mix(in srgb, var(--accent-bg-color) 14%, var(--window-bg-color)); font-weight: 600; }
+/* Stilwahl im Hauptmenü (Muster: GNOME Text Editor) */
+.parkett-style-selector { margin: 9px 0 3px; }
+.parkett-style-selector checkbutton {
+  padding: 1px; min-width: 44px; min-height: 44px;
+  border-radius: 9999px; background-clip: content-box;
+  box-shadow: inset 0 0 0 1px var(--border-color);
+}
+.parkett-style-selector checkbutton.system { background-image: linear-gradient(to bottom right, #ffffff 49.99%, #222226 50.01%); }
+.parkett-style-selector checkbutton.light { background-color: #ffffff; }
+.parkett-style-selector checkbutton.dark { background-color: #222226; }
+.parkett-style-selector checkbutton:checked { box-shadow: inset 0 0 0 2px var(--accent-bg-color); }
+.parkett-style-selector checkbutton radio {
+  -gtk-icon-source: none; border: none; background: none; box-shadow: none;
+  min-width: 12px; min-height: 12px; padding: 2px; transform: translate(27px, 14px);
+}
+.parkett-style-selector checkbutton radio:checked {
+  -gtk-icon-source: -gtk-icontheme('object-select-symbolic');
+  background-color: var(--accent-bg-color); color: var(--accent-fg-color); border-radius: 9999px;
+}
 .parkett-zoom-banner {
   padding: 4px 4px 4px 12px;
   border-radius: 10px;
@@ -96,6 +116,7 @@ fn main() -> glib::ExitCode {
         }
         gtk::Window::set_default_icon_name(APP_ID);
         setup_actions(app);
+        style::init();
     });
 
     // Arbeitsverzeichnis des Aufrufers übernehmen (z. B. „parkett“ aus einem Ordner heraus)

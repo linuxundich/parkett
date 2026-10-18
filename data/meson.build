@@ -19,6 +19,7 @@ metainfo_file = configure_file(
 install_data(app_id + '.gschema.xml', install_dir: datadir / 'glib-2.0' / 'schemas')
 install_data('icons/hicolor/scalable/apps/' + app_id + '.svg', install_dir: datadir / 'icons/hicolor/scalable/apps')
 install_data('icons/hicolor/symbolic/apps/' + app_id + '-symbolic.svg', install_dir: datadir / 'icons/hicolor/symbolic/apps')
+install_data('icons/hicolor/scalable/actions/parkett-split-right-symbolic.svg', 'icons/hicolor/scalable/actions/parkett-split-down-symbolic.svg', install_dir: datadir / 'icons/hicolor/scalable/actions')
 
 desktop_file_validate = find_program('desktop-file-validate', required: false)
 if desktop_file_validate.found()

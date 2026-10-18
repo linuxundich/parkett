@@ -27,6 +27,7 @@ mod imp {
         pub pending_swap: Cell<bool>,
         /// Einblendung „Rückgängig“ des zuletzt Geschlossenen; eine neue ersetzt sie
         pub undo_toast: std::cell::RefCell<Option<adw::Toast>>,
+        pub split_buttons: OnceCell<(gtk::Button, gtk::Button)>,
     }
 
     #[glib::object_subclass]
@@ -147,6 +148,12 @@ impl Window {
             .build();
 
         let main_menu = gio::Menu::new();
+        // Stilwahl System/Hell/Dunkel oben im Menü (wie GNOME Text Editor, Console)
+        let style_item = gio::MenuItem::new(None, None);
+        style_item.set_attribute_value("custom", Some(&"style".to_variant()));
+        let s0 = gio::Menu::new();
+        s0.append_item(&style_item);
+        main_menu.append_section(None, &s0);
         let s1 = gio::Menu::new();
         s1.append(Some("Neues Fenster"), Some("app.new-window"));
         s1.append(Some("Reiter umbenennen …"), Some("win.rename-tab"));
@@ -162,6 +169,9 @@ impl Window {
             .primary(true)
             .tooltip_text("Hauptmenü")
             .build();
+        if let Some(popover) = menu_button.popover().and_downcast::<gtk::PopoverMenu>() {
+            popover.add_child(&crate::style::selector(), "style");
+        }
 
         let find_button = gtk::Button::builder().icon_name("edit-find-symbolic").tooltip_text("Suchen (Strg+Umschalt+F)").action_name("win.find").build();
         let overview_button = adw::TabButton::builder().view(&tab_view).action_name("win.overview").build();
@@ -186,6 +196,14 @@ impl Window {
         }
         find_button.update_property(&[gtk::accessible::Property::Label("Suchen")]);
         header.pack_start(&new_button);
+        // Teilen-Knöpfe wie bei Tilix (Wunsch Christoph nach dem ersten eigenen Test)
+        let split_right = gtk::Button::builder().icon_name("parkett-split-right-symbolic").action_name("win.split-right").build();
+        let split_down = gtk::Button::builder().icon_name("parkett-split-down-symbolic").action_name("win.split-down").build();
+        split_right.update_property(&[gtk::accessible::Property::Label("Rechts teilen")]);
+        split_down.update_property(&[gtk::accessible::Property::Label("Unten teilen")]);
+        header.pack_start(&split_right);
+        header.pack_start(&split_down);
+        imp.split_buttons.set((split_right, split_down)).ok();
         header.pack_end(&menu_button);
         header.pack_end(&overview_button);
         header.pack_end(&find_button);
@@ -804,6 +822,15 @@ impl Window {
         let c = crate::shortcuts::controller("win.");
         self.add_controller(c.clone());
         *imp.shortcuts.borrow_mut() = Some(c);
+        // Tooltips mit dem aktuellen Kürzel
+        if let Some((right, down)) = imp.split_buttons.get() {
+            let tip = |label: &str, action: &str| {
+                let accels = crate::shortcuts::effective(action);
+                if accels.is_empty() { label.to_string() } else { format!("{label} ({})", crate::shortcuts::label(&accels)) }
+            };
+            right.set_tooltip_text(Some(&tip("Rechts teilen", "win.split-right")));
+            down.set_tooltip_text(Some(&tip("Unten teilen", "win.split-down")));
+        }
     }
 }
 
