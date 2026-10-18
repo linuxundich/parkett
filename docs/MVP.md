@@ -10,8 +10,8 @@ Blueprint für Dialoge, GSettings + Dateien, serde, Meson, GPL-3.0-or-later, Pty
 | 1 | **Tabs und Splits** (dieses Dokument, Abschnitt unten) | fertig, in VM getestet |
 | 2 | Meson-Build, GSettings-Schema, LICENSE, Arch-Paket | fertig, in VM getestet |
 | 3 | Profile und Farbschemata (Ptyxis-Format, Import, Kacheln mit Live-Vorschau) | fertig, in VM getestet |
-| 4 | Einstellungen (AdwPreferencesDialog) – Allgemein und Profile schon da, offen: Kürzel, Feinschliff | teilweise |
-| 5 | Suche im Terminal, Links öffnen (Strg+Klick) | offen |
+| 4 | Einstellungen (AdwPreferencesDialog): Allgemein, Profile, Tastenkürzel | fertig |
+| 5 | Suche im Terminal, Links öffnen (Strg+Klick), änderbare Tastenkürzel | fertig, in VM getestet |
 | 6 | Befehlspalette, Layout-Modus, Vorlagen (A+) | offen, eventuell nach MVP |
 | 7 | Rückgängig für Schließen, Kontextfarbe je Bereich (Vorschläge 1, 4) | offen |
 
@@ -188,3 +188,51 @@ wurden für den Test in der TOML-Datei gesetzt, nicht über die Eingabefelder.
 - Importierte Schemata erscheinen bis zum nächsten Start am Ende statt alphabetisch.
 - Kontextfarbe je Bereich (root/SSH) ist in den Paletten vorhanden, wird aber erst mit
   Schritt 7 angewendet.
+
+## Schritt 5: Suche, Links, Tastenkürzel
+
+### Umgesetzt
+
+- **Suche je Bereich** (Strg+Umschalt+F, Knopf in der Kopfleiste, Kontextmenü): Leiste oben
+  rechts im Bereich mit Suchfeld, „Aa“ (Groß/Klein), „.*“ (regulärer Ausdruck), Treffer
+  darüber/darunter, Schließen. Sucht vom Ende her (neueste Ausgabe zuerst); Eingabe = Treffer
+  darüber, Umschalt+Eingabe = darunter, Strg+Umschalt+G/H auch ohne offene Leiste. Kein
+  Treffer oder ungültiger Ausdruck: Feld rot, Fehler als Tooltip. Markierter Text wird
+  Suchbegriff. VTE-Suche mit PCRE2 (Flags wie Ptyxis), Text wird ohne „.*“ maskiert.
+- **Links:** Adressen (http, https, ftp, file, mailto) per Regex erkannt, Satzzeichen am Ende
+  gehören nicht dazu; OSC-8-Links von VTE. **Strg+Klick** öffnet über `GtkUriLauncher`, nur mit
+  erlaubtem Schema (kein javascript:, data: …). Kontextmenü „Link öffnen“ / „Link kopieren“,
+  nur sichtbar, wenn ein Link unter dem Zeiger liegt. **OSC-8-Links zeigen ihr wahres Ziel als
+  Tooltip** (der sichtbare Text kann täuschen); das Signal bindet vte4-rs nicht, daher
+  `connect_local`.
+- **Tastenkürzel änderbar:** zentrale Liste `shortcuts.rs` (32 Aktionen mit Standardbelegung),
+  eigene Belegungen in GSettings `custom-shortcuts` (`a{ss}`). Seite „Tastenkürzel“ in den
+  Einstellungen: Zeile anklicken, Kombination drücken; Esc bricht ab, Rücktaste schaltet aus,
+  „Standard wiederherstellen“, „Alle zurücksetzen“. Konflikte werden abgelehnt mit Hinweis auf
+  die belegte Aktion; ohne Strg/Alt/Super sind nur F-Tasten erlaubt. Während der Aufnahme
+  sind Fenster- und App-Kürzel abgeschaltet. Fenster, Terminals (inkl. Kontextmenü-Anzeige),
+  App-Accels und die Kürzel-Übersicht folgen Änderungen sofort.
+
+### Tests (VM fedora44-wor)
+
+| Test | Ergebnis |
+|---|---|
+| Suche „apfel“: findet zuerst „APFEL“ (unten), Eingabe → „apfel“ darüber; „apfelbanane“ → rot | ok (`mvp-suche.png`) |
+| Strg+Klick auf `https://linuxundich.de/artikel/test,` öffnet Firefox mit der Adresse ohne Komma | ok |
+| Zeiger über OSC-8-Text „Hier klicken“ → Tooltip `https://example.org/wahres-ziel` | ok (`mvp-osc8-tooltip.png`) |
+| Rechtsklick auf `mailto:…` → „Link öffnen/kopieren“; Kopieren → `wl-paste` = Adresse | ok (`mvp-link-menue.png`) |
+| Rechtsklick auf `javascript:alert(1)` → keine Link-Einträge | ok |
+| Kürzel-Seite listet alle Aktionen | ok (`mvp-kuerzel-seite.png`) |
+| „Neuer Reiter“ → Strg+Umschalt+X → Hinweis „schon Bereich maximieren“, nichts ausgelöst | ok (`mvp-kuerzel-konflikt.png`) |
+| Strg+Alt+E aufgenommen → GSettings `{'win.new-tab': '<Control><Alt>e'}`; Strg+Umschalt+T wirkungslos, Strg+Alt+E öffnet Reiter (live) | ok |
+| Nach der Aufnahme wirkt Strg+, wieder; Zeile zeigt „Eigene Belegung“; „Alle zurücksetzen“ → `{}` | ok |
+| Kürzel-Übersicht (Strg+?) zeigt aktuelle Belegung, keine GTK-Warnungen | ok |
+
+### Gefunden und behoben
+
+- **Absturz beim Start:** `glib::VariantDict` verlangt `a{sv}`, der Schlüssel ist `a{ss}` →
+  Lesen und Schreiben als `HashMap<String, String>`.
+- Ungültige Kürzel-Texte in der Übersicht („Strg+Klick“, „1…9“) ersetzt.
+
+Nicht getestet: Regex- und Groß/Klein-Schalter der Suche, Änderung eines Terminal-Kürzels
+(gleicher Mechanismus wie Fensterkürzel), `file://`-Links.

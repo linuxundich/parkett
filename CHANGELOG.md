@@ -5,6 +5,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unreleased]
 
 ### Hinzugefügt
+- Tastenkürzel änderbar (Einstellungen › Tastenkürzel), mit Konfliktprüfung und
+  „Alle zurücksetzen“; Fenster, Terminals und Übersicht übernehmen Änderungen sofort.
 - Suche im Terminal je Bereich (Strg+Umschalt+F; Groß/Klein, regulärer Ausdruck; Treffer
   darüber/darunter), Suchknopf in der Kopfleiste.
 - Links: Strg+Klick öffnet Adressen und OSC-8-Links (nur http, https, ftp, mailto, file),

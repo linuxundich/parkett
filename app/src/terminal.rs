@@ -37,6 +37,7 @@ struct Inner {
     /// Link unter dem Zeiger beim Rechtsklick (für „Link öffnen/kopieren“ im Kontextmenü)
     menu_link: RefCell<Option<String>>,
     actions: gio::SimpleActionGroup,
+    shortcut_controller: RefCell<Option<gtk::ShortcutController>>,
     child_pid: Cell<Option<glib::Pid>>,
     exit: Cell<Option<ExitStatus>>,
     on_state_changed: RefCell<Vec<Callback>>,
@@ -92,6 +93,7 @@ impl Terminal {
             on_colors_changed: RefCell::default(),
             menu_link: RefCell::new(None),
             actions: gio::SimpleActionGroup::new(),
+            shortcut_controller: RefCell::new(None),
             child_pid: Cell::new(None),
             exit: Cell::new(None),
             on_state_changed: RefCell::default(),
@@ -529,40 +531,42 @@ impl Terminal {
         add("zoom-reset", Box::new(|v| v.set_font_scale(1.0)));
         self.0.vte.insert_action_group("term", Some(&group));
 
-        // Kürzel hängen am Terminal selbst und laufen in der Capture-Phase vor der
-        // Tastaturbehandlung von VTE. Globale App-Accels würden am Fenster aufgelöst und
-        // fänden die Aktionen dieses Terminals nicht (in der VM gefunden: Strg+= tippte „=“).
-        let shortcuts = gtk::ShortcutController::new();
-        shortcuts.set_propagation_phase(gtk::PropagationPhase::Capture);
-        for (accels, action) in SHORTCUTS {
-            shortcuts.add_shortcut(gtk::Shortcut::new(
-                gtk::ShortcutTrigger::parse_string(accels),
-                Some(gtk::NamedAction::new(&format!("term.{action}"))),
-            ));
+        self.rebuild_shortcuts();
+        // Eigene Kürzel aus den Einstellungen sofort übernehmen
+        let weak = Rc::downgrade(&self.0);
+        let id = crate::settings::settings().connect_changed(Some("custom-shortcuts"), move |_, _| {
+            if let Some(inner) = weak.upgrade() {
+                Terminal(inner).rebuild_shortcuts();
+            }
+        });
+        let id = RefCell::new(Some(id));
+        self.0.vte.connect_destroy(move |_| {
+            if let Some(id) = id.borrow_mut().take() {
+                crate::settings::settings().disconnect(id);
+            }
+        });
+    }
+
+    /// Kürzel und Kontextmenü (mit Kürzelanzeige) nach aktueller Belegung aufbauen.
+    /// Die Kürzel hängen am Terminal selbst und laufen in der Capture-Phase vor der
+    /// Tastaturbehandlung von VTE. Globale App-Accels würden am Fenster aufgelöst und fänden
+    /// die Aktionen dieses Terminals nicht (in der VM gefunden: Strg+= tippte „=“).
+    fn rebuild_shortcuts(&self) {
+        if let Some(old) = self.0.shortcut_controller.borrow_mut().take() {
+            self.0.vte.remove_controller(&old);
         }
-        self.0.vte.add_controller(shortcuts);
+        let controller = crate::shortcuts::controller("term.");
+        self.0.vte.add_controller(controller.clone());
+        *self.0.shortcut_controller.borrow_mut() = Some(controller);
 
         let item = |menu: &gio::Menu, label: &str, action: &str| {
-            let it = gio::MenuItem::new(Some(label), Some(&format!("term.{action}")));
-            if let Some((accels, _)) = SHORTCUTS.iter().find(|(_, a)| *a == action) {
-                // erstes Kürzel als Anzeige im Kontextmenü
-                it.set_attribute_value("accel", Some(&accels.split('|').next().unwrap_or("").to_variant()));
+            let it = gio::MenuItem::new(Some(label), Some(action));
+            if let Some(accel) = crate::shortcuts::effective(action).first() {
+                it.set_attribute_value("accel", Some(&accel.to_variant()));
             }
             menu.append_item(&it);
         };
         let menu = gio::Menu::new();
-        let edit = gio::Menu::new();
-        item(&edit, "Kopieren", "copy");
-        item(&edit, "Einfügen", "paste");
-        item(&edit, "Alles auswählen", "select-all");
-        menu.append_section(None, &edit);
-        let zoom = gio::Menu::new();
-        item(&zoom, "Vergrößern", "zoom-in");
-        item(&zoom, "Verkleinern", "zoom-out");
-        item(&zoom, "Normale Größe", "zoom-reset");
-        menu.append_section(None, &zoom);
-        // Bereichsaktionen leben am Fenster (win.*); sie gelten für den fokussierten Bereich,
-        // den ein Rechtsklick vorher setzt (siehe pane.rs).
         // Link-Einträge nur sichtbar, wenn beim Rechtsklick ein Link unter dem Zeiger lag
         let link = gio::Menu::new();
         for (label, action) in [("Link öffnen", "term.open-link"), ("Link kopieren", "term.copy-link")] {
@@ -570,18 +574,30 @@ impl Terminal {
             it.set_attribute_value("hidden-when", Some(&"action-disabled".to_variant()));
             link.append_item(&it);
         }
-        menu.prepend_section(None, &link);
+        menu.append_section(None, &link);
+        let edit = gio::Menu::new();
+        item(&edit, "Kopieren", "term.copy");
+        item(&edit, "Einfügen", "term.paste");
+        item(&edit, "Alles auswählen", "term.select-all");
+        menu.append_section(None, &edit);
+        let zoom = gio::Menu::new();
+        item(&zoom, "Vergrößern", "term.zoom-in");
+        item(&zoom, "Verkleinern", "term.zoom-out");
+        item(&zoom, "Normale Größe", "term.zoom-reset");
+        menu.append_section(None, &zoom);
+        // Bereichsaktionen leben am Fenster (win.*); sie gelten für den fokussierten Bereich,
+        // den ein Rechtsklick vorher setzt (siehe pane.rs).
         let search = gio::Menu::new();
-        search.append(Some("Suchen …"), Some("win.find"));
+        item(&search, "Suchen …", "win.find");
         menu.append_section(None, &search);
         let split = gio::Menu::new();
-        split.append(Some("Rechts teilen"), Some("win.split-right"));
-        split.append(Some("Unten teilen"), Some("win.split-down"));
-        split.append(Some("Bereich maximieren"), Some("win.toggle-zoom"));
-        split.append(Some("Größen angleichen"), Some("win.equalize"));
+        item(&split, "Rechts teilen", "win.split-right");
+        item(&split, "Unten teilen", "win.split-down");
+        item(&split, "Bereich maximieren", "win.toggle-zoom");
+        item(&split, "Größen angleichen", "win.equalize");
         menu.append_section(None, &split);
         let close = gio::Menu::new();
-        close.append(Some("Bereich schließen"), Some("win.close-pane"));
+        item(&close, "Bereich schließen", "win.close-pane");
         menu.append_section(None, &close);
         self.0.vte.set_context_menu_model(Some(&menu));
     }
@@ -600,15 +616,6 @@ const URL_PATTERNS: &[&str] = &[
 pub const PCRE2_FLAGS: u32 = 0x0008_0000 | 0x4000_0000 | 0x0002_0000 | 0x0000_0400;
 pub const PCRE2_CASELESS: u32 = 0x0000_0008;
 
-/// Kürzel je Terminal-Aktion; mehrere Auslöser mit „|“ (Syntax von GtkShortcutTrigger).
-const SHORTCUTS: &[(&str, &str)] = &[
-    ("<Control><Shift>c", "copy"),
-    ("<Control><Shift>v|<Shift>Insert", "paste"),
-    ("<Control><Shift>a", "select-all"),
-    ("<Control>plus|<Control>equal|<Control>KP_Add", "zoom-in"),
-    ("<Control>minus|<Control>KP_Subtract", "zoom-out"),
-    ("<Control>0|<Control>KP_0", "zoom-reset"),
-];
 
 fn rgba(c: &Rgb) -> gtk::gdk::RGBA {
     gtk::gdk::RGBA::new(c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0, 1.0)

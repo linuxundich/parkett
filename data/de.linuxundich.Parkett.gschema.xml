@@ -48,6 +48,11 @@
       <summary>Standardprofil</summary>
       <description>Id des Profils für neue Reiter (Dateiname unter ~/.config/parkett/profiles ohne .toml).</description>
     </key>
+    <key name="custom-shortcuts" type="a{ss}">
+      <default>{}</default>
+      <summary>Eigene Tastenkürzel</summary>
+      <description>Aktion (z. B. „win.split-right“) → Kürzel in GTK-Schreibweise; leer = Kürzel aus. Fehlende Aktionen nutzen die Standardbelegung.</description>
+    </key>
     <key name="scrollback-lines" type="i">
       <range min="-1" max="1000000"/>
       <default>10000</default>

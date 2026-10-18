@@ -4,6 +4,7 @@ mod pane;
 mod prefs;
 mod profiles;
 mod settings;
+mod shortcuts;
 mod tab;
 mod terminal;
 mod window;
@@ -133,51 +134,32 @@ fn setup_actions(app: &adw::Application) {
 
     // Nur App-Aktionen als globale Accels; Fenster- und Terminalkürzel hängen an ihren
     // Widgets (Capture-Phase), sonst würden sie doppelt oder gar nicht ausgelöst.
-    app.set_accels_for_action("app.new-window", &["<Ctrl><Shift>n"]);
-    app.set_accels_for_action("app.shortcuts", &["<Ctrl>question"]);
-    app.set_accels_for_action("app.preferences", &["<Ctrl>comma"]);
+    shortcuts::apply_app_accels(app.upcast_ref());
+    let weak = app.downgrade();
+    settings::settings().connect_changed(Some("custom-shortcuts"), move |_, _| {
+        if let Some(app) = weak.upgrade() {
+            shortcuts::apply_app_accels(app.upcast_ref());
+        }
+    });
 }
 
-/// Übersicht aller Kürzel (AdwShortcutsDialog, libadwaita 1.8).
+/// Übersicht aller Kürzel (AdwShortcutsDialog, libadwaita 1.8) mit der aktuellen Belegung.
 fn shortcuts_dialog() -> adw::ShortcutsDialog {
     let dialog = adw::ShortcutsDialog::new();
-    let sections: &[(&str, &[(&str, &str)])] = &[
-        ("Reiter", &[
-            ("Neuer Reiter", "<Control><Shift>t"),
-            ("Reiter schließen", "<Control><Shift>q"),
-            ("Nächster / vorheriger Reiter", "<Control>Page_Down <Control>Page_Up"),
-            ("Reiter 1 … 9", "<Control><Alt>1"),
-            ("Reiter umbenennen", "F2"),
-            ("Reiter-Übersicht", "<Control><Shift>o"),
-            ("Neues Fenster", "<Control><Shift>n"),
-        ]),
-        ("Bereiche", &[
-            ("Rechts teilen", "<Control><Alt>r"),
-            ("Unten teilen", "<Control><Alt>d"),
-            ("Automatisch teilen", "<Control><Alt>a"),
-            ("Bereich schließen", "<Control><Shift>w"),
-            ("Bereich maximieren", "<Control><Shift>x"),
-            ("Größen angleichen", "<Control><Alt>equal"),
-            ("Fokus wechseln", "<Alt>Left <Alt>Right <Alt>Up <Alt>Down"),
-            ("Bereich 1 … 9", "<Alt>1"),
-            ("Größe ändern", "<Shift><Alt>Left <Shift><Alt>Right <Shift><Alt>Up <Shift><Alt>Down"),
-        ]),
-        ("Terminal", &[
-            ("Suchen", "<Control><Shift>f"),
-            ("Treffer darüber / darunter", "<Control><Shift>g <Control><Shift>h"),
-            ("Kopieren", "<Control><Shift>c"),
-            ("Einfügen", "<Control><Shift>v"),
-            ("Alles auswählen", "<Control><Shift>a"),
-            ("Vergrößern / verkleinern", "<Control>plus <Control>minus"),
-            ("Normale Größe", "<Control>0"),
-        ]),
-    ];
-    for (title, items) in sections {
-        let section = adw::ShortcutsSection::new(Some(title));
-        for (label, accel) in items.iter() {
-            section.add(adw::ShortcutsItem::new(label, accel));
+    for section in shortcuts::SECTIONS {
+        let sec = adw::ShortcutsSection::new(Some(section));
+        for e in shortcuts::ENTRIES.iter().filter(|e| e.section == *section) {
+            let accels = shortcuts::effective(e.action);
+            if !accels.is_empty() {
+                sec.add(adw::ShortcutsItem::new(e.label, &accels.join(" ")));
+            }
         }
-        dialog.add(section);
+        match *section {
+            "Reiter und Fenster" => sec.add(adw::ShortcutsItem::new("Reiter 1 … 9", "<Control><Alt>1")),
+            "Bereiche" => sec.add(adw::ShortcutsItem::new("Bereich 1 … 9", "<Alt>1")),
+            _ => {}
+        }
+        dialog.add(sec);
     }
     dialog
 }

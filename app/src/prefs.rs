@@ -16,6 +16,7 @@ pub fn show(parent: Option<&gtk::Window>) {
     let dialog = adw::PreferencesDialog::builder().title("Einstellungen").search_enabled(true).build();
     dialog.add(&general_page());
     dialog.add(&profiles_page(&dialog));
+    dialog.add(&shortcuts_page(&dialog));
     dialog.present(parent);
 }
 
@@ -403,4 +404,127 @@ fn draw_face(cr: &gtk::cairo::Context, face: &Face, x: f64, w: f64, h: f64) {
     set(&face.foreground);
     cr.rectangle(x + 8.0, 46.0, (w - 16.0) * 0.55, 5.0);
     let _ = cr.fill();
+}
+
+/// Zeile, Kürzel-Anzeige und Aktion einer Zeile auf der Kürzel-Seite.
+type ShortcutRow = (adw::ActionRow, gtk::Label, &'static str);
+
+fn shortcuts_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
+    use crate::shortcuts;
+    let page = adw::PreferencesPage::builder().title("Tastenkürzel").icon_name("input-keyboard-symbolic").build();
+    let rows: Rc<RefCell<Vec<ShortcutRow>>> = Rc::default();
+    for (n, section) in shortcuts::SECTIONS.iter().enumerate() {
+        let group = adw::PreferencesGroup::builder().title(*section).build();
+        if n == 0 {
+            group.set_description(Some("Zeile anklicken und neue Kombination drücken."));
+            let reset = gtk::Button::builder().label("Alle zurücksetzen").css_classes(["flat"]).valign(gtk::Align::Center).build();
+            reset.connect_clicked(|_| shortcuts::reset_all());
+            group.set_header_suffix(Some(&reset));
+        }
+        for e in shortcuts::ENTRIES.iter().filter(|e| e.section == *section) {
+            let label = gtk::Label::builder().css_classes(["dim-label"]).build();
+            let row = adw::ActionRow::builder().title(e.label).activatable(true).build();
+            row.add_suffix(&label);
+            let d = dialog.downgrade();
+            let action = e.action;
+            row.connect_activated(move |_| {
+                if let Some(d) = d.upgrade() {
+                    capture_shortcut(&d, action);
+                }
+            });
+            group.add(&row);
+            rows.borrow_mut().push((row, label, e.action));
+        }
+        page.add(&group);
+    }
+    let refresh = {
+        let rows = rows.clone();
+        move || {
+            for (row, label, action) in rows.borrow().iter() {
+                label.set_label(&shortcuts::label(&shortcuts::effective(action)));
+                row.set_subtitle(if shortcuts::is_custom(action) { "Eigene Belegung" } else { "" });
+            }
+        }
+    };
+    refresh();
+    let id = crate::settings::settings().connect_changed(Some("custom-shortcuts"), move |_, _| refresh());
+    let id = RefCell::new(Some(id));
+    dialog.connect_closed(move |_| {
+        if let Some(id) = id.borrow_mut().take() {
+            crate::settings::settings().disconnect(id);
+        }
+    });
+    page
+}
+
+/// Nimmt eine neue Tastenkombination auf. Esc bricht ab, Rücktaste schaltet das Kürzel aus.
+/// Während der Aufnahme sind Fenster- und App-Kürzel abgeschaltet, sonst lösten sie aus.
+fn capture_shortcut(prefs: &adw::PreferencesDialog, action: &'static str) {
+    use crate::shortcuts;
+    let Some(entry) = shortcuts::entry(action) else { return };
+    let current = shortcuts::label(&shortcuts::effective(action));
+    let hint = format!("Aktuell: {current}\nNeue Kombination drücken. Esc bricht ab, Rücktaste schaltet das Kürzel aus.");
+    let dialog = adw::AlertDialog::new(Some(entry.label), Some(&hint));
+    dialog.add_responses(&[("cancel", "Abbrechen"), ("default", "Standard wiederherstellen")]);
+    dialog.set_close_response("cancel");
+
+    let window = prefs.root().and_downcast::<crate::window::Window>();
+    let app = window.as_ref().and_then(|w| w.application());
+    if let Some(w) = &window {
+        w.set_shortcuts_enabled(false);
+    }
+    if let Some(app) = &app {
+        for e in shortcuts::ENTRIES.iter().filter(|e| e.action.starts_with("app.")) {
+            app.set_accels_for_action(e.action, &[]);
+        }
+    }
+    let restore = {
+        let window = window.clone();
+        move || {
+            if let Some(w) = &window {
+                w.set_shortcuts_enabled(true);
+                if let Some(app) = w.application() {
+                    shortcuts::apply_app_accels(&app);
+                }
+            }
+        }
+    };
+    dialog.connect_closed(move |_| restore());
+    dialog.connect_response(Some("default"), move |_, _| shortcuts::set(action, None));
+
+    let keys = gtk::EventControllerKey::new();
+    keys.set_propagation_phase(gtk::PropagationPhase::Capture);
+    let d = dialog.downgrade();
+    keys.connect_key_pressed(move |_, key, _, state| {
+        let Some(d) = d.upgrade() else { return glib::Propagation::Proceed };
+        let plain = (state & gtk::accelerator_get_default_mod_mask()).is_empty();
+        if plain && key == gtk::gdk::Key::Escape {
+            d.close();
+            return glib::Propagation::Stop;
+        }
+        if plain && key == gtk::gdk::Key::BackSpace {
+            shortcuts::set(action, Some(""));
+            d.close();
+            return glib::Propagation::Stop;
+        }
+        match shortcuts::from_key(key, state) {
+            Ok(None) => glib::Propagation::Stop,
+            Err(msg) => {
+                d.set_body(msg);
+                glib::Propagation::Stop
+            }
+            Ok(Some(accel)) => {
+                if let Some(other) = shortcuts::conflict(action, &accel) {
+                    let label = shortcuts::label(std::slice::from_ref(&accel));
+                    d.set_body(&format!("{label} ist schon „{}“ zugeordnet. Bitte eine andere Kombination drücken.", other.label));
+                } else {
+                    shortcuts::set(action, Some(&accel));
+                    d.close();
+                }
+                glib::Propagation::Stop
+            }
+        }
+    });
+    dialog.add_controller(keys);
+    dialog.present(Some(prefs));
 }

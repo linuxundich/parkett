@@ -21,6 +21,7 @@ mod imp {
         pub toasts: OnceCell<adw::ToastOverlay>,
         /// Nachfrage beim Schließen wurde bestätigt
         pub force_close: Cell<bool>,
+        pub shortcuts: std::cell::RefCell<Option<gtk::ShortcutController>>,
     }
 
     #[glib::object_subclass]
@@ -65,33 +66,6 @@ glib::wrapper! {
                     gtk::ConstraintTarget, gtk::Native, gtk::Root, gtk::ShortcutManager;
 }
 
-/// Fensterweite Kürzel. Sie laufen in der Capture-Phase vor VTE, damit z. B. Alt+Pfeil nicht
-/// in der Shell landet. Belegung nach Tilix, wo sie nicht mit GNOME kollidiert (KONZEPTE.md).
-const SHORTCUTS: &[(&str, &str)] = &[
-    ("<Control><Shift>t", "new-tab"),
-    ("<Control><Shift>q", "close-tab"),
-    ("<Control><Shift>w", "close-pane"),
-    ("<Control><Alt>r", "split-right"),
-    ("<Control><Alt>d", "split-down"),
-    ("<Control><Alt>a", "split-auto"),
-    ("<Control><Shift>x", "toggle-zoom"),
-    ("<Control><Alt>equal", "equalize"),
-    ("<Alt>Left", "focus-left"),
-    ("<Alt>Right", "focus-right"),
-    ("<Alt>Up", "focus-up"),
-    ("<Alt>Down", "focus-down"),
-    ("<Shift><Alt>Left", "resize-left"),
-    ("<Shift><Alt>Right", "resize-right"),
-    ("<Shift><Alt>Up", "resize-up"),
-    ("<Shift><Alt>Down", "resize-down"),
-    ("<Control>Page_Down", "next-tab"),
-    ("<Control>Page_Up", "prev-tab"),
-    ("F2", "rename-tab"),
-    ("<Control><Shift>f", "find"),
-    ("<Control><Shift>g", "find-up"),
-    ("<Control><Shift>h", "find-down"),
-    ("<Control><Shift>o", "overview"),
-];
 
 impl Window {
     pub fn new(app: &adw::Application, cwd: Option<String>) -> Self {
@@ -490,10 +464,39 @@ impl Window {
             controller.add_shortcut(shortcut(&format!("<Control><Alt>{n}"), &format!("win.goto-tab-{n}")));
             controller.add_shortcut(shortcut(&format!("<Alt>{n}"), &format!("win.focus-pane-{n}")));
         }
-        for (accel, name) in SHORTCUTS {
-            controller.add_shortcut(shortcut(accel, &format!("win.{name}")));
-        }
         self.add_controller(controller);
+        // Änderbare Kürzel (Einstellungen › Tastenkürzel) in eigenem Controller, live neu gebaut.
+        // Capture-Phase, damit z. B. Alt+Pfeil nicht in der Shell landet.
+        self.rebuild_shortcuts();
+        let weak = self.downgrade();
+        let id = crate::settings::settings().connect_changed(Some("custom-shortcuts"), move |_, _| {
+            if let Some(w) = weak.upgrade() {
+                w.rebuild_shortcuts();
+            }
+        });
+        let id = std::cell::RefCell::new(Some(id));
+        self.connect_destroy(move |_| {
+            if let Some(id) = id.borrow_mut().take() {
+                crate::settings::settings().disconnect(id);
+            }
+        });
+    }
+
+    /// Fensterkürzel aus/ein, z. B. während der Einstellungsdialog ein Kürzel aufnimmt.
+    pub fn set_shortcuts_enabled(&self, enabled: bool) {
+        if let Some(c) = self.imp().shortcuts.borrow().as_ref() {
+            c.set_propagation_phase(if enabled { gtk::PropagationPhase::Capture } else { gtk::PropagationPhase::None });
+        }
+    }
+
+    fn rebuild_shortcuts(&self) {
+        let imp = self.imp();
+        if let Some(old) = imp.shortcuts.borrow_mut().take() {
+            self.remove_controller(&old);
+        }
+        let c = crate::shortcuts::controller("win.");
+        self.add_controller(c.clone());
+        *imp.shortcuts.borrow_mut() = Some(c);
     }
 }
 

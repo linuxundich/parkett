@@ -24,10 +24,10 @@
 - [x] Schritt 1: Tabs und Splits, Schließen mit Nachfrage, Kürzel-Übersicht (VM-getestet)
 - [x] Schritt 2: Meson-Build, GSettings-Schema, LICENSE, Arch-Paket (2026-10-18)
 - [x] Schritt 3: Profile und Farbschemata (Ptyxis-Format, 14 Schemata, Import, Kacheln) (2026-10-18)
-- [ ] Schritt 4: Einstellungen – Allgemein und Profile da; offen: Kürzel-Seite, Feinschliff
+- [x] Schritt 4: Einstellungen (Allgemein, Profile, Tastenkürzel) (2026-10-18)
 - [ ] Profil-Felder Umgebung/Verzeichnis/Login-Shell und Löschen in der VM testen
 - [ ] Importierte Schemata sofort alphabetisch einsortieren
-- [ ] Schritt 5: Suche, Links öffnen
+- [x] Schritt 5: Suche, Links öffnen, änderbare Kürzel (2026-10-18)
 - [ ] Schritt 6: Befehlspalette, Layout-Modus, Vorlagen (A+)
 - [ ] Schritt 7: Rückgängig beim Schließen, Kontextfarbe je Bereich
 - [x] Begriff: durchgehend „Reiter“ (2026-10-18)
