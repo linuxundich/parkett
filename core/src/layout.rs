@@ -30,6 +30,13 @@ impl Direction {
     }
 }
 
+/// Weg vom Wurzelknoten zu einem Split: je Ebene erstes oder zweites Kind.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Side {
+    First,
+    Second,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Node {
     Pane(PaneId),
@@ -145,6 +152,33 @@ impl Layout {
     /// Setzt alle Anteile so, dass gleich ausgerichtete Bereiche gleich groß werden.
     pub fn equalize(&self) -> Layout {
         Layout { root: equalize_node(&self.root), ..self.clone() }
+    }
+
+    /// Setzt den Anteil des Splits am Pfad `path` (z. B. nach Ziehen des Trenners).
+    /// `None`, wenn am Pfad kein Split liegt.
+    pub fn set_ratio(&self, path: &[Side], ratio: f32) -> Option<Layout> {
+        let root = set_ratio_node(&self.root, path, ratio.clamp(MIN_RATIO, 1.0 - MIN_RATIO))?;
+        Some(Layout { root, ..self.clone() })
+    }
+
+    /// Anteil des Splits am Pfad.
+    pub fn ratio_at(&self, path: &[Side]) -> Option<f32> {
+        let mut n = &self.root;
+        for side in path {
+            match n {
+                Node::Split { first, second, .. } => n = if *side == Side::First { first } else { second },
+                Node::Pane(_) => return None,
+            }
+        }
+        match n {
+            Node::Split { ratio, .. } => Some(*ratio),
+            Node::Pane(_) => None,
+        }
+    }
+
+    /// Hebt einen Zoom auf (alle Bereiche wieder sichtbar).
+    pub fn without_zoom(&self) -> Layout {
+        Layout { zoomed: None, ..self.clone() }
     }
 
     pub fn toggle_zoom(&self, target: PaneId) -> Option<Layout> {
@@ -276,6 +310,25 @@ fn resize_node(n: &Node, target: PaneId, axis: Orientation, signed: f32) -> Opti
             let (a, b) = if in_first { (Box::new(child), second.clone()) } else { (first.clone(), Box::new(child)) };
             Some((Node::Split { orientation: *orientation, ratio: new_ratio, first: a, second: b }, done))
         }
+    }
+}
+
+fn set_ratio_node(n: &Node, path: &[Side], ratio: f32) -> Option<Node> {
+    let Node::Split { orientation, ratio: old, first, second } = n else { return None };
+    match path.split_first() {
+        None => Some(Node::Split { orientation: *orientation, ratio, first: first.clone(), second: second.clone() }),
+        Some((Side::First, rest)) => Some(Node::Split {
+            orientation: *orientation,
+            ratio: *old,
+            first: Box::new(set_ratio_node(first, rest, ratio)?),
+            second: second.clone(),
+        }),
+        Some((Side::Second, rest)) => Some(Node::Split {
+            orientation: *orientation,
+            ratio: *old,
+            first: first.clone(),
+            second: Box::new(set_ratio_node(second, rest, ratio)?),
+        }),
     }
 }
 
@@ -437,12 +490,25 @@ mod tests {
     }
 
     #[test]
+    fn set_ratio_by_path() {
+        let l = three();
+        let r = l.set_ratio(&[], 0.7).unwrap();
+        assert_eq!(r.ratio_at(&[]), Some(0.7));
+        let r = r.set_ratio(&[Side::Second], 0.25).unwrap();
+        assert_eq!(r.ratio_at(&[Side::Second]), Some(0.25));
+        assert_eq!(r.ratio_at(&[]), Some(0.7), "andere Splits unverändert");
+        assert!(l.set_ratio(&[Side::First], 0.3).is_none(), "links liegt ein Bereich, kein Split");
+        assert_eq!(l.set_ratio(&[], 0.0).unwrap().ratio_at(&[]), Some(MIN_RATIO), "begrenzt");
+    }
+
+    #[test]
     fn zoom_toggles_and_survives_unrelated_close() {
         let l = three().toggle_zoom(1).unwrap();
         assert_eq!(l.zoomed(), Some(1));
         assert_eq!(l.close(2).unwrap().zoomed(), Some(1));
         assert_eq!(l.close(1).unwrap().zoomed(), None);
         assert_eq!(l.toggle_zoom(1).unwrap().zoomed(), None);
+        assert_eq!(l.without_zoom().zoomed(), None);
         assert_eq!(l.split(1, Vertical).unwrap().0.zoomed(), None, "Teilen hebt Zoom auf");
     }
 }

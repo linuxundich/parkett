@@ -1,91 +1,435 @@
-//! Hauptfenster des Prototyps: Headerbar + ein Terminal.
-//! Tabs (AdwTabView) und Splits (aus parkett_core::layout) folgen in Phase 4.
+//! Hauptfenster (Konzept A+): Headerbar, AdwTabBar, je Tab ein Split-Baum, Tab-Übersicht.
 
 use adw::prelude::*;
+use adw::subclass::prelude::*;
 use gtk::{gio, glib};
-use vte::prelude::*;
+use parkett_core::layout::{Direction, Orientation};
 
-use crate::terminal::Terminal;
+use crate::tab::Tab;
 
-pub fn build(app: &adw::Application, cwd: Option<String>) -> adw::ApplicationWindow {
-    let title = adw::WindowTitle::new("Parkett", "");
+mod imp {
+    use std::cell::{Cell, OnceCell};
 
-    let new_window = gtk::Button::builder()
-        .icon_name("window-new-symbolic")
-        .tooltip_text("Neues Fenster (Strg+Umschalt+N)")
-        .action_name("app.new-window")
-        .build();
+    use super::*;
 
-    let menu = gio::Menu::new();
-    menu.append(Some("Neues Fenster"), Some("app.new-window"));
-    let about = gio::Menu::new();
-    about.append(Some("Über Parkett"), Some("app.about"));
-    menu.append_section(None, &about);
-    let menu_button = gtk::MenuButton::builder()
-        .icon_name("open-menu-symbolic")
-        .menu_model(&menu)
-        .primary(true)
-        .tooltip_text("Hauptmenü")
-        .build();
+    #[derive(Default)]
+    pub struct Window {
+        pub tab_view: OnceCell<adw::TabView>,
+        pub overview: OnceCell<adw::TabOverview>,
+        pub title: OnceCell<adw::WindowTitle>,
+        pub toasts: OnceCell<adw::ToastOverlay>,
+        /// Nachfrage beim Schließen wurde bestätigt
+        pub force_close: Cell<bool>,
+    }
 
-    let header = adw::HeaderBar::builder().title_widget(&title).build();
-    header.pack_start(&new_window);
-    header.pack_end(&menu_button);
+    #[glib::object_subclass]
+    impl ObjectSubclass for Window {
+        const NAME: &'static str = "ParkettWindow";
+        type Type = super::Window;
+        type ParentType = adw::ApplicationWindow;
+    }
 
-    let terminal = Terminal::new(cwd);
+    impl ObjectImpl for Window {}
+    impl WidgetImpl for Window {}
+    impl WindowImpl for Window {
+        fn close_request(&self) -> glib::Propagation {
+            let obj = self.obj();
+            if self.force_close.get() {
+                return glib::Propagation::Proceed;
+            }
+            let procs: Vec<String> = obj.tabs().iter().flat_map(|t| t.foreground_processes()).collect();
+            if procs.is_empty() {
+                return glib::Propagation::Proceed;
+            }
+            let weak = obj.downgrade();
+            obj.confirm_close("Fenster schließen?", &procs, move |ok| {
+                if let (true, Some(w)) = (ok, weak.upgrade()) {
+                    w.imp().force_close.set(true);
+                    w.close();
+                }
+            });
+            glib::Propagation::Stop
+        }
+    }
+    impl ApplicationWindowImpl for Window {}
+    impl AdwApplicationWindowImpl for Window {}
+}
 
-    let view = adw::ToolbarView::new();
-    view.add_top_bar(&header);
-    view.set_content(Some(terminal.widget()));
+glib::wrapper! {
+    pub struct Window(ObjectSubclass<imp::Window>)
+        @extends adw::ApplicationWindow, gtk::ApplicationWindow, gtk::Window, gtk::Widget,
+        @implements gio::ActionGroup, gio::ActionMap, gtk::Accessible, gtk::Buildable,
+                    gtk::ConstraintTarget, gtk::Native, gtk::Root, gtk::ShortcutManager;
+}
 
-    let window = adw::ApplicationWindow::builder()
-        .application(app)
-        .title("Parkett")
-        .icon_name(crate::APP_ID)
-        .content(&view)
-        .build();
+/// Fensterweite Kürzel. Sie laufen in der Capture-Phase vor VTE, damit z. B. Alt+Pfeil nicht
+/// in der Shell landet. Belegung nach Tilix, wo sie nicht mit GNOME kollidiert (KONZEPTE.md).
+const SHORTCUTS: &[(&str, &str)] = &[
+    ("<Control><Shift>t", "new-tab"),
+    ("<Control><Shift>q", "close-tab"),
+    ("<Control><Shift>w", "close-pane"),
+    ("<Control><Alt>r", "split-right"),
+    ("<Control><Alt>d", "split-down"),
+    ("<Control><Alt>a", "split-auto"),
+    ("<Control><Shift>x", "toggle-zoom"),
+    ("<Control><Alt>equal", "equalize"),
+    ("<Alt>Left", "focus-left"),
+    ("<Alt>Right", "focus-right"),
+    ("<Alt>Up", "focus-up"),
+    ("<Alt>Down", "focus-down"),
+    ("<Shift><Alt>Left", "resize-left"),
+    ("<Shift><Alt>Right", "resize-right"),
+    ("<Shift><Alt>Up", "resize-up"),
+    ("<Shift><Alt>Down", "resize-down"),
+    ("<Control>Page_Down", "next-tab"),
+    ("<Control>Page_Up", "prev-tab"),
+    ("F2", "rename-tab"),
+    ("<Control><Shift>o", "overview"),
+];
 
-    // Fenster- und Untertitel folgen dem Terminal (Titel per OSC, Verzeichnis per OSC 7)
-    let update = {
-        let terminal = terminal.clone();
-        let title = title.clone();
-        let window = window.downgrade();
-        move || {
-            let t = terminal.title().unwrap_or_else(|| "Parkett".into());
-            let cwd = terminal.cwd().map(|p| tilde(&p)).unwrap_or_default();
-            title.set_title(&t);
-            title.set_subtitle(&cwd);
-            if let Some(w) = window.upgrade() {
-                w.set_title(Some(&t));
+impl Window {
+    pub fn new(app: &adw::Application, cwd: Option<String>) -> Self {
+        let win: Window = glib::Object::builder()
+            .property("application", app)
+            .property("title", "Parkett")
+            .property("icon-name", crate::APP_ID)
+            .property("default-width", 960)
+            .property("default-height", 640)
+            .build();
+        win.build_ui();
+        win.setup_actions();
+        win.add_tab(cwd);
+        win
+    }
+
+    fn tab_view(&self) -> &adw::TabView {
+        self.imp().tab_view.get().unwrap()
+    }
+
+    pub fn tabs(&self) -> Vec<Tab> {
+        let view = self.tab_view();
+        (0..view.n_pages()).filter_map(|i| view.nth_page(i).child().downcast::<Tab>().ok()).collect()
+    }
+
+    fn current_tab(&self) -> Option<Tab> {
+        self.tab_view().selected_page().and_then(|p| p.child().downcast::<Tab>().ok())
+    }
+
+    fn build_ui(&self) {
+        let imp = self.imp();
+        let tab_view = adw::TabView::new();
+        let tab_bar = adw::TabBar::builder().view(&tab_view).autohide(true).build();
+
+        let title = adw::WindowTitle::new("Parkett", "");
+
+        let new_menu = gio::Menu::new();
+        new_menu.append(Some("Neuer Tab"), Some("win.new-tab"));
+        new_menu.append(Some("Neues Fenster"), Some("app.new-window"));
+        let new_button = adw::SplitButton::builder()
+            .icon_name("tab-new-symbolic")
+            .tooltip_text("Neuer Tab (Strg+Umschalt+T)")
+            .action_name("win.new-tab")
+            .menu_model(&new_menu)
+            .dropdown_tooltip("Weitere Möglichkeiten")
+            .build();
+
+        let main_menu = gio::Menu::new();
+        let s1 = gio::Menu::new();
+        s1.append(Some("Neues Fenster"), Some("app.new-window"));
+        s1.append(Some("Tab umbenennen …"), Some("win.rename-tab"));
+        main_menu.append_section(None, &s1);
+        let s2 = gio::Menu::new();
+        s2.append(Some("Tastenkürzel"), Some("app.shortcuts"));
+        s2.append(Some("Über Parkett"), Some("app.about"));
+        main_menu.append_section(None, &s2);
+        let menu_button = gtk::MenuButton::builder()
+            .icon_name("open-menu-symbolic")
+            .menu_model(&main_menu)
+            .primary(true)
+            .tooltip_text("Hauptmenü")
+            .build();
+
+        let overview_button = adw::TabButton::builder().view(&tab_view).action_name("win.overview").build();
+
+        let header = adw::HeaderBar::builder().title_widget(&title).build();
+        header.pack_start(&new_button);
+        header.pack_end(&menu_button);
+        header.pack_end(&overview_button);
+
+        let toolbar = adw::ToolbarView::new();
+        toolbar.add_top_bar(&header);
+        toolbar.add_top_bar(&tab_bar);
+        toolbar.set_content(Some(&tab_view));
+
+        let overview = adw::TabOverview::builder()
+            .view(&tab_view)
+            .child(&toolbar)
+            .enable_new_tab(true)
+            .enable_search(true)
+            .build();
+        let weak = self.downgrade();
+        overview.connect_create_tab(move |_| {
+            let w = weak.upgrade().expect("Fenster lebt, solange die Übersicht lebt");
+            let tab = w.add_tab(w.current_tab().and_then(|t| t.cwd()));
+            w.tab_view().page(&tab)
+        });
+
+        let toasts = adw::ToastOverlay::new();
+        toasts.set_child(Some(&overview));
+        self.set_content(Some(&toasts));
+
+        // Tab-Wechsel: Titel nachziehen, Terminal fokussieren
+        let weak = self.downgrade();
+        tab_view.connect_selected_page_notify(move |view| {
+            let Some(w) = weak.upgrade() else { return };
+            if let Some(page) = view.selected_page() {
+                page.set_needs_attention(false);
+                if let Ok(tab) = page.child().downcast::<Tab>() {
+                    tab.focus_terminal();
+                }
+            }
+            w.update_title();
+        });
+
+        // Schließen eines Tabs: bei laufendem Vordergrundprozess nachfragen
+        let weak = self.downgrade();
+        tab_view.connect_close_page(move |view, page| {
+            let Some(w) = weak.upgrade() else { return glib::Propagation::Proceed };
+            let procs = page.child().downcast::<Tab>().map(|t| t.foreground_processes()).unwrap_or_default();
+            if procs.is_empty() {
+                view.close_page_finish(page, true);
+            } else {
+                let (view2, page2) = (view.clone(), page.clone());
+                w.confirm_close("Tab schließen?", &procs, move |ok| view2.close_page_finish(&page2, ok));
+            }
+            glib::Propagation::Stop
+        });
+
+        // letzter Tab weg → Fenster zu
+        let weak = self.downgrade();
+        tab_view.connect_n_pages_notify(move |view| {
+            if view.n_pages() == 0 {
+                if let Some(w) = weak.upgrade() {
+                    w.imp().force_close.set(true);
+                    w.close();
+                }
+            }
+        });
+
+        imp.tab_view.set(tab_view).ok();
+        imp.overview.set(overview).ok();
+        imp.title.set(title).ok();
+        imp.toasts.set(toasts).ok();
+    }
+
+    pub fn add_tab(&self, cwd: Option<String>) -> Tab {
+        let tab = Tab::new(cwd);
+        let page = self.tab_view().append(&tab);
+        let weak = self.downgrade();
+        tab.connect_changed(move |tab| {
+            if let Some(w) = weak.upgrade() {
+                w.update_page(tab);
+            }
+        });
+        let weak = self.downgrade();
+        tab.connect_empty(move |tab| {
+            if let Some(w) = weak.upgrade() {
+                let page = w.tab_view().page(tab);
+                w.tab_view().close_page(&page);
+            }
+        });
+        self.update_page(&tab);
+        self.tab_view().set_selected_page(&page);
+        tab
+    }
+
+    fn update_page(&self, tab: &Tab) {
+        let view = self.tab_view();
+        let page = view.page(tab);
+        page.set_title(&tab.title());
+        page.set_tooltip(&tab.cwd().map(|c| tilde(&c)).unwrap_or_default());
+        page.set_keyword(&tab.cwd().unwrap_or_default());
+        if tab.has_failed_pane() {
+            page.set_indicator_icon(Some(&gio::ThemedIcon::new("dialog-warning-symbolic")));
+            page.set_indicator_tooltip("Ein Prozess ist mit Fehler beendet");
+            if view.selected_page().as_ref() != Some(&page) {
+                page.set_needs_attention(true);
+            }
+        } else {
+            page.set_indicator_icon(gio::Icon::NONE);
+        }
+        if view.selected_page().as_ref() == Some(&page) {
+            self.update_title();
+        }
+    }
+
+    fn update_title(&self) {
+        let title = self.imp().title.get().unwrap();
+        match self.current_tab() {
+            Some(tab) => {
+                let t = tab.title();
+                title.set_title(&t);
+                title.set_subtitle(&tab.cwd().map(|c| tilde(&c)).unwrap_or_default());
+                self.set_title(Some(&t));
+            }
+            None => title.set_title("Parkett"),
+        }
+    }
+
+    fn toast(&self, text: &str) {
+        self.imp().toasts.get().unwrap().add_toast(adw::Toast::new(text));
+    }
+
+    /// Nachfrage, wenn noch Programme laufen. `on_result(true)` bei „Schließen“, sonst `false`
+    /// (auch Esc). Nur `response` auswerten: `closed` kann davor kommen (in der VM gesehen).
+    fn confirm_close(&self, heading: &str, procs: &[String], on_result: impl Fn(bool) + 'static) {
+        let mut names: Vec<&str> = procs.iter().map(String::as_str).collect();
+        names.sort();
+        names.dedup();
+        let body = format!("Es läuft noch: {}. Beim Schließen werden die Programme beendet.", names.join(", "));
+        let dialog = adw::AlertDialog::new(Some(heading), Some(&body));
+        dialog.add_responses(&[("cancel", "Abbrechen"), ("close", "Schließen")]);
+        dialog.set_response_appearance("close", adw::ResponseAppearance::Destructive);
+        dialog.set_default_response(Some("cancel"));
+        dialog.set_close_response("cancel");
+        dialog.connect_response(None, move |_, response| on_result(response == "close"));
+        dialog.present(Some(self));
+    }
+
+    fn rename_tab(&self) {
+        let Some(tab) = self.current_tab() else { return };
+        let entry = gtk::Entry::builder()
+            .text(tab.custom_title().unwrap_or_default())
+            .placeholder_text(tab.focused_pane().terminal().title().unwrap_or_default())
+            .activates_default(true)
+            .build();
+        let dialog = adw::AlertDialog::new(Some("Tab umbenennen"), Some("Leer lassen, um den Titel des Terminals zu verwenden."));
+        dialog.set_extra_child(Some(&entry));
+        dialog.add_responses(&[("cancel", "Abbrechen"), ("rename", "Umbenennen")]);
+        dialog.set_response_appearance("rename", adw::ResponseAppearance::Suggested);
+        dialog.set_default_response(Some("rename"));
+        dialog.set_close_response("cancel");
+        let e2 = entry.clone();
+        dialog.connect_response(Some("rename"), move |_, _| tab.set_custom_title(Some(e2.text().to_string())));
+        dialog.present(Some(self));
+        // AdwAlertDialog fokussiert sonst die Standard-Antwort, Tippen ginge ins Leere
+        entry.grab_focus();
+    }
+
+    fn setup_actions(&self) {
+        let action = |name: &str, f: fn(&Window)| {
+            let a = gio::SimpleAction::new(name, None);
+            let weak = self.downgrade();
+            a.connect_activate(move |_, _| {
+                if let Some(w) = weak.upgrade() {
+                    f(&w);
+                }
+            });
+            self.add_action(&a);
+        };
+        let on_tab = |name: &str, f: fn(&Window, &Tab)| {
+            let a = gio::SimpleAction::new(name, None);
+            let weak = self.downgrade();
+            a.connect_activate(move |_, _| {
+                if let Some(w) = weak.upgrade() {
+                    if let Some(tab) = w.current_tab() {
+                        f(&w, &tab);
+                    }
+                }
+            });
+            self.add_action(&a);
+        };
+
+        action("new-tab", |w| {
+            let cwd = w.current_tab().and_then(|t| t.cwd());
+            w.add_tab(cwd);
+        });
+        action("close-tab", |w| {
+            if let Some(page) = w.tab_view().selected_page() {
+                w.tab_view().close_page(&page);
+            }
+        });
+        action("next-tab", |w| {
+            w.tab_view().select_next_page();
+        });
+        action("prev-tab", |w| {
+            w.tab_view().select_previous_page();
+        });
+        action("rename-tab", |w| w.rename_tab());
+        action("overview", |w| {
+            let o = w.imp().overview.get().unwrap();
+            o.set_open(!o.is_open());
+        });
+
+        fn split(w: &Window, tab: &Tab, o: Option<Orientation>) {
+            if !tab.split(o) {
+                w.toast("Zu wenig Platz zum Teilen");
             }
         }
-    };
-    terminal.connect_state_changed(update.clone());
-    update();
+        on_tab("split-right", |w, t| split(w, t, Some(Orientation::Horizontal)));
+        on_tab("split-down", |w, t| split(w, t, Some(Orientation::Vertical)));
+        on_tab("split-auto", |w, t| split(w, t, None));
+        on_tab("toggle-zoom", |_, t| t.toggle_zoom());
+        on_tab("equalize", |_, t| t.equalize());
+        on_tab("close-pane", |w, t| {
+            let pane = t.focused_pane();
+            let id = pane.id();
+            match pane.terminal().foreground_process() {
+                None => t.close_pane(id),
+                Some(p) => {
+                    let tab = t.clone();
+                    w.confirm_close("Bereich schließen?", &[p], move |ok| {
+                        if ok {
+                            tab.close_pane(id);
+                        }
+                    });
+                }
+            }
+        });
+        on_tab("focus-left", |_, t| t.focus_direction(Direction::Left));
+        on_tab("focus-right", |_, t| t.focus_direction(Direction::Right));
+        on_tab("focus-up", |_, t| t.focus_direction(Direction::Up));
+        on_tab("focus-down", |_, t| t.focus_direction(Direction::Down));
+        on_tab("resize-left", |_, t| t.resize(Direction::Left));
+        on_tab("resize-right", |_, t| t.resize(Direction::Right));
+        on_tab("resize-up", |_, t| t.resize(Direction::Up));
+        on_tab("resize-down", |_, t| t.resize(Direction::Down));
 
-    let weak = window.downgrade();
-    terminal.connect_close(move || {
-        if let Some(w) = weak.upgrade() {
-            w.close();
+        // Tab n: Strg+Alt+n, Bereich n: Alt+n (Tilix-Belegung)
+        let controller = gtk::ShortcutController::new();
+        controller.set_propagation_phase(gtk::PropagationPhase::Capture);
+        for n in 1..=9u32 {
+            let a = gio::SimpleAction::new(&format!("goto-tab-{n}"), None);
+            let weak = self.downgrade();
+            a.connect_activate(move |_, _| {
+                if let Some(w) = weak.upgrade() {
+                    let view = w.tab_view();
+                    if (n as i32) <= view.n_pages() {
+                        view.set_selected_page(&view.nth_page(n as i32 - 1));
+                    }
+                }
+            });
+            self.add_action(&a);
+            let a = gio::SimpleAction::new(&format!("focus-pane-{n}"), None);
+            let weak = self.downgrade();
+            a.connect_activate(move |_, _| {
+                if let Some(t) = weak.upgrade().and_then(|w| w.current_tab()) {
+                    t.focus_index(n as usize);
+                }
+            });
+            self.add_action(&a);
+            controller.add_shortcut(shortcut(&format!("<Control><Alt>{n}"), &format!("win.goto-tab-{n}")));
+            controller.add_shortcut(shortcut(&format!("<Alt>{n}"), &format!("win.focus-pane-{n}")));
         }
-    });
-
-    // Mindestgröße des Fensters aus der Zellgröße (MIN_COLUMNS×MIN_ROWS)
-    let vte = terminal.vte().clone();
-    let set_min = move |v: &vte::Terminal| {
-        let (cw, ch) = (v.char_width() as i32, v.char_height() as i32);
-        v.set_size_request(cw * crate::terminal::MIN_COLUMNS as i32, ch * crate::terminal::MIN_ROWS as i32);
-    };
-    set_min(&vte);
-    vte.connect_char_size_changed(move |v, _, _| set_min(v));
-
-    glib::idle_add_local_once({
-        let vte = terminal.vte().clone();
-        move || {
-            vte.grab_focus();
+        for (accel, name) in SHORTCUTS {
+            controller.add_shortcut(shortcut(accel, &format!("win.{name}")));
         }
-    });
-    window
+        self.add_controller(controller);
+    }
+}
+
+fn shortcut(accel: &str, action: &str) -> gtk::Shortcut {
+    gtk::Shortcut::new(gtk::ShortcutTrigger::parse_string(accel), Some(gtk::NamedAction::new(action)))
 }
 
 fn tilde(path: &str) -> String {

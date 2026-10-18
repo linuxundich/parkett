@@ -17,16 +17,22 @@
 - [x] Kern `layout` mit Tests (Split, Schließen, Größe, Angleichen, Zoom, Nachbar, Mindestgröße)
 - [x] Test in Fedora-VM (Wayland, X11, Unicode, Dunkel, Resize, Speicher) – docs/PROTOTYP.md
 - [ ] Start auf dem Host (Arch, GNOME 51)
-- [ ] Freigabe für Phase 4
+- [x] Freigabe für Phase 4 (2026-10-18, Architekturvorschläge angenommen)
 
-## Offene Architekturfragen (vor/in Phase 4, Vorschläge in docs/PROTOTYP.md)
-- [ ] GObject-Unterklassen und Blueprint
-- [ ] Einstellungen: GSettings, Dateien oder Mischung
-- [ ] Serialisierung von Sitzungen und Vorlagen
-- [ ] Meson als Build
-- [ ] LICENSE-Datei (GPL-3.0-or-later)
+## Phase 4 – MVP (docs/MVP.md)
+- [x] Architektur: Unterklassen, GSettings + Dateien, serde, Meson, GPL-3.0-or-later (angenommen)
+- [x] Schritt 1: Tabs und Splits, Schließen mit Nachfrage, Kürzel-Übersicht (VM-getestet)
+- [ ] Schritt 2: Meson-Build, GSettings-Schema, LICENSE
+- [ ] Schritt 3: Basisprofile
+- [ ] Schritt 4: Einstellungen (AdwPreferencesDialog)
+- [ ] Schritt 5: Suche, Links öffnen
+- [ ] Schritt 6: Befehlspalette, Layout-Modus, Vorlagen (A+)
+- [ ] Schritt 7: Rückgängig beim Schließen, Kontextfarbe je Bereich
+- [ ] Begriff „Tab“ oder „Reiter“ (libadwaita sagt „Reiter“) – Entscheidung Christoph
+- [ ] Cursor nach Schließen der Tab-Übersicht unsichtbar bis zur Eingabe – Ursache suchen
+- [ ] Tabs in neues Fenster ziehen und Trenner per Maus ziehen testen
 - [ ] Flatpak von Anfang an (Host-Agent) oder zuerst nativ
-- [ ] Farbschema-Format
+- [ ] Farbschema-Format (Ptyxis-Palette prüfen)
 
 ## Gefunden beim Prototyp
 - [ ] Auswahlfarbe im Dunkelmodus setzen (`set_color_highlight`), derzeit VTE-Standard

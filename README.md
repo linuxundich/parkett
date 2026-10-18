@@ -14,11 +14,13 @@ steht für das Fischgrät-Muster aus Terminal-Bereichen, das die Splits bilden.
   A+ ist freigegeben (Bereichstitel schwebend, Vorschläge 1–6 übernommen).
 - **Phase 3 – Prototyp:** Rust, App-ID `de.linuxundich.Parkett`; ein Fenster mit einem Terminal,
   Split-Layout als getesteter Kern ohne GTK → [`docs/PROTOTYP.md`](docs/PROTOTYP.md)
-  (Architektur, Testprotokoll, offene Entscheidungen). **Wartet auf Freigabe für Phase 4 (MVP).**
+  (Architektur, Testprotokoll, offene Entscheidungen).
+- **Phase 4 – MVP:** freigegeben; Schritt 1 Tabs und Splits fertig und in der VM getestet →
+  [`docs/MVP.md`](docs/MVP.md). Weiter: Meson/GSettings, Profile, Einstellungen, Suche.
 
 ## Bauen und starten
 
-Abhängigkeiten: Rust, GTK ≥ 4.18, libadwaita ≥ 1.7, VTE (gtk4) ≥ 0.80
+Abhängigkeiten: Rust, GTK ≥ 4.18, libadwaita ≥ 1.8, VTE (gtk4) ≥ 0.80
 (Arch: `gtk4 libadwaita vte4`; Fedora: `gtk4-devel libadwaita-devel vte291-gtk4-devel`).
 
 ```bash

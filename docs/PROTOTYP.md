@@ -17,7 +17,7 @@ Stand: 2026-10-18, Version 0.1.0 (nicht veröffentlicht).
 | Crate | Version | Feature | Wozu |
 |---|---|---|---|
 | gtk4 | 0.11 | `v4_18` | Oberfläche |
-| libadwaita | 0.9 | `v1_7` | Fenster, Headerbar, About; `StyleManager::monospace_font_name` (1.7) |
+| libadwaita | 0.9 | `v1_7` (ab Phase 4 `v1_8`) | Fenster, Headerbar, About; `StyleManager::monospace_font_name` (1.7) |
 | vte4 | 0.10 | `v0_80` | Terminal; Termprops (0.78), Kontextmenü-Modell (0.76) |
 
 Keine weiteren Abhängigkeiten. Mindestversionen damit: GTK 4.18, libadwaita 1.7, VTE 0.80

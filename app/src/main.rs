@@ -1,7 +1,8 @@
 //! Parkett – Terminalemulator für GNOME mit Splits.
-//! Stand: Phase-3-Prototyp (ein Fenster, ein Terminal).
 
 mod colors;
+mod pane;
+mod tab;
 mod terminal;
 mod window;
 
@@ -17,6 +18,26 @@ vte-terminal { padding: 6px 8px; }
   padding: 6px 10px;
   background: color-mix(in srgb, var(--destructive-bg-color) 14%, var(--view-bg-color));
   box-shadow: inset 0 1px var(--border-color);
+}
+/* Terminalhintergrund = view_bg_color von libadwaita (siehe colors.rs) */
+.parkett-dim { background: color-mix(in srgb, var(--view-bg-color) 38%, transparent); }
+.parkett-focus-line { background: var(--accent-bg-color); }
+.parkett-pill {
+  padding: 2px 2px 2px 9px;
+  border-radius: 8px;
+  font-size: 0.86em;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--headerbar-bg-color) 90%, transparent);
+  box-shadow: 0 0 0 1px var(--border-color), 0 1px 3px rgb(0 0 6 / 10%);
+}
+.parkett-pill button { min-width: 22px; min-height: 22px; padding: 0; }
+parkett-pane:not(.focused) .parkett-pill { opacity: 0.75; }
+paned > separator { background: var(--border-color); }
+.parkett-zoom-banner {
+  padding: 4px 4px 4px 12px;
+  border-radius: 10px;
+  background: var(--popover-bg-color);
+  box-shadow: 0 0 0 1px var(--border-color), 0 2px 8px rgb(0 0 6 / 18%);
 }
 ";
 
@@ -40,7 +61,7 @@ fn main() -> glib::ExitCode {
     // Arbeitsverzeichnis des Aufrufers übernehmen (z. B. „parkett“ aus einem Ordner heraus)
     app.connect_command_line(|app, cmdline| {
         let cwd = cmdline.cwd().and_then(|p| p.to_str().map(String::from));
-        window::build(app, cwd).present();
+        window::Window::new(app, cwd).present();
         glib::ExitCode::SUCCESS
     });
 
@@ -53,7 +74,7 @@ fn setup_actions(app: &adw::Application) {
         let app = app.downgrade();
         move |_, _| {
             if let Some(app) = app.upgrade() {
-                window::build(&app, None).present();
+                window::Window::new(&app, None).present();
             }
         }
     });
@@ -77,5 +98,60 @@ fn setup_actions(app: &adw::Application) {
     });
     app.add_action(&about);
 
+    let shortcuts = gio::SimpleAction::new("shortcuts", None);
+    shortcuts.connect_activate({
+        let app = app.downgrade();
+        move |_, _| {
+            let Some(app) = app.upgrade() else { return };
+            shortcuts_dialog().present(app.active_window().as_ref());
+        }
+    });
+    app.add_action(&shortcuts);
+
+    // Nur App-Aktionen als globale Accels; Fenster- und Terminalkürzel hängen an ihren
+    // Widgets (Capture-Phase), sonst würden sie doppelt oder gar nicht ausgelöst.
     app.set_accels_for_action("app.new-window", &["<Ctrl><Shift>n"]);
+    app.set_accels_for_action("app.shortcuts", &["<Ctrl>question"]);
+}
+
+/// Übersicht aller Kürzel (AdwShortcutsDialog, libadwaita 1.8).
+fn shortcuts_dialog() -> adw::ShortcutsDialog {
+    let dialog = adw::ShortcutsDialog::new();
+    let sections: &[(&str, &[(&str, &str)])] = &[
+        ("Tabs", &[
+            ("Neuer Tab", "<Control><Shift>t"),
+            ("Tab schließen", "<Control><Shift>q"),
+            ("Nächster / vorheriger Tab", "<Control>Page_Down <Control>Page_Up"),
+            ("Tab 1–9", "<Control><Alt>1…9"),
+            ("Tab umbenennen", "F2"),
+            ("Tab-Übersicht", "<Control><Shift>o"),
+            ("Neues Fenster", "<Control><Shift>n"),
+        ]),
+        ("Bereiche", &[
+            ("Rechts teilen", "<Control><Alt>r"),
+            ("Unten teilen", "<Control><Alt>d"),
+            ("Automatisch teilen", "<Control><Alt>a"),
+            ("Bereich schließen", "<Control><Shift>w"),
+            ("Bereich maximieren", "<Control><Shift>x"),
+            ("Größen angleichen", "<Control><Alt>equal"),
+            ("Fokus wechseln", "<Alt>Left <Alt>Right <Alt>Up <Alt>Down"),
+            ("Bereich 1–9", "<Alt>1…9"),
+            ("Größe ändern", "<Shift><Alt>Left <Shift><Alt>Right <Shift><Alt>Up <Shift><Alt>Down"),
+        ]),
+        ("Terminal", &[
+            ("Kopieren", "<Control><Shift>c"),
+            ("Einfügen", "<Control><Shift>v"),
+            ("Alles auswählen", "<Control><Shift>a"),
+            ("Vergrößern / verkleinern", "<Control>plus <Control>minus"),
+            ("Normale Größe", "<Control>0"),
+        ]),
+    ];
+    for (title, items) in sections {
+        let section = adw::ShortcutsSection::new(Some(title));
+        for (label, accel) in items.iter() {
+            section.add(adw::ShortcutsItem::new(label, accel));
+        }
+        dialog.add(section);
+    }
+    dialog
 }

@@ -5,6 +5,13 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unreleased]
 
 ### Hinzugefügt
+- Tabs mit AdwTabView: Tab-Leiste (bei einem Tab ausgeblendet), Tab-Übersicht mit Suche,
+  Tab umbenennen (F2), Warnsymbol bei Prozessende mit Fehler.
+- Geteilte Bereiche: rechts/unten/automatisch teilen, Fokus und Größe per Tastatur,
+  angleichen, maximieren mit Hinweis, Mindestgröße 20×5 Zellen, schwebender Titel,
+  Fokuslinie und Abblenden inaktiver Bereiche.
+- Nachfrage beim Schließen von Bereich, Tab oder Fenster, wenn noch ein Programm läuft.
+- Tastenkürzel-Übersicht (Strg+?).
 - 0.1.0 Prototyp (Phase 3): Fenster mit libadwaita und VTE, Shell-Start asynchron,
   Leiste „Prozess beendet“ mit Exit-Code, *Neu starten* und *Schließen*.
 - Titel und Arbeitsverzeichnis in der Headerbar aus VTE-Termprops (`xterm.title`, `vte.cwd`).

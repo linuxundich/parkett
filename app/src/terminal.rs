@@ -3,7 +3,8 @@
 //! Zustand (Titel, Verzeichnis) kommt aus den VTE-Termprops (`xterm.title`, `vte.cwd`),
 //! nicht aus den seit VTE 0.78 veralteten Signalen.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
+use std::os::fd::AsRawFd;
 use std::rc::Rc;
 
 use adw::prelude::*;
@@ -25,6 +26,8 @@ struct Inner {
     exit_bar: gtk::Revealer,
     exit_label: gtk::Label,
     cwd_at_start: Option<String>,
+    child_pid: Cell<Option<glib::Pid>>,
+    exit: Cell<Option<ExitStatus>>,
     on_state_changed: RefCell<Vec<Callback>>,
     on_close: RefCell<Vec<Callback>>,
 }
@@ -45,7 +48,7 @@ impl Terminal {
             .build();
         vte.set_size(100, 30);
 
-        let exit_label = gtk::Label::builder().xalign(0.0).hexpand(true).build();
+        let exit_label = gtk::Label::builder().xalign(0.0).hexpand(true).ellipsize(pango::EllipsizeMode::End).build();
         let restart = gtk::Button::with_label("Neu starten");
         let close = gtk::Button::with_label("Schließen");
         let bar = gtk::Box::builder().spacing(10).css_classes(["parkett-exit-bar"]).build();
@@ -53,9 +56,12 @@ impl Terminal {
         bar.append(&exit_label);
         bar.append(&restart);
         bar.append(&close);
+        // Verborgen auch unsichtbar schalten: ein zugeklappter GtkRevealer fordert sonst
+        // weiter die Breite der Leiste an, und Bereiche könnten nicht schmaler werden.
         let exit_bar = gtk::Revealer::builder()
             .transition_type(gtk::RevealerTransitionType::SlideUp)
             .child(&bar)
+            .visible(false)
             .build();
 
         let root = gtk::Box::new(gtk::Orientation::Vertical, 0);
@@ -68,6 +74,8 @@ impl Terminal {
             exit_bar,
             exit_label,
             cwd_at_start: cwd,
+            child_pid: Cell::new(None),
+            exit: Cell::new(None),
             on_state_changed: RefCell::default(),
             on_close: RefCell::default(),
         }));
@@ -126,6 +134,39 @@ impl Terminal {
         uri.map(|u| u.path().to_string()).filter(|p| !p.is_empty())
     }
 
+    /// Wie der Prozess geendet hat; `None`, solange er läuft.
+    pub fn exit_status(&self) -> Option<ExitStatus> {
+        self.0.exit.get()
+    }
+
+    /// Beendet die Shell (SIGHUP wie beim Schließen eines Terminalfensters; die Shell gibt
+    /// es an ihre Jobs weiter). VTE tut das auch beim Freigeben des Widgets – hier
+    /// ausdrücklich, damit kein Prozess an einer übersehenen Referenz hängen bleibt.
+    pub fn terminate(&self) {
+        if self.0.exit.get().is_none() {
+            if let Some(pid) = self.0.child_pid.get() {
+                unsafe { libc::kill(pid.0, libc::SIGHUP) };
+            }
+        }
+    }
+
+    /// Name des Vordergrundprozesses, wenn er nicht die Shell selbst ist (z. B. „vim“, „ssh“).
+    /// Muster wie Ptyxis (`agent/ptyxis-process-impl.c`): tcgetpgrp auf der PTY gegen die
+    /// PID der Shell vergleichen, Name aus /proc. Nur ohne Flatpak-Sandbox aussagekräftig.
+    pub fn foreground_process(&self) -> Option<String> {
+        if self.0.exit.get().is_some() {
+            return None;
+        }
+        let child = self.0.child_pid.get()?.0;
+        let pty = self.0.vte.pty()?;
+        let pgid = unsafe { libc::tcgetpgrp(pty.fd().as_raw_fd()) };
+        if pgid <= 0 || pgid == child {
+            return None;
+        }
+        let comm = std::fs::read_to_string(format!("/proc/{pgid}/comm")).unwrap_or_default();
+        Some(comm.trim().to_string()).filter(|c| !c.is_empty()).or(Some(format!("PID {pgid}")))
+    }
+
     fn emit_state_changed(&self) {
         for f in self.0.on_state_changed.borrow().iter() {
             f();
@@ -140,6 +181,9 @@ impl Terminal {
 
     fn spawn(&self) {
         self.0.exit_bar.set_reveal_child(false);
+        self.0.exit_bar.set_visible(false);
+        self.0.exit.set(None);
+        self.0.child_pid.set(None);
         let shell = user_shell();
         let cwd = self.0.cwd_at_start.clone().or_else(|| glib::home_dir().to_str().map(String::from));
         let weak = Rc::downgrade(&self.0);
@@ -155,10 +199,15 @@ impl Terminal {
             gio::Cancellable::NONE,
             move |result| {
                 let Some(inner) = weak.upgrade() else { return };
-                if let Err(err) = result {
+                match result {
+                    Ok(pid) => inner.child_pid.set(Some(pid)),
+                    Err(err) => {
                     let t = Terminal(inner);
+                    t.0.exit.set(Some(ExitStatus::Code(-1)));
                     t.show_exit(&format!("<b>{}</b> konnte nicht gestartet werden: {}",
                         glib::markup_escape_text(&shell_for_error), glib::markup_escape_text(err.message())));
+                    t.emit_state_changed();
+                    }
                 }
             },
         );
@@ -167,6 +216,7 @@ impl Terminal {
 
     fn show_exit(&self, markup: &str) {
         self.0.exit_label.set_markup(markup);
+        self.0.exit_bar.set_visible(true);
         self.0.exit_bar.set_reveal_child(true);
     }
 
@@ -175,7 +225,9 @@ impl Terminal {
         self.0.vte.connect_child_exited(move |_, status| {
             let Some(inner) = weak.upgrade() else { return };
             let t = Terminal(inner);
-            let text = match decode_wait_status(status) {
+            let exit = decode_wait_status(status);
+            t.0.exit.set(Some(exit));
+            let text = match exit {
                 ExitStatus::Code(0) => "<b>Prozess beendet</b>".to_string(),
                 ExitStatus::Code(c) => format!("<b>Prozess beendet</b> · Exit-Code {c}"),
                 ExitStatus::Signal(s) => format!("<b>Prozess beendet</b> · Signal {s}"),
@@ -196,9 +248,13 @@ impl Terminal {
 
     fn setup_style(&self) {
         let style = adw::StyleManager::default();
+        // Nur schwache Referenz: der StyleManager lebt so lange wie die App. Eine starke
+        // Referenz hielte das VTE-Widget fest – es würde nie freigegeben und die Shell nie
+        // beendet (in der VM gefunden: Shell und „sleep“ liefen nach dem Schließen weiter).
         let apply = {
-            let vte = self.0.vte.clone();
+            let vte = self.0.vte.downgrade();
             move |sm: &adw::StyleManager| {
+                let Some(vte) = vte.upgrade() else { return };
                 let s = if sm.is_dark() { &colors::DARK } else { &colors::LIGHT };
                 let palette: Vec<_> = s.palette.iter().map(|c| Scheme::rgba(c)).collect();
                 let refs: Vec<_> = palette.iter().collect();
@@ -207,16 +263,29 @@ impl Terminal {
             }
         };
         apply(&style);
-        style.connect_dark_notify(apply.clone());
-        style.connect_monospace_font_name_notify(apply);
+        let handlers = std::cell::RefCell::new(Some((
+            style.connect_dark_notify(apply.clone()),
+            style.connect_monospace_font_name_notify(apply),
+        )));
+        self.0.vte.connect_destroy(move |_| {
+            if let Some((a, b)) = handlers.borrow_mut().take() {
+                let style = adw::StyleManager::default();
+                style.disconnect(a);
+                style.disconnect(b);
+            }
+        });
     }
 
     fn setup_actions(&self) {
         let group = gio::SimpleActionGroup::new();
         let add = |name: &str, f: Box<dyn Fn(&vte::Terminal)>| {
             let a = gio::SimpleAction::new(name, None);
-            let vte = self.0.vte.clone();
-            a.connect_activate(move |_, _| f(&vte));
+            let vte = self.0.vte.downgrade();
+            a.connect_activate(move |_, _| {
+                if let Some(vte) = vte.upgrade() {
+                    f(&vte);
+                }
+            });
             group.add_action(&a);
         };
         add("copy", Box::new(|v| v.copy_clipboard_format(vte::Format::Text)));
@@ -259,6 +328,17 @@ impl Terminal {
         item(&zoom, "Verkleinern", "zoom-out");
         item(&zoom, "Normale Größe", "zoom-reset");
         menu.append_section(None, &zoom);
+        // Bereichsaktionen leben am Fenster (win.*); sie gelten für den fokussierten Bereich,
+        // den ein Rechtsklick vorher setzt (siehe pane.rs).
+        let split = gio::Menu::new();
+        split.append(Some("Rechts teilen"), Some("win.split-right"));
+        split.append(Some("Unten teilen"), Some("win.split-down"));
+        split.append(Some("Bereich maximieren"), Some("win.toggle-zoom"));
+        split.append(Some("Größen angleichen"), Some("win.equalize"));
+        menu.append_section(None, &split);
+        let close = gio::Menu::new();
+        close.append(Some("Bereich schließen"), Some("win.close-pane"));
+        menu.append_section(None, &close);
         self.0.vte.set_context_menu_model(Some(&menu));
     }
 }
@@ -283,8 +363,8 @@ fn user_shell() -> String {
         .unwrap_or_else(|| "/bin/sh".into())
 }
 
-#[derive(Debug, PartialEq)]
-enum ExitStatus {
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ExitStatus {
     Code(i32),
     Signal(i32),
 }
