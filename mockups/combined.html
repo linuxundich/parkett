@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Konzept A+ – kombiniert</title>
+<link rel="stylesheet" href="shared/base.css">
+<link rel="stylesheet" href="shared/icons.css">
+<style>
+  :root { --remote: #9141ac; }
+  :root[data-theme="dark"] { --remote: #dc8add; }
+  /* AdwTabBar */
+  .tabbar { height: 40px; flex: none; display: flex; align-items: center; padding: 0 6px; background: var(--headerbar-bg); box-shadow: inset 0 -1px var(--headerbar-shade); }
+  .tab { flex: 1 1 0; max-width: 220px; min-width: 110px; height: 32px; margin: 0 2px; border-radius: 6px; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 10px; font-size: 13px; font-weight: 600; position: relative; color: var(--dim); }
+  .tab .nm { flex: 1; min-width: 0; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tab.on { background: var(--active); color: var(--window-fg); }
+  .tab:not(.on) + .tab:not(.on)::before { content: ""; position: absolute; left: -3px; top: 9px; bottom: 9px; width: 1px; background: var(--border); }
+  .tab .x { opacity: 0; }
+  .tab.on .x { opacity: 1; }
+  .tab.attn::after { content: ""; position: absolute; left: 30%; right: 30%; bottom: 1px; height: 3px; border-radius: 2px; background: var(--accent-bg); }
+  .tab .zoomed { font-size: 11px; font-weight: 800; color: var(--accent); }
+  /* Bereichstitel schwebend */
+  .pane-pill { position: absolute; top: 6px; right: 8px; z-index: 3; display: flex; align-items: center; gap: 2px; padding: 2px 2px 2px 9px; border-radius: 8px; font-size: 12px; font-weight: 600; background: color-mix(in srgb, var(--headerbar-bg) 88%, transparent); box-shadow: 0 0 0 1px var(--border), 0 1px 3px rgb(0 0 6 / 10%); color: var(--dim); }
+  .pane-pill .nm { margin-right: 4px; white-space: nowrap; }
+  .pane.focused .pane-pill { color: var(--window-fg); }
+  .pane.focused::after { content: ""; position: absolute; inset: 0; box-shadow: inset 0 2px 0 var(--accent-bg); pointer-events: none; z-index: 2; }
+  .pane.remote::after { content: ""; position: absolute; inset: 0; box-shadow: inset 0 2px 0 var(--remote); pointer-events: none; z-index: 2; }
+  .pane.remote .term { background: color-mix(in srgb, var(--remote) 5%, var(--term-bg)); }
+  .hostchip { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: color-mix(in srgb, var(--remote) 18%, transparent); color: var(--remote); white-space: nowrap; }
+  /* Bereichstitel als Zeile */
+  .ptitle { height: 28px; flex: none; display: flex; align-items: center; gap: 6px; padding: 0 4px 0 10px; font-size: 12px; background: var(--window-bg); box-shadow: inset 0 -1px var(--border); color: var(--dim); }
+  .ptitle .nm { font-weight: 700; color: var(--window-fg); white-space: nowrap; }
+  .ptitle .cwd { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pane.focused .ptitle { background: color-mix(in srgb, var(--accent-bg) 12%, var(--window-bg)); }
+  .pane.focused .ptitle .nm { color: var(--accent); }
+  .pane.remote .ptitle { background: color-mix(in srgb, var(--remote) 10%, var(--window-bg)); }
+  .rowmode .pane.focused::after, .rowmode .pane.remote::after { display: none; }
+  .exited { flex: none; display: flex; align-items: center; gap: 10px; padding: 7px 10px; font-size: 13px; background: color-mix(in srgb, var(--destructive) 13%, var(--term-bg)); color: var(--window-fg); box-shadow: inset 0 1px var(--border); }
+  .exited .btn { height: 26px; font-size: 13px; background: var(--hover); }
+  /* Palette */
+  .scrim { position: absolute; inset: 0; z-index: 20; background: rgb(0 0 6 / 18%); }
+  .palette { position: absolute; z-index: 21; left: 50%; top: 64px; transform: translateX(-50%); width: 680px; background: var(--popover-bg); border-radius: 14px; box-shadow: 0 0 0 1px var(--border), var(--shadow); overflow: hidden; }
+  .palette .q { height: 50px; display: flex; align-items: center; gap: 10px; padding: 0 16px; font-size: 16px; box-shadow: inset 0 -1px var(--border); }
+  .palette .q .caret { width: 1.5px; height: 20px; background: var(--accent-bg); margin-left: -8px; }
+  .palette .grp { font-size: 12px; font-weight: 700; color: var(--dim); padding: 10px 16px 4px; }
+  .palette .it { display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 16px; font-size: 14px; }
+  .palette .it.sel { background: color-mix(in srgb, var(--accent-bg) 16%, transparent); }
+  .palette .it .sub { color: var(--dim); font-size: 12px; }
+  .palette .it .kbd { margin-left: auto; }
+  .palette .foot { display: flex; gap: 14px; padding: 8px 16px; font-size: 12px; color: var(--dim); box-shadow: inset 0 1px var(--border); }
+  .palette .foot span { white-space: nowrap; }
+  mark { background: none; color: var(--accent); font-weight: 700; }
+  /* Layout-Modus */
+  .modebar { position: absolute; z-index: 8; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 8px 14px; border-radius: 12px; background: var(--popover-bg); box-shadow: 0 0 0 1px var(--border), var(--shadow); font-size: 13px; white-space: nowrap; }
+  .modebar .tag { font-weight: 800; color: var(--accent-fg); background: var(--accent-bg); padding: 2px 8px; border-radius: 6px; }
+  .pane .num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 4; pointer-events: none; }
+  .pane .num span { width: 64px; height: 64px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; background: color-mix(in srgb, var(--headerbar-bg) 90%, transparent); box-shadow: 0 0 0 1px var(--border), var(--shadow); color: var(--window-fg); }
+  .pane.focused .num span { background: var(--accent-bg); color: #fff; }
+  .pane.mode::before { content: ""; position: absolute; inset: 0; background: rgb(0 0 6 / 6%); z-index: 3; }
+  .modepill { display: inline-block; font-size: 11px; font-weight: 800; color: var(--accent-fg); background: var(--accent-bg); padding: 1px 7px; border-radius: 5px; margin-left: 6px; vertical-align: 1px; }
+  /* Maximiert */
+  .zoombanner { position: absolute; z-index: 6; left: 50%; top: 98px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 4px 4px 4px 12px; border-radius: 10px; font-size: 13px; background: var(--popover-bg); box-shadow: 0 0 0 1px var(--border), var(--shadow); }
+  .zoombanner .btn { height: 28px; background: var(--hover); font-size: 13px; }
+  .toast { position: absolute; z-index: 9; left: 50%; bottom: 20px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 6px 6px 6px 16px; border-radius: 22px; background: #303034; color: #fff; font-size: 14px; box-shadow: var(--shadow); }
+  :root[data-theme="dark"] .toast { background: #46464a; }
+  .toast .btn { height: 30px; color: #fff; background: rgb(255 255 255 / 12%); border-radius: 15px; padding: 0 12px; }
+  /* Layout-Kacheln, Drop-Zone */
+  .layout-tiles { display: grid; grid-template-columns: repeat(4, 64px); gap: 8px; padding: 6px 8px 8px; }
+  .layout-tiles .lt { height: 48px; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--border); display: flex; align-items: center; justify-content: center; color: var(--window-fg); }
+  .layout-tiles .lt.hover { background: var(--hover); box-shadow: inset 0 0 0 2px var(--accent-bg); }
+  .layout-tiles .lt .glyph, .tpl .glyph { width: 30px; height: 22px; }
+  .drop-zone { position: absolute; z-index: 4; background: color-mix(in srgb, var(--accent-bg) 22%, transparent); border: 2px dashed var(--accent-bg); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--accent); font-weight: 700; font-size: 13px; }
+  .popover .item .glyph { color: var(--window-fg); }
+  .popover .item small { color: var(--dim); font-size: 12px; margin-left: auto; }
+  /* Übersicht */
+  .overview { position: absolute; inset: 47px 0 0 0; background: var(--overview-bg); z-index: 20; display: flex; flex-direction: column; }
+  .overview .grid { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 26px; padding: 22px 60px; align-content: start; }
+  .card { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .thumb { height: 196px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px var(--border), 0 2px 6px rgb(0 0 6 / 10%); display: flex; background: var(--term-bg); position: relative; }
+  .card.on .thumb { box-shadow: 0 0 0 3px var(--accent-bg); }
+  .thumb .term { font-size: 6.5px; line-height: 8.5px; padding: 4px 5px; }
+  .card .cap { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; padding: 0 4px; }
+  .card .cap .sub { color: var(--dim); font-weight: 400; margin-left: auto; font-size: 12px; }
+  /* Dialoge */
+  .prefs { width: 660px; height: 720px; }
+  .prefs .hb { height: 47px; flex: none; display: flex; align-items: center; justify-content: center; position: relative; }
+  .prefs .hb .x { position: absolute; right: 10px; }
+  .prefs .hb .s { position: absolute; left: 10px; }
+  .prefs .body { flex: 1; overflow: hidden; padding: 8px 40px; }
+  .tplprev { display: flex; height: 190px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 0 1px var(--border); background: var(--border); gap: 1px; }
+  .tplprev .col { display: flex; flex-direction: column; gap: 1px; }
+  .blk { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 10px 12px; background: var(--card-bg); position: relative; font-size: 12px; min-width: 0; }
+  :root[data-theme="dark"] .blk { background: #2b2b2f; }
+  .blk b { font-size: 13px; }
+  .blk code { font-family: var(--mono); font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .blk.sel { box-shadow: inset 0 0 0 2px var(--accent-bg); }
+  .blk .tools { position: absolute; top: 6px; right: 6px; display: flex; gap: 2px; }
+  .blk.remote b { color: var(--remote); }
+  .tpl-dialog { width: 520px; }
+  .tpl-dialog .body { padding: 6px 24px 22px; }
+  .tpl-dialog h2 { font-size: 18px; margin: 4px 0 4px; text-align: center; }
+  .tpl-dialog .sub { text-align: center; color: var(--dim); font-size: 13px; margin-bottom: 16px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 0; }
+  .chips span { font-size: 12px; padding: 3px 9px; border-radius: 12px; background: var(--hover); }
+  .actions { display: flex; gap: 10px; margin-top: 18px; }
+  .actions .btn { flex: 1; height: 38px; background: var(--hover); }
+  .actions .btn.suggested { background: var(--accent-bg); }
+  .hbtitle-btn { pointer-events: auto; border-radius: 8px; padding: 2px 10px; }
+</style>
+</head>
+<body>
+<div class="stage-bar"><h1>Konzept A+ · kombiniert</h1><a href="index.html">Übersicht</a> <a href="concept-a.html">A</a> <a href="concept-b.html">B</a> <a href="concept-c.html">C</a><span class="meter"></span></div>
+<div class="stage"><div class="scaler"></div><div class="caption"></div></div>
+
+<script type="module">
+import { TERMS, SESSIONS, el, icon, glyph, renderLayout, stage, hint, sessionState, sessionTerms, STATE_LABEL } from "./shared/content.js";
+
+const S = SESSIONS;
+let O = { title: "float" };
+
+const TEMPLATES = [
+  { name: "Web-Projekt", layout: { d: "h", r: 0.56, a: "a", b: { d: "v", r: 0.5, a: "b", b: "c" } },
+    panes: { a: ["Shell", "", "Standard"], b: ["Dev-Server", "npm run dev", "Standard"], c: ["Server", "ssh bender", "Server (bender)", true] }, dir: "Beim Öffnen fragen" },
+  { name: "Rust-Crate", layout: { d: "v", r: 0.6, a: "a", b: "b" },
+    panes: { a: ["Shell", "", "Standard"], b: ["Tests", "cargo watch -x test", "Standard"] }, dir: "Beim Öffnen fragen" },
+  { name: "Server-Wartung", layout: { d: "h", r: 0.5, a: "a", b: "b" },
+    panes: { a: ["bender", "ssh bender", "Server (bender)", true], b: ["Journal", "ssh -t bender journalctl -f", "Server (bender)", true] }, dir: "~" },
+];
+
+function headerbar(win, { title = "lui-theme", sub = "~/05_Projekte/web/linuxundich/theme", overview = false, mode = false } = {}) {
+  const hb = el("div", "headerbar");
+  hb.innerHTML = `
+    <span class="split-btn"><button class="btn" title="Neuer Tab (Strg+Umschalt+T)">${icon("tab-new")}</button><button class="btn" title="Profil oder Vorlage (Strg+Umschalt+Alt+T)">${icon("pan-down")}</button></span>
+    <div class="title"><div class="hbtitle-btn"><b>${title}${mode ? '<span class="modepill">LAYOUT</span>' : ""}</b><small>${sub}</small></div></div>
+    <span class="spacer"></span>
+    <button class="btn ${overview ? "on" : ""}" title="Tab-Übersicht (Strg+Umschalt+O)">${icon("view-grid")}</button>
+    <button class="btn" title="Suchen (Strg+Umschalt+F)">${icon("edit-find")}</button>
+    <button class="btn" title="Hauptmenü">${icon("open-menu")}</button>
+    <span class="wincontrols"><span>${icon("window-minimize")}</span><span>${icon("window-maximize")}</span><span>${icon("window-close")}</span></span>`;
+  win.append(hb);
+  return hb;
+}
+
+function tabbar(win, active = "theme", { narrow = false, zoomed = false } = {}) {
+  const tb = el("div", "tabbar");
+  for (const s of narrow ? S.slice(0, 3) : S) {
+    const st = sessionState(s);
+    const t = el("div", "tab" + (s.id === active ? " on" : "") + (s.attention ? " attn" : ""));
+    const lead = st === "run" ? `<span class="dot run"></span>` : st === "err" ? icon("dialog-warning", "f1") : "";
+    t.innerHTML = `${lead}<span class="nm">${s.name}</span>${zoomed && s.id === active ? '<span class="zoomed">1/3</span>' : ""}<button class="btn sm circ x">${icon("window-close")}</button>`;
+    if (typeof s.layout !== "string") t.prepend(glyph(s.layout, s.focus));
+    tb.append(t);
+  }
+  if (narrow) tb.append(el("div", "", `<button class="btn sm" style="margin:0 4px">${icon("go-down")}</button>`));
+  win.append(tb);
+}
+
+function paneChrome(multi) {
+  return (pane, id) => {
+    const t = TERMS[id];
+    if (t.remote) pane.classList.add("remote");
+    const chip = t.remote ? `<span class="hostchip">bender</span>` : "";
+    if (multi && O.title === "float") {
+      pane.append(el("div", "pane-pill", `${chip ? chip + "&nbsp;" : ""}<span class="nm">${t.title}</span><button class="btn sm">${icon("view-fullscreen")}</button><button class="btn sm">${icon("window-close")}</button>`));
+    }
+    if (multi && O.title === "row") {
+      pane.prepend(el("div", "ptitle", `<span class="dot ${t.state}"></span><span class="nm">${t.title}</span>${chip}<span class="cwd">${t.cwd}</span><span class="spacer"></span><button class="btn sm">${icon("view-fullscreen")}</button><button class="btn sm">${icon("window-close")}</button>`));
+    }
+    if (t.state === "err") pane.append(el("div", "exited", `${icon("dialog-warning")}<span><b>Prozess beendet</b> · Exit-Code ${t.exit}</span><span class="spacer"></span><button class="btn">Neu starten</button><button class="btn">Schließen</button>`));
+    return pane;
+  };
+}
+
+function content(win, sid = "theme", layoutOverride) {
+  const s = S.find((x) => x.id === sid);
+  const layout = layoutOverride || s.layout;
+  const root = el("div", "splitroot" + (O.title === "row" ? " rowmode" : ""));
+  root.append(renderLayout(layout, { focus: s.focus, chrome: paneChrome(typeof layout !== "string") }));
+  win.append(root);
+  return root;
+}
+
+function base(win, opts = {}) {
+  headerbar(win, opts);
+  tabbar(win, "theme", opts);
+  return content(win, "theme", opts.layout);
+}
+
+// ---------- Ansichten ----------
+
+function mainView(win) {
+  base(win);
+  hint(win, 1, "Neu-Knopf: „+“ = Tab mit Standardprofil; Pfeil = Profile und Vorlagen", { left: "10px", top: "52px" });
+  hint(win, 2, "Klick auf den Titel öffnet die Befehlspalette (wie Strg+Umschalt+P)", { left: "500px", top: "52px" });
+  hint(win, 3, O.title === "float" ? "Fokus: Akzentlinie + Abblenden; Titel schwebt nur bei geteilten Tabs" : "Fokus: eingefärbte Titelzeile; Zeile ist Griff zum Ziehen", { left: "40px", top: "330px" });
+  hint(win, 4, "Kontextfarbe je Bereich: SSH-Bereich mit Linie, Host-Chip und leicht getöntem Grund – Farbe aus dem Schema", { right: "14px", top: "560px" });
+}
+
+function newView(win) {
+  base(win);
+  const pop = el("div", "popover");
+  pop.style.cssText = "left:6px;top:44px;width:330px";
+  let h = `<div class="head">Profile</div>
+    <div class="item">${icon("tab-new")} Standard<span class="kbd">Strg+Umschalt+T</span></div>
+    <div class="item"><span class="dot" style="background:var(--remote)"></span> Server (bender)<small>ssh bender</small></div>
+    <div class="item"><span class="dot" style="background:var(--destructive)"></span> Root-Shell<small>run0</small></div>
+    <hr><div class="head">Vorlagen</div>`;
+  pop.innerHTML = h;
+  TEMPLATES.forEach((t, i) => {
+    const it = el("div", "item" + (i === 0 ? " hover" : ""), `<span>${t.name}</span><small>${Object.keys(t.panes).length} Bereiche</small>`);
+    it.prepend(glyph(t.layout, "a"));
+    pop.append(it);
+  });
+  pop.insertAdjacentHTML("beforeend", `<hr><div class="item">${icon("document-save")} Aktuellen Tab als Vorlage speichern …</div><div class="item">${icon("preferences-system")} Profile und Vorlagen verwalten …</div>`);
+  win.append(pop);
+  hint(win, 1, "Ein Menü für beides: Profil = ein Terminal, Vorlage = ganzes Layout mit Startbefehlen", { left: "350px", top: "150px" });
+  hint(win, 2, "„Als Vorlage speichern“ übernimmt Aufteilung, Profile und laufende Befehle des aktuellen Tabs", { left: "350px", top: "330px" });
+}
+
+function tplPreview(t, sel) {
+  const make = (n) => {
+    if (typeof n === "string") {
+      const [name, cmd, prof, remote] = t.panes[n];
+      const b = el("div", "blk" + (n === sel ? " sel" : "") + (remote ? " remote" : ""), `<b>${name}</b><code>${cmd || "Shell"}</code><span style="color:var(--dim)">${prof}</span>`);
+      return b;
+    }
+    const box = el("div", n.d === "h" ? "" : "col");
+    box.style.cssText = `display:flex;flex-direction:${n.d === "h" ? "row" : "column"};gap:1px;flex:1;min-width:0`;
+    const a = make(n.a), b = make(n.b);
+    a.style.flex = `${n.r} 1 0`; b.style.flex = `${1 - n.r} 1 0`;
+    box.append(a, b);
+    return box;
+  };
+  const p = el("div", "tplprev");
+  p.append(make(t.layout));
+  return p;
+}
+
+function tplStartView(win) {
+  base(win);
+  const bd = el("div", "dialog-backdrop");
+  const d = el("div", "dialog tpl-dialog");
+  d.innerHTML = `<div class="prefs"><div class="hb" style="height:40px"><button class="btn sm circ x">${icon("window-close")}</button></div></div>`;
+  d.querySelector(".prefs").style.cssText = "width:auto;height:auto";
+  const body = el("div", "body");
+  body.innerHTML = `<h2>Vorlage „Web-Projekt“ öffnen</h2><div class="sub">Öffnet einen neuen Tab mit drei Bereichen</div>`;
+  body.append(tplPreview(TEMPLATES[0]));
+  body.insertAdjacentHTML("beforeend", `
+    <div class="pref-group" style="margin:16px 0 0"><div class="boxed">
+      <div class="row"><div class="lbl">Verzeichnis<small>~/05_Projekte/web/linuxundich/theme</small></div><button class="btn raised">${icon("folder")}</button></div>
+      <div class="row"><div class="lbl">Startbefehle ausführen<small>npm run dev, ssh bender – sonst nur Shells öffnen</small></div><span class="switch on"></span></div>
+      <div class="row"><div class="lbl">Tab-Name</div><span class="val">aus Verzeichnis: theme</span></div>
+    </div>
+    <div class="chips"><span style="color:var(--dim);background:none;padding-left:2px">Zuletzt:</span><span>~/…/linuxundich/theme</span><span>~/…/web/tuxsucht.de</span><span>~/…/web/planetfoss.net</span></div></div>
+    <div class="actions"><button class="btn">Abbrechen</button><button class="btn suggested">Öffnen</button></div>`);
+  d.append(body);
+  bd.append(d);
+  win.append(bd);
+  hint(win, 1, "Vorlage = Layout + Profile + Startbefehle; Verzeichnis wird beim Öffnen gefragt (oder ist fest)", { left: "940px", top: "200px" });
+  hint(win, 2, "Startbefehle laufen nur, wenn eingeschaltet – kein stilles Ausführen", { left: "940px", top: "520px" });
+}
+
+function paletteView(win) {
+  base(win);
+  win.append(el("div", "scrim"));
+  const p = el("div", "palette");
+  const items = [
+    ["grp", "Sitzungen und Bereiche"],
+    ["it sel", `${icon("network-server")}<span><mark>be</mark>nder</span><span class="sub">Tab · journalctl -f · neue Ausgabe</span><span class="kbd">Strg+Alt+2</span>`],
+    ["it", `${icon("folder-projects")}<span>lui-theme › ssh <mark>be</mark>nder</span><span class="sub">Bereich 3</span><span class="kbd">Alt+3</span>`],
+    ["grp", "Aktionen"],
+    ["it", `${icon("view-dual")}<span>Rechts teilen mit Profil „Server (<mark>be</mark>nder)“</span><span class="kbd">Strg+Alt+R</span>`],
+    ["it", `${icon("view-grid")}<span>Layout-Modus</span><span class="sub">Bereiche per Einzeltaste umbauen</span><span class="kbd">Strg+Umschalt+L</span>`],
+    ["grp", "Vorlagen"],
+    ["it", `${icon("system-run")}<span>Server-Wartung öffnen</span><span class="sub">2 Bereiche · ssh <mark>be</mark>nder</span>`],
+  ];
+  p.innerHTML = `<div class="q">${icon("system-search")}<span>be</span><span class="caret"></span><span class="spacer"></span><span class="kbd">Esc</span></div>` +
+    items.map(([c, h]) => (c === "grp" ? `<div class="grp">${h}</div>` : `<div class="${c}">${h}</div>`)).join("") +
+    `<div class="foot"><span><span class="kbd">↑↓</span> wählen</span><span><span class="kbd">Eingabe</span> ausführen</span><span><span class="kbd">Strg+Eingabe</span> im neuen Bereich</span><span style="margin-left:auto"><span><span class="kbd">Strg+Eingabe</span> im neuen Bereich</span><span style="margin-left:auto">&gt; Aktionen · @ Sitzungen · # Vorlagen</span>gt; Aktionen · @ Sitzungen · # Vorlagen</span></div>`;
+  win.append(p);
+  hint(win, 1, "Palette ergänzt Menüs, ersetzt sie nicht: zeigt zu jeder Aktion ihr Kürzel und lehrt es so", { left: "960px", top: "100px" });
+}
+
+function layoutModeView(win) {
+  const root = base(win, { mode: true });
+  const order = ["git", "dev", "bender"];
+  root.querySelectorAll(".pane").forEach((p) => {
+    p.classList.add("mode");
+    p.append(el("div", "num", `<span>${order.indexOf(p.dataset.term) + 1}</span>`));
+  });
+  win.append(el("div", "modebar", `<span class="tag">LAYOUT</span><span><span class="kbd">←↑↓→</span> Fokus</span><span><span class="kbd">Umschalt+Pfeil</span> Größe</span><span><span class="kbd">R</span>/<span class="kbd">D</span> teilen</span><span><span class="kbd">M</span>+Pfeil tauschen</span><span><span class="kbd">Z</span> maximieren</span><span><span class="kbd">=</span> angleichen</span><span><span class="kbd">X</span> schließen</span><span><span class="kbd">U</span> rückgängig</span><span><span class="kbd">Esc</span> fertig</span>`));
+  hint(win, 1, "Modus-Anzeige im Titel; Strg+Umschalt+L oder Palette startet, Esc oder Klick beendet", { left: "640px", top: "52px" });
+  hint(win, 2, "Ohne Modus bleiben alle Kürzel direkt nutzbar (Strg+Alt+R usw.) – der Modus ist eine Abkürzung, kein Zwang", { left: "40px", top: "620px" });
+}
+
+function splitView(win) {
+  base(win);
+  const pop = el("div", "popover", `
+    <div class="item hover">${icon("view-dual")} Rechts teilen<span class="kbd">Strg+Alt+R</span></div>
+    <div class="item">${icon("view-paged")} Unten teilen<span class="kbd">Strg+Alt+D</span></div>
+    <div class="item">${icon("tab-new")} Teilen mit Profil …</div>
+    <div class="head">Layout dieses Tabs</div>
+    <div class="layout-tiles" id="lt"></div>
+    <hr>
+    <div class="item">${icon("view-fullscreen")} Bereich maximieren<span class="kbd">Strg+Umschalt+X</span></div>
+    <div class="item">${icon("view-restore")} Größen angleichen<span class="kbd">Strg+Alt+=</span></div>
+    <div class="item">${icon("view-grid")} Layout-Modus<span class="kbd">Strg+Umschalt+L</span></div>
+    <div class="item">${icon("go-next")} In neuen Tab verschieben</div>
+    <hr>
+    <div class="item">${icon("edit-copy")} Kopieren<span class="kbd">Strg+Umschalt+C</span></div>
+    <div class="item">${icon("edit-paste")} Einfügen<span class="kbd">Strg+Umschalt+V</span></div>
+    <hr>
+    <div class="item" style="color:var(--destructive)">${icon("window-close")} Bereich schließen<span class="kbd">Strg+Umschalt+W</span></div>`);
+  pop.style.cssText = "left:850px;top:150px;width:300px";
+  win.append(pop);
+  const L = [
+    { d: "h", r: 0.5, a: "a", b: "b" }, { d: "v", r: 0.5, a: "a", b: "b" },
+    { d: "h", r: 0.56, a: "a", b: { d: "v", r: 0.5, a: "b", b: "c" } },
+    { d: "h", r: 0.5, a: { d: "v", r: 0.5, a: "a", b: "b" }, b: { d: "v", r: 0.5, a: "c", b: "d" } },
+  ];
+  L.forEach((l, i) => { const t = el("div", "lt" + (i === 2 ? " hover" : "")); t.append(glyph(l, "a")); pop.querySelector("#lt").append(t); });
+  const dz = el("div", "drop-zone", "Hier ablegen: unten teilen");
+  dz.style.cssText = `left:8px;top:${O.title === "row" ? 480 : 470}px;width:700px;height:316px`;
+  win.append(dz);
+  hint(win, 1, "Rechtsklick/Menütaste: Teilen, Layout-Kacheln, Maximieren, Layout-Modus – mit Kürzeln", { left: "560px", top: "160px" });
+  hint(win, 2, O.title === "float" ? "Bereich am schwebenden Titel ziehen; Ablagezonen wie in Tilix" : "Bereich an der Titelzeile ziehen; Ablagezonen wie in Tilix", { left: "60px", top: "430px" });
+}
+
+function zoomView(win) {
+  base(win, { layout: "git", zoomed: true });
+  win.append(el("div", "zoombanner", `${icon("view-fullscreen")}<span><b>Maximiert</b> · 2 Bereiche ausgeblendet</span><button class="btn">Alle zeigen</button>`));
+  win.append(el("div", "toast", `<span>Tab „kulisse“ geschlossen</span><button class="btn">Rückgängig</button>`));
+  hint(win, 1, "Maximieren ist sichtbar: Hinweis oben und „1/3“ am Tab – niemand sucht verschwundene Bereiche", { left: "800px", top: "130px" });
+  hint(win, 2, "Schließen von Bereichen und Tabs lässt sich rückgängig machen (AdwToast); Prozess läuft dabei bis zum Ablauf weiter", { left: "820px", top: "720px" });
+}
+
+function overviewView(win) {
+  headerbar(win, { title: "Alle Tabs", sub: "5 Tabs · 9 Terminals", overview: true });
+  const ov = el("div", "overview");
+  ov.innerHTML = `<div style="display:flex;justify-content:center;padding:16px 0 0"><div class="entry" style="width:360px">${icon("system-search")} Tabs und Terminals durchsuchen …</div></div>`;
+  const grid = el("div", "grid");
+  for (const s of S) {
+    const c = el("div", "card" + (s.id === "theme" ? " on" : ""));
+    const th = el("div", "thumb no-measure");
+    th.append(renderLayout(s.layout, { focus: s.focus, dimUnfocused: false }));
+    const st = sessionState(s);
+    const n = sessionTerms(s.layout).length;
+    c.append(th, el("div", "cap", `${st === "run" ? '<span class="dot run"></span>' : st === "err" ? icon("dialog-warning", "f1") : s.attention ? '<span class="dot act"></span>' : ""}${s.name}<span class="sub">${n} Terminal${n > 1 ? "s" : ""} · ${STATE_LABEL[st]}</span>`));
+    grid.append(c);
+  }
+  ov.append(grid);
+  ov.append(el("div", "", `<div style="position:absolute;bottom:22px;left:50%;transform:translateX(-50%)"><button class="btn suggested" style="height:40px;padding:0 18px;border-radius:20px">${icon("tab-new")} Neuer Tab</button></div>`));
+  win.append(ov);
+  hint(win, 1, "AdwTabOverview mit Split-Vorschau, Suche nach Titel, Verzeichnis, Befehl", { left: "470px", top: "60px" });
+}
+
+function prefsShell(win, inner, { page = 0, back = null } = {}) {
+  base(win);
+  const bd = el("div", "dialog-backdrop");
+  const d = el("div", "dialog prefs");
+  const pages = [["preferences-system", "Allgemein"], ["applications-utilities", "Profile"], ["view-dual", "Vorlagen"], ["applications-engineering", "Kürzel"]];
+  d.innerHTML = back
+    ? `<div class="hb"><button class="btn s">${icon("go-previous")}</button><b>${back}</b><button class="btn sm circ x">${icon("window-close")}</button></div>`
+    : `<div class="hb"><button class="btn s">${icon("system-search")}</button><div class="viewswitcher">${pages.map(([i, n], k) => `<div class="vs ${k === page ? "on" : ""}">${icon(i)}${n}</div>`).join("")}</div><button class="btn sm circ x">${icon("window-close")}</button></div>`;
+  const body = el("div", "body");
+  body.innerHTML = inner;
+  d.append(body);
+  bd.append(d);
+  win.append(bd);
+  return body;
+}
+
+function prefsView(win) {
+  prefsShell(win, `
+    <div class="pref-group"><h4>Erscheinungsbild</h4><div class="boxed">
+      <div class="row"><div class="lbl">Farbschema</div><span class="dropdown">System folgen ${icon("pan-down")}</span></div>
+      <div class="row"><div class="lbl">Bereichstitel<small>Nur sichtbar, wenn ein Tab geteilt ist</small></div><span class="dropdown">${O.title === "float" ? "Schwebend" : "Als Zeile"} ${icon("pan-down")}</span></div>
+      <div class="row"><div class="lbl">Inaktive Bereiche abblenden</div><span class="switch on"></span></div>
+      <div class="row"><div class="lbl">Kontextfarbe für SSH, Root und Container<small>Linie, Chip und Tönung des Bereichs</small></div><span class="switch on"></span></div>
+    </div></div>
+    <div class="pref-group"><h4>Verhalten</h4><div class="boxed">
+      <div class="row"><div class="lbl">Neue Terminals öffnen in</div><span class="dropdown">Aktuellem Verzeichnis ${icon("pan-down")}</span></div>
+      <div class="row"><div class="lbl">Vor dem Schließen nachfragen<small>Wenn noch ein Vordergrundprozess läuft</small></div><span class="switch on"></span></div>
+      <div class="row"><div class="lbl">Tabs beim Start wiederherstellen<small>Layout, Verzeichnisse, Profile – keine laufenden Prozesse</small></div><span class="switch on"></span></div>
+      <div class="row"><div class="lbl">Benachrichtigen, wenn lange Befehle enden<small>Nur wenn Fenster oder Tab im Hintergrund</small></div><span class="switch"></span></div>
+    </div></div>`);
+  hint(win, 1, "AdwPreferencesDialog; die Seite „Vorlagen“ verwaltet Layouts mit Startbefehlen", { left: "990px", top: "100px" });
+}
+
+function tplEditView(win) {
+  const body = prefsShell(win, "", { back: "Vorlage „Web-Projekt“" });
+  body.append(tplPreview(TEMPLATES[0], "b"));
+  body.querySelectorAll(".blk").forEach((b) => b.insertAdjacentHTML("beforeend", `<div class="tools"><button class="btn sm">${icon("view-dual")}</button><button class="btn sm">${icon("view-paged")}</button><button class="btn sm">${icon("window-close")}</button></div>`));
+  body.insertAdjacentHTML("beforeend", `
+    <div style="font-size:12px;color:var(--dim);margin:8px 2px 14px">Bereich anklicken zum Bearbeiten · Trenner ziehen ändert Anteile</div>
+    <div class="pref-group"><h4>Bereich „Dev-Server“</h4><div class="boxed">
+      <div class="row"><div class="lbl">Name</div><span class="val">Dev-Server</span></div>
+      <div class="row"><div class="lbl">Profil</div><span class="dropdown">Standard ${icon("pan-down")}</span></div>
+      <div class="row"><div class="lbl">Startbefehl<small>Wird in der Shell ausgeführt; danach bleibt die Shell offen</small></div><div class="entry" style="width:220px;color:var(--window-fg);font-family:var(--mono);font-size:13px">npm run dev</div></div>
+      <div class="row"><div class="lbl">Unterverzeichnis</div><span class="val">— ${icon("pan-end")}</span></div>
+    </div></div>
+    <div class="pref-group"><h4>Vorlage</h4><div class="boxed">
+      <div class="row"><div class="lbl">Verzeichnis</div><span class="dropdown">Beim Öffnen fragen ${icon("pan-down")}</span></div>
+      <div class="row"><div class="lbl">In der Befehlspalette anbieten</div><span class="switch on"></span></div>
+    </div></div>`);
+  hint(win, 1, "Layout-Editor aus B, aber nur für Vorlagen – im laufenden Tab genügen Kontextmenü und Layout-Modus", { left: "990px", top: "120px" });
+  hint(win, 2, "Startbefehl wird in die Shell getippt statt die Shell zu ersetzen: nach Ctrl+C bleibt der Bereich nutzbar", { left: "990px", top: "420px" });
+}
+
+function smallView(win) {
+  headerbar(win, { title: "lui-theme", sub: "~/…/linuxundich/theme" });
+  tabbar(win, "theme", { narrow: true });
+  content(win, "theme");
+  hint(win, 1, "Unter ~600 px: Tableiste scrollt; Palette und Übersicht ersetzen das Durchklicken", { left: "260px", top: "92px" });
+}
+
+stage({
+  concept: "A+",
+  options: [{ key: "title", values: [["float", "Titel schwebend"], ["row", "Titel als Zeile"]] }],
+  views: [
+    { id: "main", label: "Hauptfenster", render: mainView, caption: "A als Grundgerüst: Headerbar, AdwTabBar, Splits. Neu: Kontextfarbe je Bereich, Titel als Palette-Auslöser. Schalter oben: Bereichstitel schwebend oder als Zeile (offene Frage)." },
+    { id: "new", label: "Neu & Vorlagen", render: newView, caption: "Ein Menü am Neu-Knopf für Profile (ein Terminal) und Vorlagen (ganzes Layout mit Startbefehlen)." },
+    { id: "tpl", label: "Vorlage öffnen", render: tplStartView, caption: "Vorlage öffnen: Vorschau, Verzeichnis, Startbefehle ein/aus." },
+    { id: "palette", label: "Befehlspalette", render: paletteView, caption: "Befehlspalette aus C, über Headerbar und Tabs: Sitzungen, Bereiche, Aktionen, Vorlagen." },
+    { id: "mode", label: "Layout-Modus", render: layoutModeView, caption: "Layout-Modus aus C: nummerierte Bereiche, Einzeltasten, eingeblendete Hilfe." },
+    { id: "split", label: "Kontextmenü & Ziehen", render: splitView, caption: "Mausweg für Splits: Kontextmenü mit Layout-Kacheln, Ziehen mit Ablagezonen." },
+    { id: "zoom", label: "Maximiert & Rückgängig", render: zoomView, caption: "Maximierter Bereich mit sichtbarem Hinweis; Schließen lässt sich rückgängig machen." },
+    { id: "overview", label: "Tab-Übersicht", render: overviewView, caption: "AdwTabOverview mit Split-Vorschau." },
+    { id: "prefs", label: "Einstellungen", render: prefsView, caption: "AdwPreferencesDialog: Allgemein, Profile, Vorlagen, Kürzel." },
+    { id: "tpledit", label: "Vorlage bearbeiten", render: tplEditView, caption: "Einstellungen › Vorlagen › Web-Projekt: Layout-Editor mit Startbefehl je Bereich (aus B)." },
+    { id: "small", label: "Kleines Fenster", render: smallView, small: true, caption: "Gleicher Inhalt bei 720×540 px." },
+  ].map((v) => ({ ...v, render: (win, opts) => { O = opts; v.render(win); } })),
+});
+</script>
+</body>
+</html>

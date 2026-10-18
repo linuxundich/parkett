@@ -202,3 +202,51 @@ Begründung:
 - Offen bleibt in A, ob der Bereichstitel schwebend (wie gezeigt) oder als flache Titelzeile (B)
   kommt. Schwebend spart Fläche; die Titelzeile ist der bessere Griff zum Ziehen und zeigt den Fokus
   deutlicher.
+
+---
+
+## Entscheidung und Konzept A+ (2026-10-18)
+
+**Entscheidung (Christoph):** A als Grundgerüst, ergänzt um Befehlspalette und Layout-Modus aus C
+und die Vorlagen mit Startbefehlen aus B. Mockup: `mockups/combined.html` (elf Ansichten, Schalter
+für die offene Frage „Bereichstitel“).
+
+### Was A+ gegenüber A ändert
+
+| Baustein | Herkunft | Umsetzung im Mockup |
+|---|---|---|
+| Befehlspalette (Strg+Umschalt+P) | C | über Headerbar und Tabs; Gruppen Sitzungen/Bereiche, Aktionen, Vorlagen; zeigt zu jeder Aktion das Kürzel; Präfixe `>` `@` `#` |
+| Layout-Modus (Strg+Umschalt+L) | C | nummerierte Bereiche, Einzeltasten, Hilfeleiste unten, Pille „LAYOUT“ im Fenstertitel; alle Kürzel bleiben auch ohne Modus nutzbar |
+| Vorlagen mit Startbefehlen | B | im Menü am Neu-Knopf neben den Profilen; Dialog „Vorlage öffnen“ (Verzeichnis, Startbefehle ein/aus, zuletzt benutzte Verzeichnisse); „Aktuellen Tab als Vorlage speichern“; Editor als Unterseite der Einstellungen |
+| Layout-Editor | B | **nur für Vorlagen** – im laufenden Tab genügen Kontextmenü, Ziehen und Layout-Modus |
+
+### Neue Vorschläge in A+ (V – bitte prüfen)
+
+1. **Kontextfarbe je Bereich:** SSH/Root/Container-Bereiche bekommen eine farbige Linie oben,
+   einen Host-Chip und einen leicht getönten Grund. Farbe aus dem Farbschema (Muster Ptyxis),
+   abschaltbar. Kein Vorbild hat das je Split, weil keines außer Ghostty Splits hat.
+2. **Fenstertitel als Palette-Auslöser:** Klick auf Titel/Untertitel der Headerbar öffnet die Palette.
+   Macht die Palette ohne zusätzlichen Knopf entdeckbar.
+3. **Maximieren sichtbar:** Hinweis „Maximiert · 2 Bereiche ausgeblendet · Alle zeigen“ und „1/3“ am Tab.
+4. **Rückgängig** für geschlossene Bereiche und Tabs per `AdwToast` (Muster Ghostty). Offen ist,
+   wie lange der Prozess dabei weiterläuft (Vorschlag: bis der Toast verschwindet).
+5. **Startbefehl wird in die Shell getippt** (`feed_child`), statt die Shell zu ersetzen: Nach
+   Strg+C bleibt der Bereich als Shell nutzbar, und der Befehl steht im Verlauf. Alternative:
+   Befehl direkt starten, Bereich hält bei Ende. Beides ist technisch einfach.
+6. **Startbefehle nie still ausführen:** Schalter im Öffnen-Dialog, Standard „an“ nur für eigene
+   Vorlagen; importierte Vorlagen zeigen ihre Befehle vor dem ersten Lauf.
+
+### Offene Gestaltungsfrage: Bereichstitel
+
+Im Mockup per Schalter „Titel schwebend / Titel als Zeile“ vergleichbar (gilt nur bei geteilten Tabs).
+
+| | Schwebend | Als Zeile |
+|---|---|---|
+| Terminalfläche 1280×800 (gemessen) | 89,0 % · 89×41, 70×20, 70×20 | 84,0 % · 89×39, 70×18, 70×19 |
+| Fokus | Akzentlinie + Abblenden | eingefärbte Zeile (deutlicher) |
+| Ziehen | am kleinen Titel | an der ganzen Zeile (leichter zu treffen) |
+| Information | Prozess, Host | Prozess, Host, Verzeichnis, Status-Punkt |
+| Risiko | verdeckt rechts oben Terminalinhalt (z. B. htop-Uhr) | wiederholt Info aus Tab/Headerbar |
+
+**S:** Beide sind gleich teuer umzusetzen; als Einstellung lässt sich die andere Variante anbieten.
+Zu entscheiden ist der Standard.

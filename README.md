@@ -9,7 +9,9 @@ noch offen; „Tilix“ ist der Name eines fremden Projekts und kommt als Produk
 - **Phase 1 – Analyse:** fertig → [`docs/ANALYSE.md`](docs/ANALYSE.md)
   (Bestandsbericht, Funktionsmatrix, Sprachwahl, Architektur-Vorschlag, Risiken)
 - **Phase 2 – Design:** drei Konzepte als HTML-Mockups → [`docs/KONZEPTE.md`](docs/KONZEPTE.md),
-  [`mockups/`](mockups/). **Wartet auf Entscheidung**, welches Konzept weiterverfolgt wird.
+  [`mockups/`](mockups/). Entschieden: A als Grundgerüst plus Befehlspalette und Layout-Modus aus C
+  und Vorlagen mit Startbefehlen aus B → `mockups/combined.html` („Konzept A+“).
+  **Wartet auf Freigabe** von A+ (offen: Standard für Bereichstitel, neue Vorschläge 1–6).
 - Phase 3 (technischer Prototyp) beginnt erst nach Freigabe des Designs.
 
 Es gibt noch keinen Anwendungscode.
@@ -30,6 +32,7 @@ Aufbau:
 |---|---|
 | `mockups/index.html` | Übersicht und Gegenüberstellung |
 | `mockups/concept-{a,b,c}.html` | die drei Konzepte mit je fünf Ansichten |
+| `mockups/combined.html` | Konzept A+ (gewählte Kombination) mit elf Ansichten und Titel-Schalter |
 | `mockups/shared/base.css` | Farben aus libadwaita 1.10, Grundbausteine |
 | `mockups/shared/content.js` | gemeinsamer Beispielinhalt, Split-Renderer, Flächenmessung |
 | `mockups/shared/icons.css` | Adwaita-Symbolic-Icons (CC-BY-SA 3.0 / LGPL-3.0) als Masken |

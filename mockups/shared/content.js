@@ -231,11 +231,14 @@ export function measure(win) {
   return { pct: (100 * ta) / wa, dims };
 }
 
-export function stage({ concept, views, defaultView = "main" }) {
+// options: [{ key, values: [[wert, beschriftung], …] }] – zusätzliche Umschalter, an render(win, opts) übergeben
+export function stage({ concept, views, defaultView = "main", options = [] }) {
   const params = new URLSearchParams(location.hash.slice(1));
   let view = params.get("view") || defaultView;
   let theme = params.get("theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   let hints = params.get("hints") !== "0";
+  const opts = {};
+  for (const o of options) opts[o.key] = params.get(o.key) || o.values[0][0];
 
   const bar = document.querySelector(".stage-bar");
   const host = document.querySelector(".scaler");
@@ -260,7 +263,17 @@ export function stage({ concept, views, defaultView = "main" }) {
   const hb = el("button", "", "Erläuterungen");
   hb.onclick = () => { hints = !hints; draw(); };
   hseg.append(hb);
-  meter.before(vseg, tseg, hseg);
+  const osegs = options.map((o) => {
+    const seg = el("div", "seg");
+    for (const [k, l] of o.values) {
+      const b = el("button", "", l);
+      b.dataset.k = k;
+      b.onclick = () => { opts[o.key] = k; draw(); };
+      seg.append(b);
+    }
+    return [o, seg];
+  });
+  meter.before(vseg, tseg, hseg, ...osegs.map(([, s]) => s));
 
   function fit() {
     const win = host.querySelector(".window");
@@ -276,13 +289,14 @@ export function stage({ concept, views, defaultView = "main" }) {
     for (const b of vseg.children) b.setAttribute("aria-pressed", b.dataset.v === view);
     for (const b of tseg.children) b.setAttribute("aria-pressed", b.dataset.t === theme);
     hb.setAttribute("aria-pressed", hints);
+    for (const [o, seg] of osegs) for (const b of seg.children) b.setAttribute("aria-pressed", b.dataset.k === opts[o.key]);
     const v = views.find((x) => x.id === view) || views[0];
     host.innerHTML = "";
     const win = el("div", "window" + (v.small ? " small" : ""));
     host.append(win);
-    v.render(win);
+    v.render(win, opts);
     caption.innerHTML = v.caption || "";
-    history.replaceState(null, "", `#view=${v.id}&theme=${theme}${hints ? "" : "&hints=0"}`);
+    history.replaceState(null, "", `#view=${v.id}&theme=${theme}${hints ? "" : "&hints=0"}${options.map((o) => `&${o.key}=${opts[o.key]}`).join("")}`);
     requestAnimationFrame(() => {
       if (!win.isConnected) return;
       fit();
@@ -296,6 +310,7 @@ export function stage({ concept, views, defaultView = "main" }) {
   addEventListener("hashchange", () => {
     const q = new URLSearchParams(location.hash.slice(1));
     view = q.get("view") || view; theme = q.get("theme") || theme; hints = q.get("hints") !== "0";
+    for (const o of options) opts[o.key] = q.get(o.key) || opts[o.key];
     draw();
   });
   document.fonts.ready.then(() => { cellW = 0; draw(); });
