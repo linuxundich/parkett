@@ -36,6 +36,13 @@ paned > separator { background: var(--border-color); }
 .parkett-tile-preview { border-radius: 8px; box-shadow: 0 0 0 1px var(--border-color); }
 .parkett-schemes > flowboxchild { border-radius: 12px; padding: 6px; }
 .parkett-schemes > flowboxchild:selected { background: color-mix(in srgb, var(--accent-bg-color) 18%, transparent); box-shadow: inset 0 0 0 2px var(--accent-bg-color); }
+.parkett-search {
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--popover-bg-color);
+  box-shadow: 0 0 0 1px var(--border-color), 0 2px 8px rgb(0 0 6 / 18%);
+}
+.parkett-search button { min-width: 28px; min-height: 28px; padding: 0 4px; }
 .parkett-zoom-banner {
   padding: 4px 4px 4px 12px;
   border-radius: 10px;
@@ -139,7 +146,7 @@ fn shortcuts_dialog() -> adw::ShortcutsDialog {
             ("Neuer Reiter", "<Control><Shift>t"),
             ("Reiter schließen", "<Control><Shift>q"),
             ("Nächster / vorheriger Reiter", "<Control>Page_Down <Control>Page_Up"),
-            ("Reiter 1–9", "<Control><Alt>1…9"),
+            ("Reiter 1 … 9", "<Control><Alt>1"),
             ("Reiter umbenennen", "F2"),
             ("Reiter-Übersicht", "<Control><Shift>o"),
             ("Neues Fenster", "<Control><Shift>n"),
@@ -152,10 +159,12 @@ fn shortcuts_dialog() -> adw::ShortcutsDialog {
             ("Bereich maximieren", "<Control><Shift>x"),
             ("Größen angleichen", "<Control><Alt>equal"),
             ("Fokus wechseln", "<Alt>Left <Alt>Right <Alt>Up <Alt>Down"),
-            ("Bereich 1–9", "<Alt>1…9"),
+            ("Bereich 1 … 9", "<Alt>1"),
             ("Größe ändern", "<Shift><Alt>Left <Shift><Alt>Right <Shift><Alt>Up <Shift><Alt>Down"),
         ]),
         ("Terminal", &[
+            ("Suchen", "<Control><Shift>f"),
+            ("Treffer darüber / darunter", "<Control><Shift>g <Control><Shift>h"),
             ("Kopieren", "<Control><Shift>c"),
             ("Einfügen", "<Control><Shift>v"),
             ("Alles auswählen", "<Control><Shift>a"),

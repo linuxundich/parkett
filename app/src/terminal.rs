@@ -34,6 +34,9 @@ struct Inner {
     started_at: Cell<Option<Instant>>,
     background: Cell<Rgb>,
     on_colors_changed: RefCell<Vec<Callback>>,
+    /// Link unter dem Zeiger beim Rechtsklick (für „Link öffnen/kopieren“ im Kontextmenü)
+    menu_link: RefCell<Option<String>>,
+    actions: gio::SimpleActionGroup,
     child_pid: Cell<Option<glib::Pid>>,
     exit: Cell<Option<ExitStatus>>,
     on_state_changed: RefCell<Vec<Callback>>,
@@ -87,6 +90,8 @@ impl Terminal {
             started_at: Cell::new(None),
             background: Cell::new(Rgb { r: 255, g: 255, b: 255 }),
             on_colors_changed: RefCell::default(),
+            menu_link: RefCell::new(None),
+            actions: gio::SimpleActionGroup::new(),
             child_pid: Cell::new(None),
             exit: Cell::new(None),
             on_state_changed: RefCell::default(),
@@ -96,6 +101,7 @@ impl Terminal {
         t.setup_style();
         t.setup_actions();
         t.setup_signals();
+        t.setup_links();
 
         let weak = Rc::downgrade(&t.0);
         restart.connect_clicked(move |_| {
@@ -350,6 +356,120 @@ impl Terminal {
         }
     }
 
+    fn setup_links(&self) {
+        let vte = &self.0.vte;
+        for pattern in URL_PATTERNS {
+            match vte::Regex::for_match(pattern, PCRE2_FLAGS) {
+                Ok(re) => {
+                    let tag = vte.match_add_regex(&re, 0);
+                    vte.match_set_cursor_name(tag, "pointer");
+                }
+                Err(e) => glib::g_warning!("parkett", "URL-Muster: {e}"),
+            }
+        }
+        // Strg+Klick öffnet den Link; ohne Strg bleibt Klicken Markieren
+        let click = gtk::GestureClick::builder().button(1).propagation_phase(gtk::PropagationPhase::Capture).build();
+        let weak = Rc::downgrade(&self.0);
+        click.connect_pressed(move |g, _, x, y| {
+            let Some(inner) = weak.upgrade() else { return };
+            if !g.current_event_state().contains(gtk::gdk::ModifierType::CONTROL_MASK) {
+                return;
+            }
+            let t = Terminal(inner);
+            if let Some(uri) = t.link_at(x, y) {
+                g.set_state(gtk::EventSequenceState::Claimed);
+                t.open_link(&uri);
+            }
+        });
+        vte.add_controller(click);
+        // Rechtsklick merkt sich den Link für das Kontextmenü
+        let right = gtk::GestureClick::builder().button(3).propagation_phase(gtk::PropagationPhase::Capture).build();
+        let weak = Rc::downgrade(&self.0);
+        right.connect_pressed(move |_, _, x, y| {
+            if let Some(inner) = weak.upgrade() {
+                let t = Terminal(inner);
+                let link = t.link_at(x, y);
+                for name in ["open-link", "copy-link"] {
+                    if let Some(a) = t.0.actions.lookup_action(name).and_downcast::<gio::SimpleAction>() {
+                        a.set_enabled(link.is_some());
+                    }
+                }
+                *t.0.menu_link.borrow_mut() = link;
+            }
+        });
+        vte.add_controller(right);
+        for (name, open) in [("open-link", true), ("copy-link", false)] {
+            let a = gio::SimpleAction::new(name, None);
+            a.set_enabled(false);
+            let weak = Rc::downgrade(&self.0);
+            a.connect_activate(move |_, _| {
+                let Some(inner) = weak.upgrade() else { return };
+                let t = Terminal(inner);
+                let Some(uri) = t.0.menu_link.borrow().clone() else { return };
+                if open {
+                    t.open_link(&uri);
+                } else {
+                    t.0.vte.clipboard().set_text(&uri);
+                }
+            });
+            self.0.actions.add_action(&a);
+        }
+        // OSC-8-Links zeigen ihr wahres Ziel als Tooltip – der sichtbare Text kann täuschen.
+        // vte4-rs bindet das Signal nicht, daher connect_local.
+        vte.connect_local("hyperlink-hover-uri-changed", false, |args| {
+            let vte = args[0].get::<vte::Terminal>().ok()?;
+            let uri = args[1].get::<Option<String>>().ok().flatten();
+            vte.set_tooltip_text(uri.as_deref());
+            None
+        });
+    }
+
+    /// OSC-8-Link oder erkannte Adresse an der Position (Widget-Koordinaten).
+    pub fn link_at(&self, x: f64, y: f64) -> Option<String> {
+        self.0
+            .vte
+            .check_hyperlink_at(x, y)
+            .map(String::from)
+            .or_else(|| self.0.vte.check_match_at(x, y).0.map(String::from))
+            .filter(|u| !u.is_empty())
+    }
+
+    /// Öffnet einen Link mit der Standardanwendung, aber nur mit erlaubtem Schema.
+    pub fn open_link(&self, uri: &str) {
+        let scheme = uri.split(':').next().unwrap_or("").to_ascii_lowercase();
+        if !SAFE_SCHEMES.contains(&scheme.as_str()) {
+            glib::g_warning!("parkett", "Link mit Schema „{scheme}“ nicht geöffnet");
+            return;
+        }
+        let window = self.0.vte.root().and_downcast::<gtk::Window>();
+        gtk::UriLauncher::new(uri).launch(window.as_ref(), gio::Cancellable::NONE, |res| {
+            if let Err(e) = res {
+                glib::g_warning!("parkett", "Link nicht geöffnet: {e}");
+            }
+        });
+    }
+
+    /// Setzt das Suchmuster; `None` hebt die Suche auf. Gibt einen Fehler bei ungültigem Regex.
+    pub fn set_search(&self, text: Option<&str>, regex: bool, case_sensitive: bool) -> Result<(), String> {
+        let vte = &self.0.vte;
+        let Some(text) = text.filter(|t| !t.is_empty()) else {
+            vte.search_set_regex(None, 0);
+            vte.unselect_all();
+            return Ok(());
+        };
+        let pattern = if regex { text.to_string() } else { glib::Regex::escape_string(text).to_string() };
+        let flags = PCRE2_FLAGS | if case_sensitive { 0 } else { PCRE2_CASELESS };
+        let re = vte::Regex::for_search(&pattern, flags).map_err(|e| e.message().to_string())?;
+        vte.search_set_regex(Some(&re), 0);
+        vte.search_set_wrap_around(true);
+        Ok(())
+    }
+
+    /// Nächster Treffer nach oben (ältere Ausgabe) oder unten. `false` = nichts gefunden.
+    pub fn search_step(&self, up: bool) -> bool {
+        if up { self.0.vte.search_find_previous() } else { self.0.vte.search_find_next() }
+    }
+
     fn setup_style(&self) {
         self.apply_colors();
         // Nur schwache Referenzen: StyleManager, ProfileManager und GSettings leben so lange
@@ -390,7 +510,7 @@ impl Terminal {
     }
 
     fn setup_actions(&self) {
-        let group = gio::SimpleActionGroup::new();
+        let group = self.0.actions.clone();
         let add = |name: &str, f: Box<dyn Fn(&vte::Terminal)>| {
             let a = gio::SimpleAction::new(name, None);
             let vte = self.0.vte.downgrade();
@@ -443,6 +563,17 @@ impl Terminal {
         menu.append_section(None, &zoom);
         // Bereichsaktionen leben am Fenster (win.*); sie gelten für den fokussierten Bereich,
         // den ein Rechtsklick vorher setzt (siehe pane.rs).
+        // Link-Einträge nur sichtbar, wenn beim Rechtsklick ein Link unter dem Zeiger lag
+        let link = gio::Menu::new();
+        for (label, action) in [("Link öffnen", "term.open-link"), ("Link kopieren", "term.copy-link")] {
+            let it = gio::MenuItem::new(Some(label), Some(action));
+            it.set_attribute_value("hidden-when", Some(&"action-disabled".to_variant()));
+            link.append_item(&it);
+        }
+        menu.prepend_section(None, &link);
+        let search = gio::Menu::new();
+        search.append(Some("Suchen …"), Some("win.find"));
+        menu.append_section(None, &search);
         let split = gio::Menu::new();
         split.append(Some("Rechts teilen"), Some("win.split-right"));
         split.append(Some("Unten teilen"), Some("win.split-down"));
@@ -455,6 +586,19 @@ impl Terminal {
         self.0.vte.set_context_menu_model(Some(&menu));
     }
 }
+
+/// Erlaubte Schemata beim Öffnen von Links – keine „javascript:“, „data:“ o. Ä.
+const SAFE_SCHEMES: &[&str] = &["http", "https", "ftp", "mailto", "file"];
+
+/// Adressen ohne OSC 8 erkennen (PCRE2). Satzzeichen am Ende gehören nicht dazu.
+const URL_PATTERNS: &[&str] = &[
+    r#"\b(?:https?|ftp|file)://[^\s<>"'`]*[^\s<>"'`.,;:!?)\]}]"#,
+    r#"\bmailto:[^\s<>"'`@]+@[^\s<>"'`]*[^\s<>"'`.,;:!?)\]}]"#,
+];
+
+/// PCRE2-Flags wie bei Ptyxis: UTF, UCP und MULTILINE (verlangt VTE).
+pub const PCRE2_FLAGS: u32 = 0x0008_0000 | 0x4000_0000 | 0x0002_0000 | 0x0000_0400;
+pub const PCRE2_CASELESS: u32 = 0x0000_0008;
 
 /// Kürzel je Terminal-Aktion; mehrere Auslöser mit „|“ (Syntax von GtkShortcutTrigger).
 const SHORTCUTS: &[(&str, &str)] = &[

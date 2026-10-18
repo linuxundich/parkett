@@ -5,6 +5,10 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unreleased]
 
 ### Hinzugefügt
+- Suche im Terminal je Bereich (Strg+Umschalt+F; Groß/Klein, regulärer Ausdruck; Treffer
+  darüber/darunter), Suchknopf in der Kopfleiste.
+- Links: Strg+Klick öffnet Adressen und OSC-8-Links (nur http, https, ftp, mailto, file),
+  Kontextmenü „Link öffnen/kopieren“, Tooltip mit dem wahren Ziel eines OSC-8-Links.
 - Profile (TOML unter ~/.config/parkett/profiles): Farbschema, Befehl statt Shell,
   Login-Shell, Startverzeichnis, Umgebungsvariablen, Verhalten bei Prozessende.
 - 14 Farbschemata mit heller und dunkler Fassung (aus Ptyxis), Wechsel live mit dem Systemstil.

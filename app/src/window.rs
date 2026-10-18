@@ -87,6 +87,9 @@ const SHORTCUTS: &[(&str, &str)] = &[
     ("<Control>Page_Down", "next-tab"),
     ("<Control>Page_Up", "prev-tab"),
     ("F2", "rename-tab"),
+    ("<Control><Shift>f", "find"),
+    ("<Control><Shift>g", "find-up"),
+    ("<Control><Shift>h", "find-down"),
     ("<Control><Shift>o", "overview"),
 ];
 
@@ -181,12 +184,14 @@ impl Window {
             .tooltip_text("Hauptmenü")
             .build();
 
+        let find_button = gtk::Button::builder().icon_name("edit-find-symbolic").tooltip_text("Suchen (Strg+Umschalt+F)").action_name("win.find").build();
         let overview_button = adw::TabButton::builder().view(&tab_view).action_name("win.overview").build();
 
         let header = adw::HeaderBar::builder().title_widget(&title).build();
         header.pack_start(&new_button);
         header.pack_end(&menu_button);
         header.pack_end(&overview_button);
+        header.pack_end(&find_button);
 
         let toolbar = adw::ToolbarView::new();
         toolbar.add_top_bar(&header);
@@ -443,6 +448,13 @@ impl Window {
                 }
             }
         });
+        on_tab("find", |_, t| {
+            let pane = t.focused_pane();
+            if pane.search_visible() { pane.hide_search() } else { pane.show_search() }
+        });
+        on_tab("find-up", |_, t| t.focused_pane().search_step(true));
+        on_tab("find-down", |_, t| t.focused_pane().search_step(false));
+        on_tab("refresh-panes", |_, t| t.update_states());
         on_tab("focus-left", |_, t| t.focus_direction(Direction::Left));
         on_tab("focus-right", |_, t| t.focus_direction(Direction::Right));
         on_tab("focus-up", |_, t| t.focus_direction(Direction::Up));
