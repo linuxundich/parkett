@@ -191,6 +191,11 @@ impl Tab {
         self.focused_pane().terminal().cwd()
     }
 
+    /// Startverzeichnis für ein neues Terminal nach Einstellung „new-terminal-directory“.
+    pub fn inherited_cwd(&self) -> Option<String> {
+        if crate::settings::inherit_directory() { self.cwd() } else { None }
+    }
+
     /// Hat ein Bereich mit Fehler geendet?
     pub fn has_failed_pane(&self) -> bool {
         use crate::terminal::ExitStatus;
@@ -201,6 +206,9 @@ impl Tab {
 
     /// Laufende Vordergrundprozesse aller Bereiche (für die Nachfrage beim Schließen).
     pub fn foreground_processes(&self) -> Vec<String> {
+        if !crate::settings::confirm_close() {
+            return Vec::new();
+        }
         self.imp().panes.borrow().values().filter_map(|p| p.terminal().foreground_process()).collect()
     }
 
@@ -239,7 +247,7 @@ impl Tab {
         if layout.zoomed().is_none() && !layout.can_split(focus, o, w, h, min_w, min_h) {
             return false;
         }
-        let cwd = self.focused_pane().terminal().cwd();
+        let cwd = self.inherited_cwd();
         let Some((next, id)) = layout.split(focus, o) else { return false };
         self.add_pane(id, cwd);
         self.set_layout(next);
@@ -414,7 +422,7 @@ impl Tab {
         });
     }
 
-    fn update_states(&self) {
+    pub fn update_states(&self) {
         let imp = self.imp();
         let layout = self.layout();
         let multi = layout.zoomed().is_none() && layout.panes().len() > 1;

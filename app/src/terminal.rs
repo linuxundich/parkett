@@ -40,13 +40,14 @@ impl Terminal {
         let vte = vte::Terminal::builder()
             .hexpand(true)
             .vexpand(true)
-            .scrollback_lines(10_000)
             .allow_hyperlink(true)
             .pointer_autohide(true)
             .bold_is_bright(false)
             .enable_a11y(true)
             .build();
         vte.set_size(100, 30);
+        // Setter statt Builder: nur er nimmt -1 (unbegrenzt) an
+        vte.set_scrollback_lines(crate::settings::scrollback_lines());
 
         let exit_label = gtk::Label::builder().xalign(0.0).hexpand(true).ellipsize(pango::EllipsizeMode::End).build();
         let restart = gtk::Button::with_label("Neu starten");
@@ -267,11 +268,23 @@ impl Terminal {
             style.connect_dark_notify(apply.clone()),
             style.connect_monospace_font_name_notify(apply),
         )));
+        // Verlaufslänge folgt der Einstellung
+        let settings = crate::settings::settings();
+        let vte = self.0.vte.downgrade();
+        let scrollback = settings.connect_changed(Some("scrollback-lines"), move |_, _| {
+            if let Some(vte) = vte.upgrade() {
+                vte.set_scrollback_lines(crate::settings::scrollback_lines());
+            }
+        });
+        let scrollback = std::cell::RefCell::new(Some(scrollback));
         self.0.vte.connect_destroy(move |_| {
             if let Some((a, b)) = handlers.borrow_mut().take() {
                 let style = adw::StyleManager::default();
                 style.disconnect(a);
                 style.disconnect(b);
+            }
+            if let Some(id) = scrollback.borrow_mut().take() {
+                crate::settings::settings().disconnect(id);
             }
         });
     }

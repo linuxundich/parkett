@@ -5,6 +5,15 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 ## [Unreleased]
 
 ### Hinzugefügt
+- Meson-Build mit .desktop, Metainfo, Icons und GSettings-Schema; Lizenztext GPL-3.0.
+- Einstellungen per GSettings: Fenstergröße merken, Nachfrage beim Schließen, Abblenden,
+  Reiterleiste ausblenden, Startverzeichnis neuer Terminals, Länge des Verlaufs.
+- Arch-Paket im eigenen Repo `linuxundich`.
+
+### Geändert
+- Oberfläche sagt „Reiter“ statt „Tab“ (wie libadwaita).
+
+### Hinzugefügt (Reiter und Bereiche)
 - Tabs mit AdwTabView: Tab-Leiste (bei einem Tab ausgeblendet), Tab-Übersicht mit Suche,
   Tab umbenennen (F2), Warnsymbol bei Prozessende mit Fehler.
 - Geteilte Bereiche: rechts/unten/automatisch teilen, Fokus und Größe per Tastatur,

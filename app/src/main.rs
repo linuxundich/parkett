@@ -2,6 +2,7 @@
 
 mod colors;
 mod pane;
+mod settings;
 mod tab;
 mod terminal;
 mod window;
@@ -42,6 +43,7 @@ paned > separator { background: var(--border-color); }
 ";
 
 fn main() -> glib::ExitCode {
+    settings::init();
     let app = adw::Application::builder()
         .application_id(APP_ID)
         .flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE)
@@ -53,7 +55,9 @@ fn main() -> glib::ExitCode {
         let display = gdk::Display::default().expect("Display");
         gtk::style_context_add_provider_for_display(&display, &provider, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
         // Beim Start aus dem Quellbaum die Icons in data/ finden (installiert: hicolor)
-        gtk::IconTheme::for_display(&display).add_search_path(concat!(env!("CARGO_MANIFEST_DIR"), "/../data/icons"));
+        if option_env!("PARKETT_INSTALLED").is_none() {
+            gtk::IconTheme::for_display(&display).add_search_path(concat!(env!("CARGO_MANIFEST_DIR"), "/../data/icons"));
+        }
         gtk::Window::set_default_icon_name(APP_ID);
         setup_actions(app);
     });
@@ -118,13 +122,13 @@ fn setup_actions(app: &adw::Application) {
 fn shortcuts_dialog() -> adw::ShortcutsDialog {
     let dialog = adw::ShortcutsDialog::new();
     let sections: &[(&str, &[(&str, &str)])] = &[
-        ("Tabs", &[
-            ("Neuer Tab", "<Control><Shift>t"),
-            ("Tab schließen", "<Control><Shift>q"),
-            ("Nächster / vorheriger Tab", "<Control>Page_Down <Control>Page_Up"),
-            ("Tab 1–9", "<Control><Alt>1…9"),
-            ("Tab umbenennen", "F2"),
-            ("Tab-Übersicht", "<Control><Shift>o"),
+        ("Reiter", &[
+            ("Neuer Reiter", "<Control><Shift>t"),
+            ("Reiter schließen", "<Control><Shift>q"),
+            ("Nächster / vorheriger Reiter", "<Control>Page_Down <Control>Page_Up"),
+            ("Reiter 1–9", "<Control><Alt>1…9"),
+            ("Reiter umbenennen", "F2"),
+            ("Reiter-Übersicht", "<Control><Shift>o"),
             ("Neues Fenster", "<Control><Shift>n"),
         ]),
         ("Bereiche", &[

@@ -175,7 +175,7 @@ impl Pane {
         let imp = self.imp();
         imp.pill.get().unwrap().set_visible(multi);
         imp.focus_line.get().unwrap().set_visible(multi && focused);
-        imp.dim.get().unwrap().set_visible(multi && !focused);
+        imp.dim.get().unwrap().set_visible(multi && !focused && crate::settings::dim_unfocused());
         if focused {
             self.add_css_class("focused");
         } else {

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2026 Christoph Langner -->
+<component type="desktop-application">
+  <id>de.linuxundich.Parkett</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Parkett</name>
+  <summary>Terminal mit geteilten Bereichen</summary>
+  <description>
+    <p>Parkett ist ein Terminal für GNOME, das mehrere Terminals in einem Reiter nebeneinander und übereinander anordnet – wie Tilix, aber mit GTK 4 und libadwaita.</p>
+    <ul>
+      <li>Reiter mit Übersicht und Suche</li>
+      <li>Bereiche rechts oder unten teilen, maximieren, angleichen und per Tastatur wechseln</li>
+      <li>Nachfrage beim Schließen, wenn noch ein Programm läuft</li>
+      <li>Helles und dunkles Design nach Systemeinstellung</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">de.linuxundich.Parkett.desktop</launchable>
+  <developer id="de.linuxundich">
+    <name translate="no">Christoph Langner</name>
+  </developer>
+  <url type="homepage">https://linuxundich.de/</url>
+  <content_rating type="oars-1.1"/>
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+  <provides>
+    <binary>parkett</binary>
+  </provides>
+  <categories>
+    <category>System</category>
+    <category>TerminalEmulator</category>
+  </categories>
+  <releases>
+    <release version="0.1.0" date="2026-10-18" type="development">
+      <description>
+        <p>Erster Entwicklungsstand: Reiter, geteilte Bereiche, Nachfrage beim Schließen.</p>
+      </description>
+    </release>
+  </releases>
+</component>

@@ -8,7 +8,7 @@ Blueprint für Dialoge, GSettings + Dateien, serde, Meson, GPL-3.0-or-later, Pty
 | # | Schritt | Stand |
 |---|---|---|
 | 1 | **Tabs und Splits** (dieses Dokument, Abschnitt unten) | fertig, in VM getestet |
-| 2 | Meson-Build, GSettings-Schema, LICENSE | offen |
+| 2 | Meson-Build, GSettings-Schema, LICENSE, Arch-Paket | fertig, in VM getestet |
 | 3 | Basisprofile (Befehl, Verzeichnis, Farbschema, Verhalten bei Ende) | offen |
 | 4 | Einstellungen (AdwPreferencesDialog: Allgemein, Profile, Kürzel) | offen |
 | 5 | Suche im Terminal, Links öffnen (Strg+Klick) | offen |
@@ -59,7 +59,7 @@ Terminal, nicht als App-Accels (siehe PROTOTYP.md, gefundener Fehler).
 
 | Test | Ergebnis |
 |---|---|
-| `cargo test` (14 Kern-Tests inkl. Verhältnis per Pfad, Zoom aufheben), `cargo clippy` | grün, keine Befunde |
+| `cargo test` (13 Kern-Tests inkl. Verhältnis per Pfad, Zoom aufheben, 1 App-Test), `cargo clippy` | grün, keine Befunde |
 | Rechts teilen, dann unten teilen: 50 % / 50 % | ok **nach Korrektur** (erst 35 %) – siehe Funde 1, 2 |
 | Alt+Links fokussiert linken Bereich; Umschalt+Alt+Rechts ×3 → 59 % | ok (`mvp-splits.png`) |
 | Strg+Umschalt+X: maximiert mit Hinweis und „(1/3)“, Eingabe kommt an; nochmals → zurück | ok (`mvp-maximiert.png`) |
@@ -93,8 +93,40 @@ Terminal, nicht als App-Accels (siehe PROTOTYP.md, gefundener Fehler).
 - Cursor war nach Schließen der Tab-Übersicht bis zur nächsten Eingabe unsichtbar (vier
   Aufnahmen im Abstand von 0,35 s). Ursache noch unklar (VTE-Blinklogik nach Fokuswechsel?).
 - Auswahlfarbe im Dunkelmodus ist VTE-Standard.
-- **Begriff:** libadwaita sagt auf Deutsch „Reiter“ (Tab-Übersicht: „2 Reiter“, „Neuer Reiter“),
-  Parkett bisher „Tab“. Entscheidung nötig, welcher Begriff durchgehend gilt.
+- **Begriff:** entschieden am 2026-10-18 – durchgehend „Reiter“ wie libadwaita (Oberfläche,
+  Kürzel-Übersicht, Schema-Texte). Code und ältere Doku sagen weiter „Tab“.
 - Nicht getestet: Ziehen von Tabs in ein neues Fenster, Maus-Ziehen der Trenner (nur über
   Tastatur und Fenstergröße geprüft), Host-Start, Orca.
 - Drag&Drop von Bereichen (P1) und Rückgängig (Vorschlag 4) kommen später.
+
+## Schritt 2: Meson, GSettings, LICENSE, Arch-Paket
+
+### Umgesetzt
+
+- **Begriff „Reiter“** in allen Texten der Oberfläche (Entscheidung Christoph).
+- **Meson** wie bei Kulisse: `meson.build` ruft `build-aux/cargo-build.sh` (setzt
+  `PARKETT_INSTALLED`), installiert Programm, `.desktop` (Exec mit vollem Pfad aus `bindir`),
+  Metainfo, GSettings-Schema und Icons; `gnome.post_install` kompiliert Schema und Caches.
+  `meson test`: desktop-file-validate, appstreamcli, glib-compile-schemas --strict, cargo test.
+- **`cargo run`** bleibt möglich: `app/build.rs` kompiliert das Schema nach `$OUT_DIR/schemas`,
+  `settings::init()` setzt dann `GSETTINGS_SCHEMA_DIR` (nur ohne `PARKETT_INSTALLED`).
+- **GSettings** `de.linuxundich.Parkett` mit Schlüsseln, die schon wirken:
+  `window-width/-height/-maximized`, `confirm-close`, `dim-unfocused` (live),
+  `autohide-tab-bar` (live, per Bindung), `new-terminal-directory` (current/home),
+  `scrollback-lines` (live, -1 = unbegrenzt). Profile und Vorlagen kommen als Dateien.
+- **LICENSE** GPL-3.0 (Volltext).
+- **VM-Skript** `build-aux/vm/deploy.sh` baut und installiert jetzt mit Meson nach `~/.local`.
+- **Arch-Paket** `parkett` im pacman-Repo (`services/pacman-repo/pkgbuilds/parkett`).
+
+### Tests (VM fedora44-wor)
+
+| Test | Ergebnis |
+|---|---|
+| `meson setup/compile/test/install` lokal (Prefix `_install`) | 4/4 Tests ok, alle Dateien an der richtigen Stelle |
+| `meson install` nach `~/.local` in der VM, Start | ok |
+| `gsettings list-recursively de.linuxundich.Parkett` in der VM | alle 8 Schlüssel mit Standardwerten |
+| `dim-unfocused false` / `autohide-tab-bar false` zur Laufzeit | wirken sofort (keine Abblendung, Reiterleiste bei einem Reiter sichtbar) |
+| Fenster maximieren, letzten Reiter schließen → `window-maximized true`, Neustart maximiert | ok **nach Korrektur**: beim Schließen über den letzten Reiter wurde zuerst nicht gespeichert |
+
+Nicht getestet: `new-terminal-directory home`, `scrollback-lines` zur Laufzeit, gespeicherte
+Fensterbreite nach Größenänderung per Maus.

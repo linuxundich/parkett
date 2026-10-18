@@ -16,7 +16,7 @@ steht für das Fischgrät-Muster aus Terminal-Bereichen, das die Splits bilden.
   Split-Layout als getesteter Kern ohne GTK → [`docs/PROTOTYP.md`](docs/PROTOTYP.md)
   (Architektur, Testprotokoll, offene Entscheidungen).
 - **Phase 4 – MVP:** freigegeben; Schritt 1 Tabs und Splits fertig und in der VM getestet →
-  [`docs/MVP.md`](docs/MVP.md). Weiter: Meson/GSettings, Profile, Einstellungen, Suche.
+  [`docs/MVP.md`](docs/MVP.md). Schritt 2 Meson, GSettings, LICENSE und Arch-Paket fertig. Weiter: Profile, Einstellungen, Suche.
 
 ## Bauen und starten
 
@@ -26,6 +26,18 @@ Abhängigkeiten: Rust, GTK ≥ 4.18, libadwaita ≥ 1.8, VTE (gtk4) ≥ 0.80
 ```bash
 cargo run -p parkett
 ```
+
+Installieren mit Meson (GSettings-Schema, .desktop, Icons):
+
+```bash
+meson setup _build --prefix=$HOME/.local --buildtype=release
+```
+
+```bash
+meson install -C _build
+```
+
+Arch: Paket `parkett` aus dem eigenen Repo `linuxundich` (bender, siehe `services/pacman-repo`).
 
 ```bash
 cargo test

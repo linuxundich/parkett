@@ -22,13 +22,13 @@
 ## Phase 4 – MVP (docs/MVP.md)
 - [x] Architektur: Unterklassen, GSettings + Dateien, serde, Meson, GPL-3.0-or-later (angenommen)
 - [x] Schritt 1: Tabs und Splits, Schließen mit Nachfrage, Kürzel-Übersicht (VM-getestet)
-- [ ] Schritt 2: Meson-Build, GSettings-Schema, LICENSE
+- [x] Schritt 2: Meson-Build, GSettings-Schema, LICENSE, Arch-Paket (2026-10-18)
 - [ ] Schritt 3: Basisprofile
 - [ ] Schritt 4: Einstellungen (AdwPreferencesDialog)
 - [ ] Schritt 5: Suche, Links öffnen
 - [ ] Schritt 6: Befehlspalette, Layout-Modus, Vorlagen (A+)
 - [ ] Schritt 7: Rückgängig beim Schließen, Kontextfarbe je Bereich
-- [ ] Begriff „Tab“ oder „Reiter“ (libadwaita sagt „Reiter“) – Entscheidung Christoph
+- [x] Begriff: durchgehend „Reiter“ (2026-10-18)
 - [ ] Cursor nach Schließen der Tab-Übersicht unsichtbar bis zur Eingabe – Ursache suchen
 - [ ] Tabs in neues Fenster ziehen und Trenner per Maus ziehen testen
 - [ ] Flatpak von Anfang an (Host-Agent) oder zuerst nativ

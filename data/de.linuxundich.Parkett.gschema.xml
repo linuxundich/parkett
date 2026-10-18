@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Parkett: Einstellungen der Anwendung. Profile und Vorlagen liegen als Dateien
+     unter $XDG_CONFIG_HOME/parkett/ (siehe docs/PROTOTYP.md). -->
+<schemalist gettext-domain="parkett">
+  <enum id="de.linuxundich.Parkett.NewTerminalDirectory">
+    <value nick="current" value="0"/>
+    <value nick="home" value="1"/>
+  </enum>
+
+  <schema id="de.linuxundich.Parkett" path="/de/linuxundich/Parkett/">
+    <key name="window-width" type="i">
+      <default>960</default>
+      <summary>Fensterbreite</summary>
+      <description>Breite des zuletzt geschlossenen Fensters in Pixeln.</description>
+    </key>
+    <key name="window-height" type="i">
+      <default>640</default>
+      <summary>Fensterhöhe</summary>
+      <description>Höhe des zuletzt geschlossenen Fensters in Pixeln.</description>
+    </key>
+    <key name="window-maximized" type="b">
+      <default>false</default>
+      <summary>Fenster maximiert</summary>
+      <description>Ob das zuletzt geschlossene Fenster maximiert war.</description>
+    </key>
+    <key name="confirm-close" type="b">
+      <default>true</default>
+      <summary>Vor dem Schließen nachfragen</summary>
+      <description>Nachfragen, bevor ein Bereich, Reiter oder Fenster geschlossen wird, in dem noch ein Programm läuft.</description>
+    </key>
+    <key name="dim-unfocused" type="b">
+      <default>true</default>
+      <summary>Inaktive Bereiche abblenden</summary>
+      <description>In geteilten Reitern die Bereiche ohne Fokus leicht abblenden.</description>
+    </key>
+    <key name="autohide-tab-bar" type="b">
+      <default>true</default>
+      <summary>Reiterleiste bei einem Reiter ausblenden</summary>
+      <description>Die Reiterleiste nur zeigen, wenn mehr als ein Reiter offen ist.</description>
+    </key>
+    <key name="new-terminal-directory" enum="de.linuxundich.Parkett.NewTerminalDirectory">
+      <default>'current'</default>
+      <summary>Verzeichnis neuer Terminals</summary>
+      <description>„current“: Verzeichnis des aktiven Bereichs übernehmen, „home“: im Persönlichen Ordner starten.</description>
+    </key>
+    <key name="scrollback-lines" type="i">
+      <range min="-1" max="1000000"/>
+      <default>10000</default>
+      <summary>Zeilen im Verlauf</summary>
+      <description>Wie viele Zeilen jedes Terminal zum Zurückblättern behält; -1 = unbegrenzt.</description>
+    </key>
+  </schema>
+</schemalist>

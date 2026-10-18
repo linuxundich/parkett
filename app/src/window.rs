@@ -35,10 +35,12 @@ mod imp {
         fn close_request(&self) -> glib::Propagation {
             let obj = self.obj();
             if self.force_close.get() {
+                obj.save_size();
                 return glib::Propagation::Proceed;
             }
             let procs: Vec<String> = obj.tabs().iter().flat_map(|t| t.foreground_processes()).collect();
             if procs.is_empty() {
+                obj.save_size();
                 return glib::Propagation::Proceed;
             }
             let weak = obj.downgrade();
@@ -93,9 +95,12 @@ impl Window {
             .property("application", app)
             .property("title", "Parkett")
             .property("icon-name", crate::APP_ID)
-            .property("default-width", 960)
-            .property("default-height", 640)
             .build();
+        let s = crate::settings::settings();
+        win.set_default_size(s.int("window-width"), s.int("window-height"));
+        if s.boolean("window-maximized") {
+            win.maximize();
+        }
         win.build_ui();
         win.setup_actions();
         win.add_tab(cwd);
@@ -118,16 +123,33 @@ impl Window {
     fn build_ui(&self) {
         let imp = self.imp();
         let tab_view = adw::TabView::new();
-        let tab_bar = adw::TabBar::builder().view(&tab_view).autohide(true).build();
+        let tab_bar = adw::TabBar::builder().view(&tab_view).build();
+        let settings = crate::settings::settings();
+        settings.bind("autohide-tab-bar", &tab_bar, "autohide").build();
+        // Abblenden sofort umschalten, wenn die Einstellung sich ändert
+        let weak = self.downgrade();
+        let dim = settings.connect_changed(Some("dim-unfocused"), move |_, _| {
+            if let Some(w) = weak.upgrade() {
+                for tab in w.tabs() {
+                    tab.update_states();
+                }
+            }
+        });
+        let dim = std::cell::RefCell::new(Some(dim));
+        self.connect_destroy(move |_| {
+            if let Some(id) = dim.borrow_mut().take() {
+                crate::settings::settings().disconnect(id);
+            }
+        });
 
         let title = adw::WindowTitle::new("Parkett", "");
 
         let new_menu = gio::Menu::new();
-        new_menu.append(Some("Neuer Tab"), Some("win.new-tab"));
+        new_menu.append(Some("Neuer Reiter"), Some("win.new-tab"));
         new_menu.append(Some("Neues Fenster"), Some("app.new-window"));
         let new_button = adw::SplitButton::builder()
             .icon_name("tab-new-symbolic")
-            .tooltip_text("Neuer Tab (Strg+Umschalt+T)")
+            .tooltip_text("Neuer Reiter (Strg+Umschalt+T)")
             .action_name("win.new-tab")
             .menu_model(&new_menu)
             .dropdown_tooltip("Weitere Möglichkeiten")
@@ -136,7 +158,7 @@ impl Window {
         let main_menu = gio::Menu::new();
         let s1 = gio::Menu::new();
         s1.append(Some("Neues Fenster"), Some("app.new-window"));
-        s1.append(Some("Tab umbenennen …"), Some("win.rename-tab"));
+        s1.append(Some("Reiter umbenennen …"), Some("win.rename-tab"));
         main_menu.append_section(None, &s1);
         let s2 = gio::Menu::new();
         s2.append(Some("Tastenkürzel"), Some("app.shortcuts"));
@@ -170,7 +192,7 @@ impl Window {
         let weak = self.downgrade();
         overview.connect_create_tab(move |_| {
             let w = weak.upgrade().expect("Fenster lebt, solange die Übersicht lebt");
-            let tab = w.add_tab(w.current_tab().and_then(|t| t.cwd()));
+            let tab = w.add_tab(w.current_tab().and_then(|t| t.inherited_cwd()));
             w.tab_view().page(&tab)
         });
 
@@ -200,7 +222,7 @@ impl Window {
                 view.close_page_finish(page, true);
             } else {
                 let (view2, page2) = (view.clone(), page.clone());
-                w.confirm_close("Tab schließen?", &procs, move |ok| view2.close_page_finish(&page2, ok));
+                w.confirm_close("Reiter schließen?", &procs, move |ok| view2.close_page_finish(&page2, ok));
             }
             glib::Propagation::Stop
         });
@@ -276,6 +298,18 @@ impl Window {
         }
     }
 
+    /// Fenstergröße für das nächste Fenster merken (nur wenn nicht maximiert).
+    fn save_size(&self) {
+        let s = crate::settings::settings();
+        let maximized = self.is_maximized();
+        let _ = s.set_boolean("window-maximized", maximized);
+        if !maximized {
+            let (w, h) = self.default_size();
+            let _ = s.set_int("window-width", w);
+            let _ = s.set_int("window-height", h);
+        }
+    }
+
     fn toast(&self, text: &str) {
         self.imp().toasts.get().unwrap().add_toast(adw::Toast::new(text));
     }
@@ -303,7 +337,7 @@ impl Window {
             .placeholder_text(tab.focused_pane().terminal().title().unwrap_or_default())
             .activates_default(true)
             .build();
-        let dialog = adw::AlertDialog::new(Some("Tab umbenennen"), Some("Leer lassen, um den Titel des Terminals zu verwenden."));
+        let dialog = adw::AlertDialog::new(Some("Reiter umbenennen"), Some("Leer lassen, um den Titel des Terminals zu verwenden."));
         dialog.set_extra_child(Some(&entry));
         dialog.add_responses(&[("cancel", "Abbrechen"), ("rename", "Umbenennen")]);
         dialog.set_response_appearance("rename", adw::ResponseAppearance::Suggested);
@@ -341,7 +375,7 @@ impl Window {
         };
 
         action("new-tab", |w| {
-            let cwd = w.current_tab().and_then(|t| t.cwd());
+            let cwd = w.current_tab().and_then(|t| t.inherited_cwd());
             w.add_tab(cwd);
         });
         action("close-tab", |w| {
@@ -374,7 +408,8 @@ impl Window {
         on_tab("close-pane", |w, t| {
             let pane = t.focused_pane();
             let id = pane.id();
-            match pane.terminal().foreground_process() {
+            let fg = pane.terminal().foreground_process().filter(|_| crate::settings::confirm_close());
+            match fg {
                 None => t.close_pane(id),
                 Some(p) => {
                     let tab = t.clone();
