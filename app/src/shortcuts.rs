@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Alle änderbaren Tastenkürzel an einer Stelle: Standardbelegung, eigene Belegung aus
 //! GSettings (`custom-shortcuts`, Aktion → Kürzel, leer = aus) und Aufbau der
 //! Shortcut-Controller für Fenster (`win.*`) und Terminal (`term.*`).
@@ -5,8 +6,8 @@
 use gtk::prelude::*;
 use std::collections::HashMap;
 
-use gtk::glib::translate::IntoGlib;
 use gtk::gdk;
+use gtk::glib::translate::IntoGlib;
 
 pub struct Entry {
     /// Voller Aktionsname, z. B. „win.split-right“
@@ -17,7 +18,12 @@ pub struct Entry {
     pub defaults: &'static [&'static str],
 }
 
-const fn e(action: &'static str, section: &'static str, label: &'static str, defaults: &'static [&'static str]) -> Entry {
+const fn e(
+    action: &'static str,
+    section: &'static str,
+    label: &'static str,
+    defaults: &'static [&'static str],
+) -> Entry {
     Entry { action, section, label, defaults }
 }
 
@@ -105,9 +111,23 @@ pub fn reset_all() {
 /// Welche andere Aktion hat dieses Kürzel schon? (Vergleich über geparste Tasten)
 pub fn conflict(action: &str, accel: &str) -> Option<&'static Entry> {
     let wanted = gtk::accelerator_parse(accel)?;
-    ENTRIES.iter().filter(|e| e.action != action).find(|e| {
-        effective(e.action).iter().any(|a| gtk::accelerator_parse(a).is_some_and(|k| k == wanted))
-    })
+    ENTRIES
+        .iter()
+        .filter(|e| e.action != action)
+        .find(|e| effective(e.action).iter().any(|a| gtk::accelerator_parse(a).is_some_and(|k| k == wanted)))
+}
+
+/// Fest belegt und nicht änderbar: Alt+1…9 (Bereich), Strg+Alt+1…9 (Reiter).
+pub fn reserved(accel: &str) -> Option<&'static str> {
+    let (key, mods) = gtk::accelerator_parse(accel)?;
+    let digit = key.to_unicode().and_then(|c| c.to_digit(10)).is_some_and(|d| (1..=9).contains(&d));
+    let alt = gtk::gdk::ModifierType::ALT_MASK;
+    let ctrl_alt = alt | gtk::gdk::ModifierType::CONTROL_MASK;
+    match mods {
+        m if digit && m == alt => Some("Bereich 1–9 wählen"),
+        m if digit && m == ctrl_alt => Some("Reiter 1–9 wählen"),
+        _ => None,
+    }
 }
 
 /// Lesbare Form, z. B. „Strg+Umschalt+F“; leer = „Aus“.
@@ -152,12 +172,24 @@ pub fn from_key(key: gdk::Key, state: gdk::ModifierType) -> Result<Option<String
     use gdk::Key;
     if matches!(
         key,
-        Key::Shift_L | Key::Shift_R | Key::Control_L | Key::Control_R | Key::Alt_L | Key::Alt_R | Key::Super_L | Key::Super_R | Key::Meta_L | Key::Meta_R | Key::ISO_Level3_Shift | Key::Caps_Lock
+        Key::Shift_L
+            | Key::Shift_R
+            | Key::Control_L
+            | Key::Control_R
+            | Key::Alt_L
+            | Key::Alt_R
+            | Key::Super_L
+            | Key::Super_R
+            | Key::Meta_L
+            | Key::Meta_R
+            | Key::ISO_Level3_Shift
+            | Key::Caps_Lock
     ) {
         return Ok(None);
     }
     let mods = state & gtk::accelerator_get_default_mod_mask();
-    let strong = mods.intersects(gdk::ModifierType::CONTROL_MASK | gdk::ModifierType::ALT_MASK | gdk::ModifierType::SUPER_MASK);
+    let strong =
+        mods.intersects(gdk::ModifierType::CONTROL_MASK | gdk::ModifierType::ALT_MASK | gdk::ModifierType::SUPER_MASK);
     let fkey = (Key::F1.into_glib()..=Key::F12.into_glib()).contains(&key.to_lower().into_glib());
     if !strong && !fkey {
         return Err("Bitte mit Strg, Alt oder Super kombinieren (ohne nur F-Tasten)");

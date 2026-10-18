@@ -1,0 +1,129 @@
+# Bedienung
+
+Stand 0.1.0. Alle Kürzel lassen sich unter *Einstellungen › Kürzel* ändern oder abschalten;
+*Strg+?* zeigt die aktuelle Belegung.
+
+## Reiter und Bereiche
+
+- **Teilen:** Knöpfe *Rechts teilen* und *Unten teilen* links in der Kopfleiste, *Strg+Alt+R*,
+  *Strg+Alt+D* oder *Strg+Alt+A* (teilt an der längeren Seite). Ist zu wenig Platz
+  (unter 20 × 5 Zeichen je Hälfte), meldet Parkett das statt zu teilen.
+- **Fokus wechseln:** *Alt+Pfeil*; **Trenner verschieben:** *Umschalt+Alt+Pfeil*;
+  **Größen angleichen:** *Strg+Alt+=*; **Bereich maximieren:** *Strg+Umschalt+X*.
+- **Layout-Modus** (*Strg+Umschalt+L*): Bereiche zeigen Nummern. Ziffer = Fokus,
+  Pfeile = Fokus, *Umschalt+Pfeil* = Trenner verschieben, *M* und dann Pfeil = mit dem
+  Nachbarn tauschen, *R*/*D*/*A* = teilen, *Z* = maximieren, *=* = angleichen,
+  *X* = schließen, *Esc* oder *Eingabe* = fertig. Die Leiste unten nennt alle Tasten.
+- **Schließen:** *Strg+Umschalt+W* (Bereich), *Strg+Umschalt+Q* (Reiter). Läuft dort noch ein
+  Programm außer der Shell, fragt Parkett nach. Danach bleibt 8 Sekunden lang
+  *Rückgängig*; der Prozess läuft so lange weiter. Ein weiteres Schließen beendet das vorige
+  endgültig.
+- **Reiter-Übersicht:** *Strg+Umschalt+O*; **umbenennen:** *F2*.
+
+## Befehlspalette
+
+*Strg+Umschalt+P* öffnet eine Liste aller Aktionen, Reiter, Bereiche, Vorlagen und Profile mit
+unscharfer Suche. Präfixe grenzen ein: `>` nur Aktionen, `@` nur Reiter und Bereiche,
+`#` nur Vorlagen. Jede Aktion zeigt ihr Kürzel.
+
+## Terminal
+
+| Was | Kürzel |
+|---|---|
+| Kopieren / Einfügen | *Strg+Umschalt+C* / *Strg+Umschalt+V*, *Umschalt+Einfg* |
+| Suchen, Treffer darüber/darunter | *Strg+Umschalt+F*, *Strg+Umschalt+G*, *Strg+Umschalt+H* |
+| Schrift größer/kleiner/normal | *Strg++*, *Strg+-*, *Strg+0* |
+| Link öffnen | *Strg+Klick*; Rechtsklick auf einen Link bietet *Öffnen* und *Kopieren* |
+
+Mehrzeiliger Text beim Einfügen über *Strg+Umschalt+V* oder das Kontextmenü zeigt erst eine
+Vorschau (abschaltbar unter *Einstellungen › Allgemein*).
+
+**Kontextfarbe:** Läuft im Bereich `ssh`/`mosh` oder ein Programm als root (`sudo`, `su`,
+`doas`, `run0`, `pkexec`), färbt sich der Hintergrund leicht und eine farbige Linie mit
+Rechnername bzw. „root“ erscheint. Abschaltbar unter *Einstellungen › Allgemein*.
+
+## Hell und Dunkel
+
+Oben im Hauptmenü: *Systemstil folgen*, *Hell*, *Dunkel* (auch unter *Einstellungen ›
+Allgemein › Stil*). Jedes Farbschema hat eine helle und eine dunkle Fassung; die Terminals
+wechseln mit.
+
+## Profile
+
+*Einstellungen › Profile*: Farbschema (Kacheln mit Vorschau, wirkt sofort auf offene
+Terminals), Befehl statt Shell, Login-Shell, Startverzeichnis, Umgebungsvariablen, Verhalten
+beim Prozessende. Neue Reiter mit anderem Profil: Pfeil neben *Neuer Reiter*.
+
+Gespeichert in `~/.config/parkett/profiles/<id>.toml`, von Hand bearbeitbar:
+
+```toml
+name = "Server"
+palette = "nord"
+command = ""             # leer = Shell
+login_shell = true
+directory = "~/srv"      # leer = Einstellung „Neue Terminals öffnen in“
+environment = ["EDITOR=vim"]
+exit_action = "hold"     # hold | close | restart
+```
+
+## Farbschemata
+
+14 Schemata sind dabei. *Importieren …* auf der Profilseite übernimmt Ptyxis-Paletten
+(`.palette`) und Tilix-Schemata (`.json`); sie landen in `~/.local/share/parkett/palettes/`.
+Format wie bei Ptyxis (vollständiges Beispiel: `data/palettes/tango.palette`): Abschnitt
+`[Palette]` mit `Name=`, dann `[Light]` und `[Dark]` mit je `Foreground`, `Background`,
+`Color0` bis `Color15` und optional `Cursor`, `SuperuserBackground` (Bereiche mit root) und
+`RemoteBackground` (SSH). Fehlende Kontextfarben leitet Parkett wie Ptyxis aus der Palette ab.
+
+Hat ein Tilix-Schema nur eine Fassung, nutzt Parkett sie für Hell und Dunkel und sagt das
+beim Import.
+
+## Vorlagen
+
+Eine Vorlage speichert das Layout eines Reiters mit Profil, Startbefehl und Unterverzeichnis
+je Bereich. *Aktuellen Reiter als Vorlage speichern …* (Pfeil neben *Neuer Reiter* oder Befehlspalette)
+übernimmt die laufenden Befehle; *Einstellungen › Vorlagen* bearbeitet sie. Öffnen über
+dasselbe Menü oder die Befehlspalette (`#`). Ohne festes Verzeichnis fragt Parkett beim Öffnen.
+
+Startbefehle werden in die Shell **getippt**, nicht statt der Shell gestartet: Nach *Strg+C*
+bleibt der Bereich als Shell nutzbar.
+
+`~/.config/parkett/templates/<id>.toml`:
+
+```toml
+name = "Webprojekt"
+directory = ""            # leer = beim Öffnen fragen
+
+[layout]
+type = "split"
+direction = "horizontal"  # horizontal = nebeneinander, vertical = übereinander
+ratio = 0.5
+
+[layout.first]
+type = "pane"
+name = "Editor"
+command = "nvim ."
+
+[layout.second]
+type = "split"
+direction = "vertical"
+ratio = 0.5
+
+[layout.second.first]
+type = "pane"
+name = "Dev-Server"
+command = "npm run dev"
+
+[layout.second.second]
+type = "pane"
+profile = ""              # leer = Standardprofil
+subdir = "tests"
+```
+
+## Einstellungen ohne Oberfläche
+
+Alles unter *Einstellungen › Allgemein* steht in GSettings:
+
+```bash
+gsettings list-recursively de.linuxundich.Parkett
+```

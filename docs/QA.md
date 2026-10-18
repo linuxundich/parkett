@@ -133,3 +133,38 @@ Kerns; auf dem Host mit GPU nicht gemessen.
 |---|---|---|
 | Knöpfe zum Teilen wie bei Tilix | „Rechts teilen“ und „Unten teilen“ links in der Kopfleiste neben „Neuer Reiter“; eigene symbolische Symbole (`data/icons/hicolor/scalable/actions/parkett-split-*-symbolic.svg`, Adwaita hat keine passenden); Tooltip mit aktuellem Kürzel; Screenreader-Namen | ✅ beide Knöpfe teilen den aktiven Bereich (`kopfleiste-teilen-stil.png`) |
 | Hell/Dunkel von Hand | GSettings `style` (system/light/dark) → `AdwStyleManager::set_color_scheme`; Stilwahl mit drei runden Knöpfen oben im Hauptmenü (Muster GNOME Text Editor) und „Stil“ in Einstellungen › Allgemein | ✅ „Dunkel“ bei hellem System, „Hell“ bei dunklem System; Terminals folgen |
+
+## Phase 6 – Code-Review (2026-10-19)
+
+Vollständiges Lesen aller Quelldateien durch einen Review-Agenten, Clippy (Standard und
+pedantic). Funde und Umsetzung; Test: ✅ in der VM nachgestellt · 🔍 nur Code geprüft ·
+🧪 Unit-Test.
+
+| ID | Fund | Umsetzung | Test |
+|---|---|---|---|
+| K1 | Nach *Rückgängig* an neuer Stelle behielten Fokus- und Schließen-Handler die alte Bereichs-Id: Klick setzte den Fokus nicht, Schließen traf den falschen Bereich | Handler lesen die Id beim Aufruf über eine schwache Referenz auf den Bereich | ✅ Klick in den zurückgeholten Bereich, *Bereich schließen* beendet genau dessen Shell |
+| K2 | Unbekannte Id beim Schließen galt als „letzter Bereich“ und schloss den Reiter (beim letzten Reiter das Fenster) | `close_pane` ignoriert Ids, die nicht im Layout sind | 🔍 |
+| K8 | *Rückgängig* kehrte nach Fokuswechsel oder Trennerziehen nicht an den alten Platz zurück | Vergleich nur der Aufteilung (`Layout::same_shape`) | 🧪 |
+| P1 | Absturz beim Start, wenn alle Profildateien kaputt sind | Standardprofil nur im Speicher, unter freier Id; kaputte Datei bleibt unangetastet | 🧪 ✅ |
+| P2 | Absturz an Nicht-ASCII in Farbwerten (`#aäbcd`), bei kaputter importierter Palette bei jedem Start | `Rgb::parse` lehnt Nicht-ASCII ab | 🧪 ✅ |
+| G4 | Kaputte Profil-/Paletten-/Vorlagendateien nur im Protokoll | Einblendung „N Datei(en) nicht lesbar“ mit *Details* | ✅ |
+| S1 | Einfüge-Warnung zählte nur `\n`; Text mit `\r` lief ohne Rückfrage durch | `\r`, `\n` und `\r\n` zählen als Umbruch | ✅ |
+| S2 | `file:`-Links aus SSH-Sitzungen öffneten lokale Dateien gleichen Pfads | nur ohne Host, `localhost` oder eigener Rechnername | 🔍 |
+| S3 | Unterverzeichnis einer Vorlage konnte absolut sein oder „..“ enthalten; `~` in übernommenen Befehlen wurde beim Eintippen aufgelöst | `paths::join_subdir` lässt nur relative Pfade zu; `~` wird gequotet | 🧪 / 🔍 |
+| S4 | Halb getippte Anführungszeichen in Umgebungsvariablen speicherten „keine Variablen“ | bei Fehler nicht speichern, Zeile rot | 🔍 |
+| K3 | Layout-Modus blieb nach Reiterwechsel auf dem alten Reiter stehen | beim Beenden alle Reiter zurücksetzen | ✅ |
+| K4 | Layout-Modus schluckte Tasten in Dialogen (Nachfrage, Palette) | Tasten nur abfangen, wenn ein Terminal den Fokus hat | ✅ Eingabe landet in der Palette; im Terminal teilt *R* weiter |
+| K5/K6 | Automatischer Neustart und Umbauten in Hintergrund-Reitern holten sich den Fokus | Fokus nur bei Klick auf *Neu starten* bzw. bei sichtbarem Reiter | 🔍 |
+| K7/D1 | `~` an zwei Stellen unterschiedlich aufgelöst (`~foo` falsch) | gemeinsames Modul `core/src/paths.rs` | 🧪 |
+| D5 | Jede Änderung an Vorlagen färbte alle Terminals neu ein | eigenes Signal `templates-changed` | 🔍 |
+| G1 | Doppelklick auf die Kopfleiste öffnete zusätzlich die Befehlspalette | Palette erst nach Ablauf der Doppelklick-Zeit | 🔍 |
+| G2 | *Alt+1…9* / *Strg+Alt+1…9* fest belegt, aber beim Aufnehmen eigener Kürzel aktiv und ohne Konfliktprüfung | beim Aufnehmen abgeschaltet, als belegt gemeldet | 🔍 |
+| P3, D4, D7, D8 | `expect` im Vorlagen-Editor, toter Code, fragiles `"Aus"`, PCRE-Kommentar | behoben | 🔍 |
+
+Nicht umgesetzt, im BACKLOG: L1/L2 (starke Referenzen in Einstellungen und Zeichenfunktionen,
+kein Leck nachgewiesen), L3 (Sekundentimer auch in Hintergrund-Reitern), D2/D3
+(Vordergrundprozess-Abfrage und Farbumrechnung zusammenfassen), D6 (Debug-Ausgabe),
+G3 (Befehlszeile `-- befehl`, `--working-directory`).
+
+Rauchtest danach (`build-aux/vm/smoke.sh`): 9 von 9 Prüfungen bestanden. CI (`build-aux/ci.sh`):
+Formatierung, Clippy ohne Warnungen, 45 Tests, Meson-Tests grün.

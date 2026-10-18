@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Verwaltung von Profilen und Farbschemata für die ganze Anwendung.
 //!
 //! Ein GObject mit dem Signal „changed“, damit Terminals und Dialoge sich anmelden und
@@ -38,7 +39,8 @@ mod imp {
     impl ObjectImpl for ProfileManager {
         fn signals() -> &'static [Signal] {
             static SIGNALS: OnceLock<Vec<Signal>> = OnceLock::new();
-            SIGNALS.get_or_init(|| vec![Signal::builder("changed").build()])
+            SIGNALS
+                .get_or_init(|| vec![Signal::builder("changed").build(), Signal::builder("templates-changed").build()])
         }
     }
 }
@@ -91,7 +93,10 @@ impl ProfileManager {
                 .filter(|p| p.extension().is_some_and(|e| e == "palette"))
                 .filter_map(|p| {
                     let id = p.file_stem()?.to_str()?.to_string();
-                    match std::fs::read_to_string(&p).map_err(|e| e.to_string()).and_then(|t| Palette::parse_ptyxis(&id, &t).map_err(|e| e.to_string())) {
+                    match std::fs::read_to_string(&p)
+                        .map_err(|e| e.to_string())
+                        .and_then(|t| Palette::parse_ptyxis(&id, &t).map_err(|e| e.to_string()))
+                    {
                         Ok(pal) => Some(pal),
                         Err(e) => {
                             errors.push(format!("{}: {e}", p.display()));
@@ -118,6 +123,19 @@ impl ProfileManager {
         *imp.errors.borrow_mut() = errors;
     }
 
+    /// Dateien, die beim letzten Laden nicht lesbar waren (Pfad: Fehler).
+    pub fn errors(&self) -> Vec<String> {
+        self.imp().errors.borrow().clone()
+    }
+
+    /// Nur Vorlagen geändert – Terminals müssen dafür nicht neu einfärben.
+    pub fn connect_templates_changed(&self, f: impl Fn() + 'static) -> glib::SignalHandlerId {
+        self.connect_local("templates-changed", false, move |_| {
+            f();
+            None
+        })
+    }
+
     pub fn connect_changed(&self, f: impl Fn() + 'static) -> glib::SignalHandlerId {
         self.connect_local("changed", false, move |_| {
             f();
@@ -136,7 +154,11 @@ impl ProfileManager {
     pub fn default_id(&self) -> String {
         let id = crate::settings::settings().string("default-profile").to_string();
         let profiles = self.imp().profiles.borrow();
-        if profiles.iter().any(|p| p.id == id) { id } else { profiles[0].id.clone() }
+        if profiles.iter().any(|p| p.id == id) {
+            id
+        } else {
+            profiles[0].id.clone()
+        }
     }
 
     pub fn set_default(&self, id: &str) {
@@ -147,14 +169,10 @@ impl ProfileManager {
     /// Profil `id`, sonst das Standardprofil (z. B. nach Löschen).
     pub fn profile(&self, id: &str) -> Profile {
         let profiles = self.imp().profiles.borrow();
-        profiles
-            .iter()
-            .find(|p| p.id == id)
-            .cloned()
-            .unwrap_or_else(|| {
-                let def = crate::settings::settings().string("default-profile").to_string();
-                profiles.iter().find(|p| p.id == def).unwrap_or(&profiles[0]).clone()
-            })
+        profiles.iter().find(|p| p.id == id).cloned().unwrap_or_else(|| {
+            let def = crate::settings::settings().string("default-profile").to_string();
+            profiles.iter().find(|p| p.id == def).unwrap_or(&profiles[0]).clone()
+        })
     }
 
     /// Speichert und benachrichtigt alle Terminals (Live-Vorschau).
@@ -218,14 +236,14 @@ impl ProfileManager {
             }
             list.sort_by_key(|x| x.name.to_lowercase());
         }
-        self.emit_changed();
+        self.emit_by_name::<()>("templates-changed", &[]);
         Ok(t)
     }
 
     pub fn delete_template(&self, id: &str) -> Result<(), String> {
         self.imp().template_store.get().unwrap().delete(id).map_err(|e| e.to_string())?;
         self.imp().templates.borrow_mut().retain(|t| t.id != id);
-        self.emit_changed();
+        self.emit_by_name::<()>("templates-changed", &[]);
         Ok(())
     }
 
@@ -235,7 +253,11 @@ impl ProfileManager {
 
     pub fn palette(&self, id: &str) -> Palette {
         let list = self.imp().palettes.borrow();
-        list.iter().find(|p| p.id == id).or_else(|| list.iter().find(|p| p.id == DEFAULT_PALETTE)).unwrap_or(&list[0]).clone()
+        list.iter()
+            .find(|p| p.id == id)
+            .or_else(|| list.iter().find(|p| p.id == DEFAULT_PALETTE))
+            .unwrap_or(&list[0])
+            .clone()
     }
 
     /// Importiert eine Ptyxis-Palette oder ein Tilix-Schema und legt es im Ptyxis-Format

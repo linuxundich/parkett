@@ -1,9 +1,10 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Profile: wie ein Terminal startet und aussieht. Gespeichert als TOML-Dateien
 //! (`$XDG_CONFIG_HOME/parkett/profiles/<id>.toml`), damit man sie von Hand bearbeiten
 //! und in Dotfiles mitnehmen kann.
 
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
@@ -87,10 +88,6 @@ impl ProfileStore {
         ProfileStore { dir: dir.into() }
     }
 
-    pub fn dir(&self) -> &Path {
-        &self.dir
-    }
-
     /// Alle Profile, nach Name sortiert. Legt „Standard“ an, wenn keines existiert.
     /// Unlesbare Dateien werden übersprungen und gemeldet, nicht gelöscht.
     pub fn load_all(&self) -> io::Result<(Vec<Profile>, Vec<String>)> {
@@ -103,7 +100,10 @@ impl ProfileStore {
                 continue;
             }
             let Some(id) = path.file_stem().and_then(|s| s.to_str()).map(String::from) else { continue };
-            match std::fs::read_to_string(&path).map_err(|e| e.to_string()).and_then(|t| Profile::from_toml(&id, &t).map_err(|e| e.to_string())) {
+            match std::fs::read_to_string(&path)
+                .map_err(|e| e.to_string())
+                .and_then(|t| Profile::from_toml(&id, &t).map_err(|e| e.to_string()))
+            {
                 Ok(p) => profiles.push(p),
                 Err(e) => errors.push(format!("{}: {e}", path.display())),
             }
@@ -112,6 +112,10 @@ impl ProfileStore {
             let p = Profile { id: "standard".into(), ..Profile::default() };
             self.save(&p)?;
             profiles.push(p);
+        } else if profiles.is_empty() {
+            // Nur kaputte Dateien: Standard im Speicher, nichts überschreiben. Die Id ist frei,
+            // damit ein späteres Speichern die kaputte Datei nicht ersetzt.
+            profiles.push(Profile { id: self.new_id("Standard"), ..Profile::default() });
         }
         profiles.sort_by_key(|p| p.name.to_lowercase());
         Ok((profiles, errors))
@@ -175,7 +179,10 @@ mod tests {
 
     #[test]
     fn environment_filter() {
-        let p = Profile { environment: vec!["A=1".into(), "kaputt".into(), "=x".into(), "B C=2".into(), "EMPTY=".into()], ..Profile::default() };
+        let p = Profile {
+            environment: vec!["A=1".into(), "kaputt".into(), "=x".into(), "B C=2".into(), "EMPTY=".into()],
+            ..Profile::default()
+        };
         assert_eq!(p.valid_environment(), vec!["A=1".to_string(), "EMPTY=".to_string()]);
     }
 
@@ -202,5 +209,20 @@ mod tests {
         store.delete(&id).unwrap();
         assert_eq!(store.load_all().unwrap().0.len(), 1);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn only_broken_files_give_unsaved_default() {
+        let dir = std::env::temp_dir().join(format!("parkett-broken-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("standard.toml"), "name = ").unwrap();
+        let store = ProfileStore::new(dir.clone());
+        let (profiles, errors) = store.load_all().unwrap();
+        assert_eq!(errors.len(), 1);
+        assert_eq!(profiles.len(), 1);
+        assert_ne!(profiles[0].id, "standard");
+        assert_eq!(std::fs::read_to_string(dir.join("standard.toml")).unwrap(), "name = ");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Zugriff auf die GSettings der Anwendung (Schema: data/de.linuxundich.Parkett.gschema.xml).
 
 use gtk::gio;

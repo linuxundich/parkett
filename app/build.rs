@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Kompiliert das GSettings-Schema nach $OUT_DIR/schemas, damit `cargo run` ohne
 //! Installation funktioniert. Ein Meson-Build (PARKETT_INSTALLED gesetzt) nutzt das
 //! installierte Schema.
@@ -11,10 +12,7 @@ fn main() {
     println!("cargo:rerun-if-changed={schema}");
     println!("cargo:rerun-if-env-changed=PARKETT_INSTALLED");
     std::fs::copy(schema, out.join("de.linuxundich.Parkett.gschema.xml")).expect("Schema kopieren");
-    let status = Command::new("glib-compile-schemas")
-        .arg("--strict")
-        .arg(&out)
-        .status()
-        .expect("glib-compile-schemas fehlt");
+    let status =
+        Command::new("glib-compile-schemas").arg("--strict").arg(&out).status().expect("glib-compile-schemas fehlt");
     assert!(status.success(), "glib-compile-schemas ist fehlgeschlagen");
 }

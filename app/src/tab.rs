@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Ein Tab: Split-Layout aus `parkett_core::layout` plus die Bereichs-Widgets.
 //!
 //! Das Modell ist maßgeblich. Nach jeder Änderung baut `rebuild()` den GtkPaned-Baum neu
@@ -83,14 +84,16 @@ impl Tab {
 
     /// Reiter aus einer Vorlage im Verzeichnis `dir`. Mit `run_commands` werden die
     /// Startbefehle in die Shells getippt.
-    pub fn from_template(template: &parkett_core::template::Template, dir: &std::path::Path, run_commands: bool) -> Self {
+    pub fn from_template(
+        template: &parkett_core::template::Template,
+        dir: &std::path::Path,
+        run_commands: bool,
+    ) -> Self {
         let tab = Tab::empty();
         let (layout, specs) = template.instantiate();
         let default = crate::profiles::ProfileManager::get().default_id();
         for (id, spec) in specs {
-            // leeres Unterverzeichnis nicht anhängen, sonst endet der Pfad auf „/“
-            let sub = spec.subdir.trim();
-            let path = if sub.is_empty() { dir.to_path_buf() } else { dir.join(sub) };
+            let path = parkett_core::paths::join_subdir(dir, &spec.subdir);
             let cwd = path.to_str().map(String::from);
             let profile = if spec.profile.is_empty() { default.clone() } else { spec.profile.clone() };
             let pane = tab.add_pane(id, cwd, &profile);
@@ -245,20 +248,24 @@ impl Tab {
                 tab.emit_changed();
             }
         });
-        // „Schließen“ in der Leiste nach Prozessende
+        // „Schließen“ in der Leiste nach Prozessende. Die Id erst beim Aufruf lesen: Rückgängig
+        // an neuer Stelle vergibt dem Bereich eine neue.
         let weak = self.downgrade();
+        let weak_pane = pane.downgrade();
         pane.terminal().connect_close(move || {
-            if let Some(tab) = weak.upgrade() {
-                tab.close_pane(id);
+            if let (Some(tab), Some(pane)) = (weak.upgrade(), weak_pane.upgrade()) {
+                tab.close_pane(pane.id());
             }
         });
         // Fokus per Klick oder Tab-Taste ins Modell übernehmen
         let weak = self.downgrade();
+        let weak_pane = pane.downgrade();
         pane.terminal().vte().connect_has_focus_notify(move |vte| {
             if !vte.has_focus() {
                 return;
             }
-            let Some(tab) = weak.upgrade() else { return };
+            let (Some(tab), Some(pane)) = (weak.upgrade(), weak_pane.upgrade()) else { return };
+            let id = pane.id();
             let changed = {
                 let mut layout = tab.imp().layout.borrow_mut();
                 if layout.focus() == id {
@@ -311,7 +318,8 @@ impl Tab {
 
     /// Tab-Titel: eigener Name, sonst Titel des fokussierten Terminals; bei Zoom „(1/3)“.
     pub fn title(&self) -> String {
-        let base = self.custom_title().or_else(|| self.focused_pane().terminal().title()).unwrap_or_else(|| "Shell".into());
+        let base =
+            self.custom_title().or_else(|| self.focused_pane().terminal().title()).unwrap_or_else(|| "Shell".into());
         match self.layout().zoomed() {
             Some(_) => format!("{base} (1/{})", self.pane_count()),
             None => base,
@@ -324,14 +332,19 @@ impl Tab {
 
     /// Startverzeichnis für ein neues Terminal nach Einstellung „new-terminal-directory“.
     pub fn inherited_cwd(&self) -> Option<String> {
-        if crate::settings::inherit_directory() { self.cwd() } else { None }
+        if crate::settings::inherit_directory() {
+            self.cwd()
+        } else {
+            None
+        }
     }
 
     /// Hat ein Bereich mit Fehler geendet?
     pub fn has_failed_pane(&self) -> bool {
         use crate::terminal::ExitStatus;
         self.imp().panes.borrow().values().any(|p| {
-            matches!(p.terminal().exit_status(), Some(ExitStatus::Code(c)) if c != 0) || matches!(p.terminal().exit_status(), Some(ExitStatus::Signal(_)))
+            matches!(p.terminal().exit_status(), Some(ExitStatus::Code(c)) if c != 0)
+                || matches!(p.terminal().exit_status(), Some(ExitStatus::Signal(_)))
         })
     }
 
@@ -349,7 +362,11 @@ impl Tab {
 
     fn size(&self) -> (f32, f32) {
         let (w, h) = (self.width() as f32, self.height() as f32);
-        if w > 0.0 && h > 0.0 { (w, h) } else { (1000.0, 600.0) }
+        if w > 0.0 && h > 0.0 {
+            (w, h)
+        } else {
+            (1000.0, 600.0)
+        }
     }
 
     fn min_pane_size(&self) -> (f32, f32) {
@@ -372,7 +389,11 @@ impl Tab {
         let (min_w, min_h) = self.min_pane_size();
         let o = orientation.unwrap_or_else(|| {
             let r = layout.rect_of(focus, w, h).unwrap();
-            if r.w / 2.0 >= r.h { Orientation::Horizontal } else { Orientation::Vertical }
+            if r.w / 2.0 >= r.h {
+                Orientation::Horizontal
+            } else {
+                Orientation::Vertical
+            }
         });
         // Bei Zoom gilt die volle Fläche – nach dem Teilen ist der Zoom ohnehin aufgehoben
         if layout.zoomed().is_none() && !layout.can_split(focus, o, w, h, min_w, min_h) {
@@ -391,6 +412,11 @@ impl Tab {
     /// (Vorschlag 4: Rückgängig). Beim letzten Bereich meldet der Reiter „empty“.
     pub fn close_pane(&self, id: PaneId) {
         let before = self.layout();
+        // Unbekannte Id (Bereich schon geschlossen, Nachfrage überholt): nichts tun – sonst
+        // hielte `close` sie für den letzten Bereich und der ganze Reiter ginge zu.
+        if !before.contains(id) {
+            return;
+        }
         match before.close(id) {
             Some(next) => {
                 let pane = self.imp().panes.borrow_mut().remove(&id);
@@ -418,7 +444,7 @@ impl Tab {
         };
         let Some((_, pane, before, after)) = entry else { return };
         let current = self.layout();
-        let next = if current == after {
+        let next = if current.same_shape(&after) {
             before
         } else {
             let (w, h) = self.size();
@@ -523,7 +549,8 @@ impl Tab {
         self.update_states();
         let weak = self.downgrade();
         glib::idle_add_local_once(move || {
-            if let Some(tab) = weak.upgrade() {
+            // Reiter im Hintergrund (nicht abgebildet) holen sich den Fokus nicht
+            if let Some(tab) = weak.upgrade().filter(|t| t.is_mapped()) {
                 tab.focus_terminal();
             }
         });
@@ -593,7 +620,12 @@ impl Tab {
         paned.connect_position_notify(move |p| {
             let max = p.max_position();
             // nur Änderungen bei unveränderter Größe stammen vom Nutzer
-            debug(&format!("position {path:?} pos={} max={max} last={} applying={}", p.position(), last_max.get(), applying.get()));
+            debug(&format!(
+                "position {path:?} pos={} max={max} last={} applying={}",
+                p.position(),
+                last_max.get(),
+                applying.get()
+            ));
             if applying.get() || max <= 0 || max != last_max.get() {
                 return;
             }

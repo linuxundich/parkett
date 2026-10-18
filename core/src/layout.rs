@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Split-Layout eines Tabs als unveränderlicher Binärbaum.
 //!
 //! Jede Operation liefert ein neues `Layout`; der alte Stand bleibt unverändert und kann
@@ -137,6 +138,21 @@ impl Layout {
 
     pub fn contains(&self, id: PaneId) -> bool {
         self.panes().contains(&id)
+    }
+
+    /// Gleiche Aufteilung (Bereiche, Richtungen, Zoom), Fokus und Verhältnisse egal.
+    pub fn same_shape(&self, other: &Layout) -> bool {
+        fn shape(a: &Node, b: &Node) -> bool {
+            match (a, b) {
+                (Node::Pane(x), Node::Pane(y)) => x == y,
+                (
+                    Node::Split { orientation: oa, first: fa, second: sa, .. },
+                    Node::Split { orientation: ob, first: fb, second: sb, .. },
+                ) => oa == ob && shape(fa, fb) && shape(sa, sb),
+                _ => false,
+            }
+        }
+        self.zoomed == other.zoomed && shape(&self.root, &other.root)
     }
 
     pub fn with_focus(&self, id: PaneId) -> Option<Layout> {
@@ -298,7 +314,12 @@ fn replace(n: &Node, target: PaneId, f: &dyn Fn(&Node) -> Node) -> Option<Node> 
         Node::Pane(_) => None,
         Node::Split { orientation, ratio, first, second } => {
             if let Some(a) = replace(first, target, f) {
-                Some(Node::Split { orientation: *orientation, ratio: *ratio, first: Box::new(a), second: second.clone() })
+                Some(Node::Split {
+                    orientation: *orientation,
+                    ratio: *ratio,
+                    first: Box::new(a),
+                    second: second.clone(),
+                })
             } else {
                 replace(second, target, f).map(|b| Node::Split {
                     orientation: *orientation,
@@ -321,7 +342,10 @@ fn remove(n: &Node, target: PaneId) -> Option<(Node, PaneId)> {
         return Some(((**first).clone(), first_pane(first)));
     }
     if let Some((a, f)) = remove(first, target) {
-        return Some((Node::Split { orientation: *orientation, ratio: *ratio, first: Box::new(a), second: second.clone() }, f));
+        return Some((
+            Node::Split { orientation: *orientation, ratio: *ratio, first: Box::new(a), second: second.clone() },
+            f,
+        ));
     }
     remove(second, target).map(|(b, f)| {
         (Node::Split { orientation: *orientation, ratio: *ratio, first: first.clone(), second: Box::new(b) }, f)
@@ -370,7 +394,9 @@ fn set_ratio_node(n: &Node, path: &[Side], ratio: f32) -> Option<Node> {
 
 fn weight(n: &Node, axis: Orientation) -> f32 {
     match n {
-        Node::Split { orientation, first, second, .. } if *orientation == axis => weight(first, axis) + weight(second, axis),
+        Node::Split { orientation, first, second, .. } if *orientation == axis => {
+            weight(first, axis) + weight(second, axis)
+        }
         _ => 1.0,
     }
 }
@@ -469,7 +495,11 @@ mod tests {
     #[test]
     fn neighbours_follow_geometry() {
         let l = three();
-        assert_eq!(l.neighbour(1, Right, 1000.0, 600.0), Some(2), "bei völligem Gleichstand gewinnt der erste in Lesereihenfolge");
+        assert_eq!(
+            l.neighbour(1, Right, 1000.0, 600.0),
+            Some(2),
+            "bei völligem Gleichstand gewinnt der erste in Lesereihenfolge"
+        );
         assert_eq!(l.neighbour(3, Left, 1000.0, 600.0), Some(1));
         assert_eq!(l.neighbour(2, Down, 1000.0, 600.0), Some(3));
         assert_eq!(l.neighbour(3, Up, 1000.0, 600.0), Some(2));
@@ -537,13 +567,23 @@ mod tests {
 
     #[test]
     fn from_node_validates() {
-        let root = Node::Split { orientation: Horizontal, ratio: 0.3, first: Box::new(Node::Pane(5)), second: Box::new(Node::Pane(7)) };
+        let root = Node::Split {
+            orientation: Horizontal,
+            ratio: 0.3,
+            first: Box::new(Node::Pane(5)),
+            second: Box::new(Node::Pane(7)),
+        };
         let l = Layout::from_node(root.clone(), 7).unwrap();
         assert_eq!(l.panes(), vec![5, 7]);
         let (_, new_id) = l.split(5, Vertical).unwrap();
         assert_eq!(new_id, 8, "neue Ids nach der höchsten");
         assert!(Layout::from_node(root.clone(), 1).is_none(), "Fokus nicht im Baum");
-        let dup = Node::Split { orientation: Horizontal, ratio: 0.5, first: Box::new(Node::Pane(2)), second: Box::new(Node::Pane(2)) };
+        let dup = Node::Split {
+            orientation: Horizontal,
+            ratio: 0.5,
+            first: Box::new(Node::Pane(2)),
+            second: Box::new(Node::Pane(2)),
+        };
         assert!(Layout::from_node(dup, 2).is_none());
     }
 
@@ -568,5 +608,14 @@ mod tests {
         assert_eq!(l.toggle_zoom(1).unwrap().zoomed(), None);
         assert_eq!(l.without_zoom().zoomed(), None);
         assert_eq!(l.split(1, Vertical).unwrap().0.zoomed(), None, "Teilen hebt Zoom auf");
+    }
+
+    #[test]
+    fn same_shape_ignores_focus_and_ratio() {
+        let (l, b) = Layout::new().split(1, Orientation::Horizontal).unwrap();
+        let moved = l.with_focus(1).unwrap().set_ratio(&[], 0.3).unwrap();
+        assert!(l.same_shape(&moved));
+        let (other, _) = l.split(b, Orientation::Vertical).unwrap();
+        assert!(!l.same_shape(&other));
     }
 }

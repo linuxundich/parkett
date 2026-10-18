@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Parkett – Terminalemulator für GNOME mit Splits.
 
 mod commands;
@@ -100,10 +101,8 @@ parkett-pane.focused .parkett-badge { background: var(--accent-bg-color); color:
 
 fn main() -> glib::ExitCode {
     settings::init();
-    let app = adw::Application::builder()
-        .application_id(APP_ID)
-        .flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE)
-        .build();
+    let app =
+        adw::Application::builder().application_id(APP_ID).flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE).build();
 
     app.connect_startup(|app| {
         let provider = gtk::CssProvider::new();
@@ -112,7 +111,8 @@ fn main() -> glib::ExitCode {
         gtk::style_context_add_provider_for_display(&display, &provider, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
         // Beim Start aus dem Quellbaum die Icons in data/ finden (installiert: hicolor)
         if option_env!("PARKETT_INSTALLED").is_none() {
-            gtk::IconTheme::for_display(&display).add_search_path(concat!(env!("CARGO_MANIFEST_DIR"), "/../data/icons"));
+            gtk::IconTheme::for_display(&display)
+                .add_search_path(concat!(env!("CARGO_MANIFEST_DIR"), "/../data/icons"));
         }
         gtk::Window::set_default_icon_name(APP_ID);
         setup_actions(app);

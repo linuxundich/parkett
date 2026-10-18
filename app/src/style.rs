@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Hell/Dunkel von Hand (Wunsch Christoph): GSettings `style` = system | light | dark,
 //! angewendet über AdwStyleManager. Terminals folgen, weil sie auf `dark` des
 //! StyleManagers hören.
@@ -23,7 +24,8 @@ fn apply() {
 pub fn selector() -> gtk::Widget {
     let settings = crate::settings::settings();
     let current = settings.string("style").to_string();
-    let row = gtk::Box::builder().css_classes(["parkett-style-selector"]).halign(gtk::Align::Center).spacing(18).build();
+    let row =
+        gtk::Box::builder().css_classes(["parkett-style-selector"]).halign(gtk::Align::Center).spacing(18).build();
     let mut group: Option<gtk::CheckButton> = None;
     for (value, label) in [("system", "Systemstil folgen"), ("light", "Hell"), ("dark", "Dunkel")] {
         let b = gtk::CheckButton::builder().css_classes([value]).tooltip_text(label).active(current == value).build();

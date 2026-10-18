@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Farbschemata im Paletten-Format von Ptyxis, dazu Import von Tilix-Schemata (JSON).
 //!
 //! Eine Palette hat eine helle und eine dunkle Fassung (`Face`). Fehlende Farben für
@@ -18,6 +19,10 @@ impl Rgb {
     /// `#rrggbb` oder `#rgb`, Groß-/Kleinschreibung egal.
     pub fn parse(s: &str) -> Option<Rgb> {
         let h = s.trim().strip_prefix('#')?;
+        // Nach Bytes geschnitten: Nicht-ASCII würde mitten in einem Zeichen schneiden
+        if !h.is_ascii() {
+            return None;
+        }
         let v = |i: usize, n: usize| u8::from_str_radix(&h[i..i + n], 16).ok();
         match h.len() {
             6 => Some(Rgb { r: v(0, 2)?, g: v(2, 2)?, b: v(4, 2)? }),
@@ -36,7 +41,11 @@ impl Rgb {
     pub fn luminance(&self) -> f64 {
         let lin = |c: u8| {
             let c = c as f64 / 255.0;
-            if c <= 0.03928 { c / 12.92 } else { ((c + 0.055) / 1.055).powf(2.4) }
+            if c <= 0.03928 {
+                c / 12.92
+            } else {
+                ((c + 0.055) / 1.055).powf(2.4)
+            }
         };
         0.2126 * lin(self.r) + 0.7152 * lin(self.g) + 0.0722 * lin(self.b)
     }
@@ -49,38 +58,6 @@ impl Rgb {
     pub fn mix(&self, fg: &Rgb, alpha: f64) -> Rgb {
         let m = |b: u8, f: u8| ((1.0 - alpha) * b as f64 + alpha * f as f64).round().clamp(0.0, 255.0) as u8;
         Rgb { r: m(self.r, fg.r), g: m(self.g, fg.g), b: m(self.b, fg.b) }
-    }
-
-    /// Helligkeit (HLS) mit `factor` skalieren, wie GTKs `_gtk_rgba_shade`.
-    pub fn shade(&self, factor: f64) -> Rgb {
-        let (r, g, b) = (self.r as f64 / 255.0, self.g as f64 / 255.0, self.b as f64 / 255.0);
-        let max = r.max(g).max(b);
-        let min = r.min(g).min(b);
-        let mut l = (max + min) / 2.0;
-        let (h, s) = if max == min {
-            (0.0, 0.0)
-        } else {
-            let d = max - min;
-            let s = if l > 0.5 { d / (2.0 - max - min) } else { d / (max + min) };
-            let h = if max == r { (g - b) / d + if g < b { 6.0 } else { 0.0 } } else if max == g { (b - r) / d + 2.0 } else { (r - g) / d + 4.0 };
-            (h / 6.0, s)
-        };
-        l = (l * factor).clamp(0.0, 1.0);
-        let s = (s * factor).clamp(0.0, 1.0);
-        let hue = |p: f64, q: f64, mut t: f64| {
-            if t < 0.0 { t += 1.0 }
-            if t > 1.0 { t -= 1.0 }
-            if t < 1.0 / 6.0 { p + (q - p) * 6.0 * t } else if t < 0.5 { q } else if t < 2.0 / 3.0 { p + (q - p) * (2.0 / 3.0 - t) * 6.0 } else { p }
-        };
-        let (r, g, b) = if s == 0.0 {
-            (l, l, l)
-        } else {
-            let q = if l < 0.5 { l * (1.0 + s) } else { l + s - l * s };
-            let p = 2.0 * l - q;
-            (hue(p, q, h + 1.0 / 3.0), hue(p, q, h), hue(p, q, h - 1.0 / 3.0))
-        };
-        let c = |x: f64| (x * 255.0).round().clamp(0.0, 255.0) as u8;
-        Rgb { r: c(r), g: c(g), b: c(b) }
     }
 }
 
@@ -182,7 +159,8 @@ impl Face {
             Some(c) => Some(c),
             None => color(sec, "Cursor")?,
         };
-        let mut face = Face::new(required(sec, "Foreground", scope)?, required(sec, "Background", scope)?, colors, cursor);
+        let mut face =
+            Face::new(required(sec, "Foreground", scope)?, required(sec, "Background", scope)?, colors, cursor);
         face.cursor_foreground = color(sec, "CursorForeground")?;
         if let Some(c) = color(sec, "SuperuserBackground")? {
             face.superuser_background = c;
@@ -204,7 +182,11 @@ impl Face {
         for (i, c) in self.colors.iter().enumerate() {
             out.push_str(&format!("Color{i}={}\n", c.hex()));
         }
-        out.push_str(&format!("SuperuserBackground={}\nRemoteBackground={}\n", self.superuser_background.hex(), self.remote_background.hex()));
+        out.push_str(&format!(
+            "SuperuserBackground={}\nRemoteBackground={}\n",
+            self.superuser_background.hex(),
+            self.remote_background.hex()
+        ));
     }
 }
 
@@ -247,7 +229,8 @@ impl Palette {
         let name = s("name").unwrap_or(id).to_string();
         let fg = c("foreground-color")?.ok_or_else(|| PaletteError::Missing("foreground-color".into()))?;
         let bg = c("background-color")?.ok_or_else(|| PaletteError::Missing("background-color".into()))?;
-        let list = v.get("palette").and_then(|p| p.as_array()).ok_or_else(|| PaletteError::Missing("palette".into()))?;
+        let list =
+            v.get("palette").and_then(|p| p.as_array()).ok_or_else(|| PaletteError::Missing("palette".into()))?;
         if list.len() < 16 {
             return Err(PaletteError::Missing(format!("16 Farben in palette (nur {})", list.len())));
         }
@@ -267,11 +250,19 @@ impl Palette {
 
     /// Erkennt das Format am Inhalt: JSON-Objekt = Tilix, sonst Ptyxis.
     pub fn parse_any(id: &str, text: &str) -> Result<Palette, PaletteError> {
-        if text.trim_start().starts_with('{') { Palette::parse_tilix(id, text) } else { Palette::parse_ptyxis(id, text) }
+        if text.trim_start().starts_with('{') {
+            Palette::parse_tilix(id, text)
+        } else {
+            Palette::parse_ptyxis(id, text)
+        }
     }
 
     pub fn face(&self, dark: bool) -> &Face {
-        if dark { &self.dark } else { &self.light }
+        if dark {
+            &self.dark
+        } else {
+            &self.light
+        }
     }
 
     /// Hat die Palette wirklich zwei verschiedene Fassungen?
@@ -304,7 +295,11 @@ pub fn slug(name: &str) -> String {
         }
     }
     let s = s.trim_end_matches('-').to_string();
-    if s.is_empty() { "schema".into() } else { s }
+    if s.is_empty() {
+        "schema".into()
+    } else {
+        s
+    }
 }
 
 /// Die mitgelieferten Schemata (Dateien in data/palettes, ins Programm eingebettet).
@@ -359,8 +354,6 @@ mod tests {
         let black = Rgb { r: 0, g: 0, b: 0 };
         let white = Rgb { r: 255, g: 255, b: 255 };
         assert_eq!(black.mix(&white, 0.5), Rgb { r: 128, g: 128, b: 128 });
-        assert_eq!(white.shade(1.0), white);
-        assert!(Rgb::parse("#808080").unwrap().shade(0.5).luminance() < Rgb::parse("#808080").unwrap().luminance());
     }
 
     #[test]
@@ -427,5 +420,11 @@ mod tests {
         assert_eq!(slug("Solarized Dark"), "solarized-dark");
         assert_eq!(slug("Grün & Blau!"), "gruen-blau");
         assert_eq!(slug("***"), "schema");
+    }
+
+    #[test]
+    fn non_ascii_colour_is_rejected() {
+        assert_eq!(Rgb::parse("#aäbcd"), None);
+        assert_eq!(Rgb::parse("#äää"), None);
     }
 }

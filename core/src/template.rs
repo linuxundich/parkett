@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Vorlagen: ein ganzes Layout mit Profil, Startbefehl und Unterverzeichnis je Bereich.
 //! Gespeichert als TOML (`$XDG_CONFIG_HOME/parkett/templates/<id>.toml`).
 //!
@@ -37,12 +38,7 @@ pub enum SplitDirection {
 #[serde(tag = "type", rename_all = "kebab-case")]
 pub enum TemplateNode {
     Pane(PaneSpec),
-    Split {
-        direction: SplitDirection,
-        ratio: f32,
-        first: Box<TemplateNode>,
-        second: Box<TemplateNode>,
-    },
+    Split { direction: SplitDirection, ratio: f32, first: Box<TemplateNode>, second: Box<TemplateNode> },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -133,7 +129,12 @@ impl Template {
                 },
             }
         }
-        Template { id: String::new(), name: name.to_string(), directory: String::new(), layout: walk(layout.root(), spec) }
+        Template {
+            id: String::new(),
+            name: name.to_string(),
+            directory: String::new(),
+            layout: walk(layout.root(), spec),
+        }
     }
 
     /// Alle nicht leeren Startbefehle (für die Anzeige vor dem Ausführen).
@@ -168,7 +169,10 @@ impl TemplateStore {
                 continue;
             }
             let Some(id) = path.file_stem().and_then(|s| s.to_str()).map(String::from) else { continue };
-            match std::fs::read_to_string(&path).map_err(|e| e.to_string()).and_then(|t| Template::from_toml(&id, &t).map_err(|e| e.to_string())) {
+            match std::fs::read_to_string(&path)
+                .map_err(|e| e.to_string())
+                .and_then(|t| Template::from_toml(&id, &t).map_err(|e| e.to_string()))
+            {
                 Ok(t) => out.push(t),
                 Err(e) => errors.push(format!("{}: {e}", path.display())),
             }

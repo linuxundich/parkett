@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Befehlspalette (Konzept A+, aus C): eine Liste für Reiter, Bereiche, Aktionen, Vorlagen
 //! und Profile. Präfixe: „>“ nur Aktionen, „@“ nur Reiter/Bereiche, „#“ nur Vorlagen.
 //! Jede Aktion zeigt ihr Kürzel – so lernt man es nebenbei.
@@ -105,7 +106,14 @@ fn collect(win: &Window) -> Vec<Item> {
             group: Group::Actions,
             title: e.label.to_string(),
             subtitle: e.section.to_string(),
-            accel: shortcuts::label(&shortcuts::effective(action)).replace("Aus", ""),
+            accel: {
+                let a = shortcuts::effective(action);
+                if a.is_empty() {
+                    String::new()
+                } else {
+                    shortcuts::label(&a)
+                }
+            },
             icon: "system-run-symbolic",
             run: Rc::new(move |w: &Window| w.run_action(action)),
         });
@@ -127,9 +135,18 @@ fn row(item: &Item) -> gtk::ListBoxRow {
     let b = gtk::Box::builder().spacing(12).margin_start(12).margin_end(12).margin_top(6).margin_bottom(6).build();
     b.append(&gtk::Image::from_icon_name(item.icon));
     let text = gtk::Box::builder().orientation(gtk::Orientation::Vertical).hexpand(true).build();
-    text.append(&gtk::Label::builder().label(item.title.as_str()).xalign(0.0).ellipsize(gtk::pango::EllipsizeMode::End).build());
+    text.append(
+        &gtk::Label::builder().label(item.title.as_str()).xalign(0.0).ellipsize(gtk::pango::EllipsizeMode::End).build(),
+    );
     if !item.subtitle.is_empty() {
-        text.append(&gtk::Label::builder().label(item.subtitle.as_str()).xalign(0.0).ellipsize(gtk::pango::EllipsizeMode::End).css_classes(["dim-label", "caption"]).build());
+        text.append(
+            &gtk::Label::builder()
+                .label(item.subtitle.as_str())
+                .xalign(0.0)
+                .ellipsize(gtk::pango::EllipsizeMode::End)
+                .css_classes(["dim-label", "caption"])
+                .build(),
+        );
     }
     b.append(&text);
     if !item.accel.is_empty() {
@@ -142,22 +159,45 @@ fn row(item: &Item) -> gtk::ListBoxRow {
 
 pub fn show(win: &Window) {
     let items = Rc::new(collect(win));
-    let entry = gtk::SearchEntry::builder().placeholder_text("Befehl, Reiter oder Vorlage … (> Aktionen, @ Reiter, # Vorlagen)").hexpand(true).build();
-    let list = gtk::ListBox::builder().selection_mode(gtk::SelectionMode::Browse).css_classes(["navigation-sidebar"]).build();
+    let entry = gtk::SearchEntry::builder()
+        .placeholder_text("Befehl, Reiter oder Vorlage … (> Aktionen, @ Reiter, # Vorlagen)")
+        .hexpand(true)
+        .build();
+    let list =
+        gtk::ListBox::builder().selection_mode(gtk::SelectionMode::Browse).css_classes(["navigation-sidebar"]).build();
     list.set_header_func(|row, before| {
         let group = row.widget_name();
         if before.is_none_or(|b| b.widget_name() != group) {
-            let h = gtk::Label::builder().label(group.as_str()).xalign(0.0).css_classes(["heading", "dim-label"]).margin_start(12).margin_top(10).margin_bottom(4).build();
+            let h = gtk::Label::builder()
+                .label(group.as_str())
+                .xalign(0.0)
+                .css_classes(["heading", "dim-label"])
+                .margin_start(12)
+                .margin_top(10)
+                .margin_bottom(4)
+                .build();
             row.set_header(Some(&h));
         } else {
             row.set_header(gtk::Widget::NONE);
         }
     });
-    let scroll = gtk::ScrolledWindow::builder().child(&list).vexpand(true).hscrollbar_policy(gtk::PolicyType::Never).build();
-    let content = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(6).margin_top(12).margin_start(12).margin_end(12).margin_bottom(6).build();
+    let scroll =
+        gtk::ScrolledWindow::builder().child(&list).vexpand(true).hscrollbar_policy(gtk::PolicyType::Never).build();
+    let content = gtk::Box::builder()
+        .orientation(gtk::Orientation::Vertical)
+        .spacing(6)
+        .margin_top(12)
+        .margin_start(12)
+        .margin_end(12)
+        .margin_bottom(6)
+        .build();
     content.append(&entry);
     content.append(&scroll);
-    let footer = gtk::Label::builder().label("↑↓ wählen · Eingabe ausführen · Esc schließen").css_classes(["dim-label", "caption"]).margin_bottom(6).build();
+    let footer = gtk::Label::builder()
+        .label("↑↓ wählen · Eingabe ausführen · Esc schließen")
+        .css_classes(["dim-label", "caption"])
+        .margin_bottom(6)
+        .build();
     content.append(&footer);
     let dialog = adw::Dialog::builder().title("Befehle").content_width(640).content_height(480).child(&content).build();
 
@@ -195,7 +235,9 @@ pub fn show(win: &Window) {
                     let g = order(items[*i].group);
                     best[g] = best[g].max(*s);
                 }
-                hits.sort_by_key(|(s, i)| (std::cmp::Reverse(best[order(items[*i].group)]), order(items[*i].group), std::cmp::Reverse(*s), *i));
+                hits.sort_by_key(|(s, i)| {
+                    (std::cmp::Reverse(best[order(items[*i].group)]), order(items[*i].group), std::cmp::Reverse(*s), *i)
+                });
             }
             hits.truncate(60);
             *shown.borrow_mut() = hits.iter().map(|(_, i)| *i).collect();

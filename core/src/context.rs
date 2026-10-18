@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Kontext eines Bereichs für die Kontextfarbe (Vorschlag 1): läuft dort gerade eine
 //! Verbindung zu einem anderen Rechner oder ein Programm mit Root-Rechten?
 //! Die Erkennung arbeitet auf Prozessname, Befehlszeile und effektiver UID des
@@ -16,7 +17,10 @@ const REMOTE: &[&str] = &["ssh", "mosh", "mosh-client", "autossh", "et", "telnet
 const SUPERUSER: &[&str] = &["sudo", "su", "doas", "run0", "pkexec"];
 
 /// Optionen von ssh, die einen Wert erwarten (`man ssh`).
-const SSH_ARG_OPTS: &[&str] = &["-b", "-B", "-c", "-D", "-E", "-e", "-F", "-I", "-i", "-J", "-L", "-l", "-m", "-O", "-o", "-P", "-p", "-Q", "-R", "-S", "-W", "-w"];
+const SSH_ARG_OPTS: &[&str] = &[
+    "-b", "-B", "-c", "-D", "-E", "-e", "-F", "-I", "-i", "-J", "-L", "-l", "-m", "-O", "-o", "-P", "-p", "-Q", "-R",
+    "-S", "-W", "-w",
+];
 
 /// `comm`: Prozessname, `args`: Befehlszeile, `euid`: effektive UID des Vordergrundprozesses.
 pub fn classify(comm: &str, args: &[String], euid: Option<u32>) -> Context {

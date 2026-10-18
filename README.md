@@ -4,23 +4,28 @@ Moderner Terminalemulator für GNOME auf Basis von GTK4, libadwaita und VTE, der
 Tilix (Splits, Sitzungen mit Layout, Profile) übernimmt und die Oberfläche neu denkt. Der Name
 steht für das Fischgrät-Muster aus Terminal-Bereichen, das die Splits bilden.
 
-## Stand
+## Was es kann
 
-- **Phase 1 – Analyse:** fertig → [`docs/ANALYSE.md`](docs/ANALYSE.md)
-  (Bestandsbericht, Funktionsmatrix, Sprachwahl, Architektur-Vorschlag, Risiken)
-- **Phase 2 – Design:** drei Konzepte als HTML-Mockups → [`docs/KONZEPTE.md`](docs/KONZEPTE.md),
-  [`mockups/`](mockups/). Entschieden: A als Grundgerüst plus Befehlspalette und Layout-Modus aus C
-  und Vorlagen mit Startbefehlen aus B → `mockups/combined.html` („Konzept A+“).
-  A+ ist freigegeben (Bereichstitel schwebend, Vorschläge 1–6 übernommen).
-- **Phase 3 – Prototyp:** Rust, App-ID `de.linuxundich.Parkett`; ein Fenster mit einem Terminal,
-  Split-Layout als getesteter Kern ohne GTK → [`docs/PROTOTYP.md`](docs/PROTOTYP.md)
-  (Architektur, Testprotokoll, offene Entscheidungen).
-- **Phase 4 – MVP:** freigegeben; Schritt 1 Tabs und Splits fertig und in der VM getestet →
-  [`docs/MVP.md`](docs/MVP.md). Schritte 2 (Meson, GSettings, Arch-Paket), 3 (Profile, 14 Farbschemata hell/dunkel, Import),
-  4/5 (Einstellungen, Suche, Links, änderbare Kürzel), 6 (Befehlspalette, Layout-Modus,
-  Vorlagen) und 7 (Rückgängig, Kontextfarbe) fertig – MVP komplett.
-- **Phase 5 – QA:** systematische Tests in der VM und auf dem Host, Funde behoben →
-  [`docs/QA.md`](docs/QA.md).
+Reiter und frei teilbare Bereiche (Knöpfe wie bei Tilix, Kürzel, Layout-Modus mit
+Einzeltasten), Befehlspalette, Vorlagen mit Startbefehlen, Profile, 14 Farbschemata mit
+heller und dunkler Fassung (Import von Ptyxis und Tilix), Kontextfarbe für root und SSH,
+Rückgängig beim Schließen, Suche, Links, änderbare Kürzel, Hell/Dunkel von Hand.
+Anleitung: [`docs/BEDIENUNG.md`](docs/BEDIENUNG.md).
+
+## Dokumentation
+
+| Datei | Inhalt |
+|---|---|
+| [`docs/BEDIENUNG.md`](docs/BEDIENUNG.md) | Bedienung, Kürzel, Profile, Vorlagen und Farbschemata als Datei |
+| [`docs/ARCHITEKTUR.md`](docs/ARCHITEKTUR.md) | Module, Regeln, Datenfluss, Tests |
+| [`docs/PAKETIERUNG.md`](docs/PAKETIERUNG.md) | Arch, Fedora, Debian, Flatpak – Stand und Empfehlung |
+| [`docs/LIZENZEN.md`](docs/LIZENZEN.md) | Lizenzen aller Teile und Abhängigkeiten |
+| [`docs/ANALYSE.md`](docs/ANALYSE.md) | Phase 1: Bestand Tilix, Funktionsmatrix, Sprachwahl |
+| [`docs/KONZEPTE.md`](docs/KONZEPTE.md) | Phase 2: drei Konzepte, Entscheidung für A+ |
+| [`docs/PROTOTYP.md`](docs/PROTOTYP.md) | Phase 3: Prototyp und Testprotokoll |
+| [`docs/MVP.md`](docs/MVP.md) | Phase 4: Schritte 1–7 mit Tests |
+| [`docs/QA.md`](docs/QA.md) | Phase 5: Qualitätssicherung in VM und auf dem Host |
+| [`BACKLOG.md`](BACKLOG.md) | offene Punkte und Entwicklungsplan |
 
 ## Bauen und starten
 
@@ -43,8 +48,16 @@ meson install -C _build
 
 Arch: Paket `parkett` aus dem eigenen Repo `linuxundich` (bender, siehe `services/pacman-repo`).
 
+Prüfen ohne Fenster (Formatierung, Clippy, Tests, Meson-Build und -Tests):
+
 ```bash
-cargo test
+build-aux/ci.sh
+```
+
+Rauchtest in der VM (startet Parkett, steuert es über D-Bus, prüft Prozesse und Protokoll):
+
+```bash
+build-aux/vm/smoke.sh
 ```
 
 Test in der VM `fedora44-wor` (GNOME Boxes, SSH-Port 2223): `build-aux/vm/deploy.sh` baut dort,
@@ -74,7 +87,10 @@ Aufbau:
 
 ## Icon
 
-App-Icon und symbolisches Icon liegen in [`icon/`](icon/): `parkett.svg` (Fischgrät-Parkett mit
-eingelassenem Terminal-Bereich, erzeugt von `icon/gen_icon.py` – dort ändern) und
-`parkett-symbolic.svg` (16 px). Vorschau in `icon/vorschau.png`, verworfene Entwürfe in
-`icon/entwuerfe/`. Sobald die App-ID feststeht, wandern beide unter `data/icons/hicolor/`.
+App-Icon und symbolisches Icon liegen unter `data/icons/hicolor/`; Quelle ist
+[`icon/gen_icon.py`](icon/gen_icon.py) (Fischgrät-Parkett mit eingelassenem Terminal-Bereich,
+dort ändern). Verworfene Entwürfe in `icon/entwuerfe/`.
+
+## Lizenz
+
+GPL-3.0-or-later, siehe [`LICENSE`](LICENSE) und [`docs/LIZENZEN.md`](docs/LIZENZEN.md).

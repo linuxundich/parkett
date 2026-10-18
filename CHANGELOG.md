@@ -4,6 +4,30 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unreleased]
 
+### Phase 6
+- Dokumentation: Bedienung (`docs/BEDIENUNG.md`, Beispiele für Profile und Vorlagen werden
+  von `cargo test` geladen), Architektur, Paketierungswege, Lizenzen; README überarbeitet.
+- `build-aux/ci.sh`: Formatierung, Clippy, Tests, Meson-Build und -Tests in einem Lauf.
+- `build-aux/vm/smoke.sh`: Rauchtest in der VM über D-Bus (Teilen, Reiter, Schließen,
+  Fristablauf, keine verwaisten Shells, Protokoll ohne Fehler).
+- Entwicklungsplan für 0.2–0.4 im BACKLOG.
+
+### Behoben (Phase 6, Code-Review)
+- Nach „Rückgängig“ an neuer Stelle trafen Fokus und Schließen den falschen Bereich.
+- Schließen eines schon geschlossenen Bereichs schloss den ganzen Reiter oder das Fenster.
+- Absturz beim Start bei nur kaputten Profildateien oder Nicht-ASCII-Farbwerten in Paletten;
+  nicht lesbare Dateien werden jetzt als Einblendung mit Details gemeldet.
+- Einfüge-Warnung erkennt auch Zeilenumbrüche mit `\r`.
+- `file:`-Links auf andere Rechner (OSC 8 aus SSH-Sitzungen) werden nicht mehr geöffnet.
+- Unterverzeichnisse in Vorlagen nur noch relativ und ohne „..“.
+- Layout-Modus: bleibt nicht mehr auf dem alten Reiter stehen und schluckt keine Tasten
+  mehr in Dialogen und der Befehlspalette.
+- Automatischer Neustart und Hintergrund-Reiter holen sich nicht mehr den Fokus.
+- Doppelklick auf die Kopfleiste öffnet nicht mehr zusätzlich die Befehlspalette.
+- Alt+1…9 / Strg+Alt+1…9 werden beim Aufnehmen eigener Kürzel als belegt gemeldet.
+- Halb getippte Umgebungsvariablen löschen die gespeicherten nicht mehr.
+- Änderungen an Vorlagen färben die Terminals nicht mehr neu ein.
+
 ### Hinzugefügt
 - Knöpfe „Rechts teilen“ und „Unten teilen“ in der Kopfleiste (wie bei Tilix), eigene Symbole.
 - Hell/Dunkel von Hand: Stilwahl System/Hell/Dunkel im Hauptmenü und in den Einstellungen.

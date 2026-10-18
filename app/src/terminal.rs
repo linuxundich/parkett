@@ -1,16 +1,17 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Ein Terminal-Bereich: VTE-Widget, Shell-Prozess und die Leiste „Prozess beendet“.
 //!
 //! Zustand (Titel, Verzeichnis) kommt aus den VTE-Termprops (`xterm.title`, `vte.cwd`),
 //! nicht aus den seit VTE 0.78 veralteten Signalen.
 
 use std::cell::{Cell, RefCell};
-use std::time::{Duration, Instant};
 use std::os::fd::AsRawFd;
 use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 use adw::prelude::*;
-use gtk::{gio, glib, pango};
 use gtk::glib::translate::{from_glib_full, ToGlibPtr};
+use gtk::{gio, glib, pango};
 use vte::prelude::*;
 
 use parkett_core::context::{self, Context};
@@ -119,7 +120,7 @@ impl Terminal {
         let weak = Rc::downgrade(&t.0);
         restart.connect_clicked(move |_| {
             if let Some(inner) = weak.upgrade() {
-                Terminal(inner).spawn();
+                Terminal(inner).spawn(true);
             }
         });
         let weak = Rc::downgrade(&t.0);
@@ -129,7 +130,7 @@ impl Terminal {
             }
         });
 
-        t.spawn();
+        t.spawn(true);
         t
     }
 
@@ -181,10 +182,7 @@ impl Terminal {
     /// vte4-rs bindet `ref_termprop_uri` nicht; daher der eine FFI-Aufruf.
     pub fn cwd(&self) -> Option<String> {
         let uri: Option<glib::Uri> = unsafe {
-            from_glib_full(vte::ffi::vte_terminal_ref_termprop_uri(
-                self.0.vte.to_glib_none().0,
-                c"vte.cwd".as_ptr(),
-            ))
+            from_glib_full(vte::ffi::vte_terminal_ref_termprop_uri(self.0.vte.to_glib_none().0, c"vte.cwd".as_ptr()))
         };
         uri.map(|u| u.path().to_string()).filter(|p| !p.is_empty())
     }
@@ -248,9 +246,12 @@ impl Terminal {
             .map(|a| String::from_utf8_lossy(a).into_owned())
             .collect();
         // „Uid:\treal\teffektiv\t…“
-        let euid = std::fs::read_to_string(format!("/proc/{pgid}/status"))
-            .ok()
-            .and_then(|s| s.lines().find(|l| l.starts_with("Uid:")).and_then(|l| l.split_whitespace().nth(2)).and_then(|u| u.parse().ok()));
+        let euid = std::fs::read_to_string(format!("/proc/{pgid}/status")).ok().and_then(|s| {
+            s.lines()
+                .find(|l| l.starts_with("Uid:"))
+                .and_then(|l| l.split_whitespace().nth(2))
+                .and_then(|u| u.parse().ok())
+        });
         context::classify(comm.trim(), &args, euid)
     }
 
@@ -281,7 +282,7 @@ impl Terminal {
             .map(|a| {
                 let a = String::from_utf8_lossy(a).into_owned();
                 // nur quoten, wo die Shell es braucht – „npm run dev“ statt „'npm' 'run' 'dev'“
-                if !a.is_empty() && a.chars().all(|c| c.is_alphanumeric() || "-_./:=@%+,~".contains(c)) {
+                if !a.is_empty() && a.chars().all(|c| c.is_alphanumeric() || "-_./:=@%+,".contains(c)) {
                     a
                 } else {
                     glib::shell_quote(&a).to_string_lossy().into_owned()
@@ -320,7 +321,8 @@ impl Terminal {
         }
     }
 
-    fn spawn(&self) {
+    /// `focus`: danach den Fokus ins Terminal (nicht beim automatischen Neustart im Hintergrund).
+    fn spawn(&self, focus: bool) {
         self.0.exit_bar.set_reveal_child(false);
         self.0.exit_bar.set_visible(false);
         self.0.exit.set(None);
@@ -375,7 +377,9 @@ impl Terminal {
                 }
             },
         );
-        self.0.vte.grab_focus();
+        if focus {
+            self.0.vte.grab_focus();
+        }
     }
 
     fn fail(&self, program: &str, message: &str) {
@@ -417,7 +421,7 @@ impl Terminal {
                 }
                 // Neustart, außer der Prozess endet sofort wieder (sonst Endlosschleife)
                 ExitAction::Restart if !quick => {
-                    t.spawn();
+                    t.spawn(false);
                     return;
                 }
                 _ => {}
@@ -427,7 +431,11 @@ impl Terminal {
                 ExitStatus::Code(c) => format!("<b>Prozess beendet</b> · Exit-Code {c}"),
                 ExitStatus::Signal(s) => format!("<b>Prozess beendet</b> · Signal {s}"),
             };
-            let text = if action == ExitAction::Restart { format!("{text} · kein automatischer Neustart, endete sofort") } else { text };
+            let text = if action == ExitAction::Restart {
+                format!("{text} · kein automatischer Neustart, endete sofort")
+            } else {
+                text
+            };
             t.show_exit(&text);
             t.emit_state_changed();
         });
@@ -453,8 +461,13 @@ impl Terminal {
         // Kontextfarbe: Hintergrund leicht in Richtung der Palettenfarbe für root/SSH tönen,
         // Linie und Chip in der kräftigen Farbe (Rot bzw. Blau des Schemas)
         let (background, accent) = match (&*self.0.context.borrow(), crate::settings::context_colors()) {
-            (Context::Superuser, true) => (face.background.mix(&face.superuser_background, 0.35), Some((face.colors[9], face.superuser_background))),
-            (Context::Remote(_), true) => (face.background.mix(&face.remote_background, 0.35), Some((face.colors[12], face.remote_background))),
+            (Context::Superuser, true) => (
+                face.background.mix(&face.superuser_background, 0.35),
+                Some((face.colors[9], face.superuser_background)),
+            ),
+            (Context::Remote(_), true) => {
+                (face.background.mix(&face.remote_background, 0.35), Some((face.colors[12], face.remote_background)))
+            }
             _ => (face.background, None),
         };
         self.0.accent.set(accent);
@@ -554,6 +567,20 @@ impl Terminal {
             glib::g_warning!("parkett", "Link mit Schema „{scheme}“ nicht geöffnet");
             return;
         }
+        // file:-Links nur auf diesem Rechner: Ein OSC-8-Link aus einer SSH-Sitzung nennt den
+        // fremden Rechner; dort gemeint ist eine andere Datei als hier (wie gnome-terminal)
+        if scheme == "file" && !is_local_file_uri(uri) {
+            glib::g_warning!("parkett", "file:-Link auf anderen Rechner nicht geöffnet: {uri}");
+            if let Some(w) = self.0.vte.root().and_downcast::<gtk::Window>() {
+                let d = adw::AlertDialog::new(
+                    Some("Link nicht geöffnet"),
+                    Some("Der Link zeigt auf eine Datei auf einem anderen Rechner."),
+                );
+                d.add_response("ok", "OK");
+                d.present(Some(&w));
+            }
+            return;
+        }
         let window = self.0.vte.root().and_downcast::<gtk::Window>();
         gtk::UriLauncher::new(uri).launch(window.as_ref(), gio::Cancellable::NONE, |res| {
             if let Err(e) = res {
@@ -580,7 +607,11 @@ impl Terminal {
 
     /// Nächster Treffer nach oben (ältere Ausgabe) oder unten. `false` = nichts gefunden.
     pub fn search_step(&self, up: bool) -> bool {
-        if up { self.0.vte.search_find_previous() } else { self.0.vte.search_find_next() }
+        if up {
+            self.0.vte.search_find_previous()
+        } else {
+            self.0.vte.search_find_next()
+        }
     }
 
     fn setup_style(&self) {
@@ -726,6 +757,13 @@ impl Terminal {
     }
 }
 
+/// `file:/pfad`, `file:///pfad`, `file://localhost/…` oder `file://<eigener Rechner>/…`.
+fn is_local_file_uri(uri: &str) -> bool {
+    let Some(rest) = uri.get(5..).and_then(|r| r.strip_prefix("//")) else { return true };
+    let host = rest.split('/').next().unwrap_or("");
+    host.is_empty() || host.eq_ignore_ascii_case("localhost") || host.eq_ignore_ascii_case(glib::host_name().as_str())
+}
+
 /// Erlaubte Schemata beim Öffnen von Links – keine „javascript:“, „data:“ o. Ä.
 const SAFE_SCHEMES: &[&str] = &["http", "https", "ftp", "mailto", "file"];
 
@@ -735,24 +773,28 @@ const URL_PATTERNS: &[&str] = &[
     r#"\bmailto:[^\s<>"'`@]+@[^\s<>"'`]*[^\s<>"'`.,;:!?)\]}]"#,
 ];
 
-/// PCRE2-Flags wie bei Ptyxis: UTF, UCP und MULTILINE (verlangt VTE).
+/// PCRE2-Flags wie bei Ptyxis: UTF, NO_UTF_CHECK, UCP und MULTILINE (verlangt VTE).
 pub const PCRE2_FLAGS: u32 = 0x0008_0000 | 0x4000_0000 | 0x0002_0000 | 0x0000_0400;
 pub const PCRE2_CASELESS: u32 = 0x0000_0008;
-
 
 fn paste_with_check(vte: &vte::Terminal) {
     let vte = vte.clone();
     vte.clipboard().read_text_async(gio::Cancellable::NONE, move |res| {
         let Ok(Some(text)) = res else { return };
         let text = text.to_string();
-        let lines = text.trim_end_matches('\n').lines().count();
+        // Auch \r führt aus (Enter); \r\n zählt als ein Umbruch
+        let norm = text.replace("\r\n", "\n");
+        let all: Vec<&str> = norm.trim_end_matches(['\n', '\r']).split(['\n', '\r']).collect();
+        let lines = all.len();
         if lines <= 1 || !crate::settings::settings().boolean("warn-multiline-paste") {
             vte.paste_text(&text);
             return;
         }
-        let preview: Vec<&str> = text.lines().take(6).collect();
+        let preview: Vec<&str> = all.iter().take(6).copied().collect();
         let more = if lines > 6 { format!("\n… ({} weitere Zeilen)", lines - 6) } else { String::new() };
-        let body = format!("Der Text hat {lines} Zeilen. Unterstützt die Shell kein „Bracketed Paste“, werden sie sofort ausgeführt.");
+        let body = format!(
+            "Der Text hat {lines} Zeilen. Unterstützt die Shell kein „Bracketed Paste“, werden sie sofort ausgeführt."
+        );
         let dialog = adw::AlertDialog::new(Some("Mehrzeiligen Text einfügen?"), Some(&body));
         let label = gtk::Label::builder()
             .label(format!("{}{more}", preview.join("\n")))
@@ -783,24 +825,14 @@ fn rgba(c: &Rgb) -> gtk::gdk::RGBA {
 
 /// `~` und `~/…` zum Persönlichen Ordner auflösen; leer = keine Vorgabe.
 fn expand_home(dir: &str) -> Option<String> {
-    if dir.is_empty() {
-        return None;
-    }
-    let home = glib::home_dir();
-    match dir.strip_prefix('~') {
-        Some(rest) if rest.is_empty() || rest.starts_with('/') => Some(format!("{}{rest}", home.display())),
-        _ => Some(dir.to_string()),
-    }
+    (!dir.is_empty()).then(|| parkett_core::paths::expand_home(dir, &glib::home_dir()).to_string_lossy().into_owned())
 }
 
 /// Login-Shell des Benutzers laut VTE (passwd), sonst $SHELL, sonst /bin/sh.
 fn user_shell() -> String {
     let from_vte: Option<String> =
         unsafe { from_glib_full::<_, Option<glib::GString>>(vte::ffi::vte_get_user_shell()) }.map(String::from);
-    from_vte
-        .or_else(|| std::env::var("SHELL").ok())
-        .filter(|s| !s.is_empty())
-        .unwrap_or_else(|| "/bin/sh".into())
+    from_vte.or_else(|| std::env::var("SHELL").ok()).filter(|s| !s.is_empty()).unwrap_or_else(|| "/bin/sh".into())
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

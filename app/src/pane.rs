@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Ein Bereich im Split-Baum: das Terminal plus schwebender Titel, Fokuslinie und Abblendung.
 
 use adw::prelude::*;
@@ -102,7 +103,12 @@ impl Pane {
         overlay.add_overlay(&focus_line);
 
         // Kontextfarbe (root/SSH): 3 px Linie oben in der Farbe des Schemas
-        let context_line = gtk::DrawingArea::builder().valign(gtk::Align::Start).height_request(3).can_target(false).visible(false).build();
+        let context_line = gtk::DrawingArea::builder()
+            .valign(gtk::Align::Start)
+            .height_request(3)
+            .can_target(false)
+            .visible(false)
+            .build();
         {
             let t = terminal.clone();
             context_line.set_draw_func(move |_, cr, w, h| {
@@ -173,13 +179,37 @@ impl Pane {
 
         // Suchleiste oben rechts (ersetzt dort den schwebenden Titel, solange sie offen ist)
         let entry = gtk::SearchEntry::builder().placeholder_text("Im Terminal suchen").width_chars(22).build();
-        let case = gtk::ToggleButton::builder().label("Aa").tooltip_text("Groß-/Kleinschreibung beachten").css_classes(["flat"]).build();
-        let regex = gtk::ToggleButton::builder().label(".*").tooltip_text("Regulärer Ausdruck").css_classes(["flat"]).build();
-        let up = gtk::Button::builder().icon_name("go-up-symbolic").tooltip_text("Treffer darüber (Eingabe, Strg+Umschalt+G)").css_classes(["flat"]).build();
-        let down = gtk::Button::builder().icon_name("go-down-symbolic").tooltip_text("Treffer darunter (Umschalt+Eingabe, Strg+Umschalt+H)").css_classes(["flat"]).build();
-        let close_search = gtk::Button::builder().icon_name("window-close-symbolic").tooltip_text("Suche schließen (Esc)").css_classes(["flat"]).build();
+        let case = gtk::ToggleButton::builder()
+            .label("Aa")
+            .tooltip_text("Groß-/Kleinschreibung beachten")
+            .css_classes(["flat"])
+            .build();
+        let regex =
+            gtk::ToggleButton::builder().label(".*").tooltip_text("Regulärer Ausdruck").css_classes(["flat"]).build();
+        let up = gtk::Button::builder()
+            .icon_name("go-up-symbolic")
+            .tooltip_text("Treffer darüber (Eingabe, Strg+Umschalt+G)")
+            .css_classes(["flat"])
+            .build();
+        let down = gtk::Button::builder()
+            .icon_name("go-down-symbolic")
+            .tooltip_text("Treffer darunter (Umschalt+Eingabe, Strg+Umschalt+H)")
+            .css_classes(["flat"])
+            .build();
+        let close_search = gtk::Button::builder()
+            .icon_name("window-close-symbolic")
+            .tooltip_text("Suche schließen (Esc)")
+            .css_classes(["flat"])
+            .build();
         let bar = gtk::Box::builder().spacing(2).css_classes(["parkett-search"]).build();
-        for w in [entry.upcast_ref::<gtk::Widget>(), case.upcast_ref(), regex.upcast_ref(), up.upcast_ref(), down.upcast_ref(), close_search.upcast_ref()] {
+        for w in [
+            entry.upcast_ref::<gtk::Widget>(),
+            case.upcast_ref(),
+            regex.upcast_ref(),
+            up.upcast_ref(),
+            down.upcast_ref(),
+            close_search.upcast_ref(),
+        ] {
             bar.append(w);
         }
         let search = gtk::Revealer::builder()
@@ -194,9 +224,18 @@ impl Pane {
         overlay.add_overlay(&search);
 
         // Titelzeile (Einstellung „Bereichstitel: Als Zeile“) über dem Terminal
-        let row_label = gtk::Label::builder().xalign(0.0).hexpand(true).ellipsize(gtk::pango::EllipsizeMode::End).build();
-        let row_zoom = gtk::Button::builder().icon_name("view-fullscreen-symbolic").tooltip_text("Bereich maximieren").css_classes(["flat"]).build();
-        let row_close = gtk::Button::builder().icon_name("window-close-symbolic").tooltip_text("Bereich schließen").css_classes(["flat"]).build();
+        let row_label =
+            gtk::Label::builder().xalign(0.0).hexpand(true).ellipsize(gtk::pango::EllipsizeMode::End).build();
+        let row_zoom = gtk::Button::builder()
+            .icon_name("view-fullscreen-symbolic")
+            .tooltip_text("Bereich maximieren")
+            .css_classes(["flat"])
+            .build();
+        let row_close = gtk::Button::builder()
+            .icon_name("window-close-symbolic")
+            .tooltip_text("Bereich schließen")
+            .css_classes(["flat"])
+            .build();
         let row = gtk::Box::builder().css_classes(["parkett-ptitle"]).spacing(4).visible(false).build();
         row.append(&row_label);
         row.append(&row_zoom);
@@ -374,7 +413,11 @@ impl Pane {
             _ => None,
         };
         let markup = match &chip {
-            Some((text, bg)) => format!("<span background=\"{}\" weight=\"bold\"> {} </span>  {title}", bg.hex(), glib::markup_escape_text(text)),
+            Some((text, bg)) => format!(
+                "<span background=\"{}\" weight=\"bold\"> {} </span>  {title}",
+                bg.hex(),
+                glib::markup_escape_text(text)
+            ),
             None => title.clone(),
         };
         self.imp().pill_label.get().unwrap().set_markup(&markup);
@@ -455,7 +498,11 @@ impl Pane {
         let imp = self.imp();
         let entry = imp.search_entry.get().unwrap();
         let text = entry.text().to_string();
-        match self.terminal().set_search(Some(&text), imp.search_regex.get().unwrap().is_active(), imp.search_case.get().unwrap().is_active()) {
+        match self.terminal().set_search(
+            Some(&text),
+            imp.search_regex.get().unwrap().is_active(),
+            imp.search_case.get().unwrap().is_active(),
+        ) {
             Ok(()) => {
                 entry.set_tooltip_text(None);
                 let found = text.is_empty() || self.terminal().search_step(true);

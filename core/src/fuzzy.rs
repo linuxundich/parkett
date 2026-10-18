@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 //! Trefferbewertung für die Befehlspalette: jedes Wort der Anfrage muss im Text vorkommen
 //! (Groß/Klein egal); Treffer am Wortanfang und im Anfang des Textes zählen mehr.
 
