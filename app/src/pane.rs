@@ -9,7 +9,7 @@ use vte::prelude::*;
 use crate::terminal::Terminal;
 
 mod imp {
-    use std::cell::{Cell, OnceCell};
+    use std::cell::{Cell, OnceCell, RefCell};
 
     use super::*;
 
@@ -32,6 +32,10 @@ mod imp {
         pub search_entry: OnceCell<gtk::SearchEntry>,
         pub search_case: OnceCell<gtk::ToggleButton>,
         pub search_regex: OnceCell<gtk::ToggleButton>,
+        /// Zeiger im oberen Streifen (Design V2: Titel nur dann sichtbar)
+        pub hover_top: Cell<bool>,
+        /// Kurz nach einem Fokuswechsel sichtbar; Quelle des Ausblende-Timers
+        pub flash: RefCell<Option<glib::SourceId>>,
     }
 
     #[glib::object_subclass]
@@ -141,7 +145,9 @@ impl Pane {
         });
         overlay.add_overlay(&probe);
 
-        // Schwebender Titel, nur bei geteilten Tabs sichtbar (Entscheidung A+: schwebend)
+        // Schwebender Titel, nur bei geteilten Tabs (Entscheidung A+: schwebend). Design V2:
+        // normalerweise ausgeblendet, damit er keine Terminalzeile verdeckt (QA-02); sichtbar
+        // kurz nach einem Fokuswechsel und solange der Zeiger im oberen Streifen steht.
         let pill_label = gtk::Label::builder().ellipsize(gtk::pango::EllipsizeMode::End).max_width_chars(28).build();
         let zoom = gtk::Button::builder()
             .icon_name("view-fullscreen-symbolic")
@@ -166,6 +172,22 @@ impl Pane {
         pill.append(&zoom);
         pill.append(&close);
         overlay.add_overlay(&pill);
+        let motion = gtk::EventControllerMotion::new();
+        let set_hover = {
+            let weak = pane.downgrade();
+            move |inside: bool| {
+                let Some(p) = weak.upgrade() else { return };
+                if p.imp().hover_top.replace(inside) != inside {
+                    p.update_visibility();
+                }
+            }
+        };
+        let hover = set_hover.clone();
+        motion.connect_enter(move |_, _, y| hover(y < HOVER_STRIP));
+        let hover = set_hover.clone();
+        motion.connect_motion(move |_, _, y| hover(y < HOVER_STRIP));
+        motion.connect_leave(move |_| set_hover(false));
+        overlay.add_controller(motion);
 
         // Nummer im Layout-Modus (mittig, groß)
         let badge = gtk::Label::builder()
@@ -448,7 +470,16 @@ impl Pane {
         let searching = imp.search.get().is_some_and(|s| s.is_visible());
         let row_mode = crate::settings::settings().string("pane-title") == "row";
         let show = imp.multi.get() || context;
-        imp.pill.get().unwrap().set_visible(show && !row_mode && !searching);
+        let pill = imp.pill.get().unwrap();
+        pill.set_visible(show && !row_mode && !searching);
+        // Ausgeblendet nimmt er keine Klicks an, sonst lägen unsichtbare Knöpfe über dem Text
+        let revealed = imp.hover_top.get() || imp.flash.borrow().is_some();
+        pill.set_can_target(revealed);
+        if revealed {
+            pill.add_css_class("revealed");
+        } else {
+            pill.remove_css_class("revealed");
+        }
         imp.pill_label.get().unwrap().set_visible(!imp.narrow.get());
         let row = imp.row.get().unwrap();
         row.set_visible(show && row_mode);
@@ -532,13 +563,46 @@ impl Pane {
     pub fn set_state(&self, focused: bool, multi: bool) {
         let imp = self.imp();
         imp.multi.set(multi);
-        imp.focused.set(focused);
+        if imp.focused.replace(focused) != focused {
+            if focused && multi {
+                self.flash_title();
+            } else if let Some(id) = imp.flash.borrow_mut().take() {
+                id.remove();
+            }
+        }
         self.update_visibility();
         imp.dim.get().unwrap().set_visible(multi && !focused && crate::settings::dim_unfocused());
         if focused {
             self.add_css_class("focused");
         } else {
             self.remove_css_class("focused");
+        }
+    }
+}
+
+/// Höhe des Streifens oben im Bereich, in dem der Zeiger den Titel einblendet (px).
+const HOVER_STRIP: f64 = 40.0;
+/// So lange bleibt der Titel nach einem Fokuswechsel sichtbar.
+const FLASH: std::time::Duration = std::time::Duration::from_millis(1500);
+
+impl Pane {
+    /// Titel nach einem Fokuswechsel kurz zeigen – nicht, wenn der Cursor in der obersten
+    /// Zeile steht: Dort tippt man gerade, und genau die würde er verdecken.
+    fn flash_title(&self) {
+        let vte = self.terminal().vte();
+        let top = vte.vadjustment().map_or(0.0, |a| a.value());
+        if (vte.cursor_position().1 as f64 - top) < 1.0 {
+            return;
+        }
+        let weak = self.downgrade();
+        let id = glib::timeout_add_local_once(FLASH, move || {
+            if let Some(p) = weak.upgrade() {
+                p.imp().flash.borrow_mut().take();
+                p.update_visibility();
+            }
+        });
+        if let Some(old) = self.imp().flash.borrow_mut().replace(id) {
+            old.remove();
         }
     }
 }

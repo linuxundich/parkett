@@ -232,11 +232,16 @@ impl Window {
         let menu_button = gtk::MenuButton::builder()
             .icon_name("open-menu-symbolic")
             .menu_model(&main_menu)
-            .primary(true)
+            // nicht „primary“: sonst öffnet F10 das Menü, und htop/mc ließen sich nicht mehr
+            // mit F10 beenden (QA-01; GNOME Terminal schaltet F10 ebenfalls ab)
             .tooltip_text("Hauptmenü")
             .build();
         if let Some(popover) = menu_button.popover().and_downcast::<gtk::PopoverMenu>() {
             popover.add_child(&crate::style::selector(), "style");
+            self.refocus_after(&popover);
+        }
+        if let Some(popover) = new_button.popover() {
+            self.refocus_after(&popover);
         }
 
         let find_button = gtk::Button::builder()
@@ -311,6 +316,16 @@ impl Window {
             let w = weak.upgrade().expect("Fenster lebt, solange die Übersicht lebt");
             let tab = w.add_tab(w.current_tab().and_then(|t| t.inherited_cwd()));
             w.tab_view().page(&tab)
+        });
+
+        // Übersicht geschlossen (Esc oder Auswahl): Fokus ins Terminal des gewählten Reiters
+        let weak = self.downgrade();
+        overview.connect_open_notify(move |o| {
+            if let (false, Some(w)) = (o.is_open(), weak.upgrade()) {
+                if let Some(tab) = w.current_tab() {
+                    tab.focus_terminal();
+                }
+            }
         });
 
         let toasts = adw::ToastOverlay::new();
@@ -390,7 +405,7 @@ impl Window {
             return;
         }
         let toast = adw::Toast::builder()
-            .title(format!("Reiter „{title}“ geschlossen"))
+            .title(format!("Reiter „{}“ geschlossen", glib::markup_escape_text(&title)))
             .button_label("Rückgängig")
             .timeout(8)
             .build();
@@ -420,21 +435,59 @@ impl Window {
         if let Some(old) = self.imp().undo_toast.replace(Some(toast.clone())) {
             old.dismiss();
         }
+        // Nach Ablauf loslassen: Die Einblendung hält über ihre Handler den geschlossenen
+        // Reiter samt VTE-Puffer fest (QA-03).
+        let weak = self.downgrade();
+        toast.connect_dismissed(move |t| {
+            let Some(w) = weak.upgrade() else { return };
+            let mut slot = w.imp().undo_toast.borrow_mut();
+            if slot.as_ref() == Some(t) {
+                slot.take();
+            }
+        });
         self.imp().toasts.get().unwrap().add_toast(toast);
+    }
+
+    /// Nach dem Schließen eines Menüs bliebe der Fokus sonst auf dessen Knopf: Getipptes ginge
+    /// verloren, und Eingabe öffnete das Menü erneut (QA-09). Hat ein Menüpunkt einen Dialog
+    /// geöffnet, behält der den Fokus.
+    fn refocus_after(&self, popover: &impl IsA<gtk::Popover>) {
+        let weak = self.downgrade();
+        popover.connect_closed(move |_| {
+            let weak = weak.clone();
+            glib::idle_add_local_once(move || {
+                let Some(w) = weak.upgrade() else { return };
+                let in_header = gtk::prelude::GtkWindowExt::focus(&w)
+                    .is_none_or(|f| f.ancestor(adw::HeaderBar::static_type()).is_some());
+                if in_header {
+                    if let Some(tab) = w.current_tab() {
+                        tab.focus_terminal();
+                    }
+                }
+            });
+        });
+    }
+
+    /// Seite eines Reiters, falls er (noch) in diesem Fenster ist. `TabView::page` setzt das
+    /// voraus; ein geschlossener Reiter in der Rückgängig-Frist oder ein in ein anderes Fenster
+    /// gezogener meldet sich aber weiter (R-01).
+    fn page_of(&self, tab: &Tab) -> Option<adw::TabPage> {
+        let view = self.tab_view();
+        (0..view.n_pages()).map(|i| view.nth_page(i)).find(|p| p.child() == *tab.upcast_ref::<gtk::Widget>())
     }
 
     fn attach_tab(&self, tab: Tab) -> Tab {
         let page = self.tab_view().append(&tab);
-        let weak = self.downgrade();
+        // Das Fenster erst beim Aufruf bestimmen: Ein Reiter kann in ein anderes Fenster
+        // gezogen werden, und ein geschlossener (Rückgängig-Frist) hat gar keins (R-01).
+        let window_of = |tab: &Tab| tab.root().and_downcast::<Window>();
         tab.connect_changed(move |tab| {
-            if let Some(w) = weak.upgrade() {
+            if let Some(w) = window_of(tab) {
                 w.update_page(tab);
             }
         });
         // geschlossener Bereich: „Rückgängig“ anbieten, danach Prozess beenden
-        let weak = self.downgrade();
         tab.connect_pane_closed(move |tab, serial| {
-            let Some(w) = weak.upgrade() else { return };
             let toast =
                 adw::Toast::builder().title("Bereich geschlossen").button_label("Rückgängig").timeout(8).build();
             let undone = std::rc::Rc::new(std::cell::Cell::new(false));
@@ -449,13 +502,16 @@ impl Window {
                     t3.discard_closed(serial);
                 }
             });
-            w.show_undo_toast(toast);
+            match window_of(tab) {
+                Some(w) => w.show_undo_toast(toast),
+                None => tab.discard_closed(serial),
+            }
         });
-        let weak = self.downgrade();
         tab.connect_empty(move |tab| {
-            if let Some(w) = weak.upgrade() {
-                let page = w.tab_view().page(tab);
-                w.tab_view().close_page(&page);
+            if let Some(w) = window_of(tab) {
+                if let Some(page) = w.page_of(tab) {
+                    w.tab_view().close_page(&page);
+                }
             }
         });
         self.update_page(&tab);
@@ -480,9 +536,9 @@ impl Window {
         crate::session::schedule_save();
         self.update_translucency();
         let view = self.tab_view();
-        let page = view.page(tab);
+        let Some(page) = self.page_of(tab) else { return };
         page.set_title(&tab.title());
-        page.set_tooltip(&tab.cwd().map(|c| tilde(&c)).unwrap_or_default());
+        page.set_tooltip(&glib::markup_escape_text(&tab.cwd().map(|c| tilde(&c)).unwrap_or_default()));
         page.set_keyword(&tab.cwd().unwrap_or_default());
         if tab.take_attention() && view.selected_page().as_ref() != Some(&page) {
             page.set_needs_attention(true);
@@ -531,7 +587,7 @@ impl Window {
     }
 
     fn toast(&self, text: &str) {
-        self.imp().toasts.get().unwrap().add_toast(adw::Toast::new(text));
+        self.imp().toasts.get().unwrap().add_toast(plain_toast(text));
     }
 
     /// Nachfrage, wenn noch Programme laufen. `on_result(true)` bei „Schließen“, sonst `false`
@@ -876,8 +932,10 @@ impl Window {
             Some(&format!("Öffnet einen neuen Reiter mit {n} {}.", if n == 1 { "Bereich" } else { "Bereichen" })),
         );
         let list = gtk::ListBox::builder().css_classes(["boxed-list"]).selection_mode(gtk::SelectionMode::None).build();
-        let dir_row =
-            adw::ActionRow::builder().title("Verzeichnis").subtitle(tilde(&dir.borrow().to_string_lossy())).build();
+        let dir_row = adw::ActionRow::builder()
+            .title("Verzeichnis")
+            .subtitle(glib::markup_escape_text(&tilde(&dir.borrow().to_string_lossy())))
+            .build();
         let pick = gtk::Button::builder()
             .icon_name("folder-open-symbolic")
             .valign(gtk::Align::Center)
@@ -889,7 +947,12 @@ impl Window {
         let commands = t.commands();
         let run = adw::SwitchRow::builder()
             .title("Startbefehle ausführen")
-            .subtitle(if commands.is_empty() { "Keine Startbefehle".to_string() } else { commands.join(" · ") })
+            // Untertitel sind Pango-Markup: Befehle mit „&&“ oder „<“ blieben sonst unsichtbar (QA-07)
+            .subtitle(if commands.is_empty() {
+                "Keine Startbefehle".to_string()
+            } else {
+                glib::markup_escape_text(&commands.join(" · ")).to_string()
+            })
             .active(!commands.is_empty())
             .sensitive(!commands.is_empty())
             .build();
@@ -913,7 +976,7 @@ impl Window {
             let row3 = row2.clone();
             chooser.select_folder(Some(&w), gtk::gio::Cancellable::NONE, move |res| {
                 if let Some(path) = res.ok().and_then(|f| f.path()) {
-                    row3.set_subtitle(&tilde(&path.to_string_lossy()));
+                    row3.set_subtitle(&glib::markup_escape_text(&tilde(&path.to_string_lossy())));
                     *d3.borrow_mut() = path;
                 }
             });
@@ -1041,4 +1104,10 @@ fn shortcut(accel: &str, action: &str) -> gtk::Shortcut {
 
 fn tilde(path: &str) -> String {
     parkett_core::paths::tilde(path, &glib::home_dir())
+}
+
+/// Einblendung mit reinem Text: Toast-Titel sind sonst Pango-Markup, und Namen, Pfade oder
+/// Fehlermeldungen mit „&“ oder „<“ gingen verloren (QA-07).
+pub fn plain_toast(text: &str) -> adw::Toast {
+    adw::Toast::builder().title(text).use_markup(false).build()
 }

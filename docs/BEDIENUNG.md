@@ -18,7 +18,12 @@ Stand 0.2.0 (unveröffentlicht). Alle Kürzel lassen sich unter *Einstellungen �
   Programm außer der Shell, fragt Parkett nach. Danach bleibt 8 Sekunden lang
   *Rückgängig*; der Prozess läuft so lange weiter. Ein weiteres Schließen beendet das vorige
   endgültig.
-- **Reiter-Übersicht:** *Strg+Umschalt+O*; **umbenennen:** *F2*.
+- **Reiter-Übersicht:** *Strg+Umschalt+O*; **umbenennen:** Hauptmenü oder Befehlspalette (ohne
+  Standardkürzel: F2 und F10 bleiben bei den Programmen im Terminal, z. B. `htop`, `mc`, `nano`).
+- **Bereichstitel** (bei geteilten Reitern): schwebt oben rechts, ist aber normalerweise
+  ausgeblendet, damit er keine Zeile verdeckt. Er erscheint, solange der Zeiger oben im Bereich
+  steht, und 1,5 s nach einem Fokuswechsel (nicht, wenn der Cursor in der obersten Zeile steht).
+  Dauerhaft sichtbar: *Einstellungen › Allgemein › Bereichstitel: Als Zeile*.
 
 ## Befehlspalette
 
@@ -35,8 +40,13 @@ unscharfer Suche. Präfixe grenzen ein: `>` nur Aktionen, `@` nur Reiter und Ber
 | Schrift größer/kleiner/normal | *Strg++*, *Strg+-*, *Strg+0* |
 | Link öffnen | *Strg+Klick*; Rechtsklick auf einen Link bietet *Öffnen* und *Kopieren* |
 
-Mehrzeiliger Text beim Einfügen über *Strg+Umschalt+V* oder das Kontextmenü zeigt erst eine
-Vorschau (abschaltbar unter *Einstellungen › Allgemein*).
+Text mit Zeilenumbruch (auch eine einzelne Zeile mit Umbruch am Ende) zeigt beim Einfügen über
+*Strg+Umschalt+V*, *Umschalt+Einfg* oder das Kontextmenü erst eine Vorschau, weil eine Shell
+ohne „Bracketed Paste“ ihn sofort ausführen würde (abschaltbar unter *Einstellungen › Allgemein*).
+
+**Neue Terminals im aktuellen Verzeichnis** übernehmen das Verzeichnis aus der
+Shell-Integration (OSC 7). Meldet eine SSH-Sitzung den Pfad auf dem Server, nimmt Parkett
+stattdessen das lokale Verzeichnis der Shell.
 
 **Befehl fertig:** Endet ein Befehl, der mindestens 10 Sekunden lief, in einem Bereich, der
 gerade nicht zu sehen ist (anderer Reiter oder Fenster im Hintergrund), wird der Reiter

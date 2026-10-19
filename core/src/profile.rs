@@ -124,6 +124,12 @@ impl Profile {
         }
     }
 
+    /// Umgebung als eine Zeile für das Eingabefeld, so gequotet, dass ein Shell-Parser
+    /// (`g_shell_parse_argv`) dieselben Einträge zurückliefert: `A=1 B='x y'` (R-03).
+    pub fn environment_line(&self) -> String {
+        self.environment.iter().map(|e| shell_quote_entry(e)).collect::<Vec<_>>().join(" ")
+    }
+
     /// Nur gültige `NAME=wert`-Einträge.
     pub fn valid_environment(&self) -> Vec<String> {
         self.environment
@@ -131,6 +137,20 @@ impl Profile {
             .filter(|e| e.split_once('=').is_some_and(|(k, _)| !k.is_empty() && !k.contains(char::is_whitespace)))
             .cloned()
             .collect()
+    }
+}
+
+/// `NAME=wert` unverändert, wenn nichts zu quoten ist; sonst `NAME='wert'` (ein `'` im Wert
+/// wird zu `'\''`). Ohne `=` wird der ganze Eintrag gequotet.
+fn shell_quote_entry(entry: &str) -> String {
+    let plain = |s: &str| s.chars().all(|c| c.is_alphanumeric() || "_-+=.,:/@%~^".contains(c));
+    if plain(entry) {
+        return entry.to_string();
+    }
+    let quote = |s: &str| format!("'{}'", s.replace('\'', "'\\''"));
+    match entry.split_once('=') {
+        Some((name, value)) if plain(name) && !name.is_empty() => format!("{name}={}", quote(value)),
+        _ => quote(entry),
     }
 }
 
@@ -206,6 +226,24 @@ impl ProfileStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn environment_line_quotes_only_when_needed() {
+        let p = Profile {
+            environment: vec![
+                "EDITOR=vim".into(),
+                "JAVA_OPTS=-Xmx1g -Dx=1".into(),
+                "GRUSS=it's".into(),
+                "LEER=".into(),
+                "PFAD=/opt/a b:$HOME".into(),
+            ],
+            ..Profile::default()
+        };
+        assert_eq!(
+            p.environment_line(),
+            r#"EDITOR=vim JAVA_OPTS='-Xmx1g -Dx=1' GRUSS='it'\''s' LEER= PFAD='/opt/a b:$HOME'"#
+        );
+    }
 
     fn temp_dir(name: &str) -> PathBuf {
         let d = std::env::temp_dir().join(format!("parkett-test-{name}-{}", std::process::id()));

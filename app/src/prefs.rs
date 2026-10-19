@@ -93,7 +93,7 @@ fn general_page() -> adw::PreferencesPage {
     behaviour.add(&confirm);
     let paste = adw::SwitchRow::builder()
         .title("Vor mehrzeiligem Einfügen warnen")
-        .subtitle("Zeigt den Text vorher; gilt für Strg+Umschalt+V und das Kontextmenü")
+        .subtitle("Zeigt Text mit Zeilenumbruch vorher – er würde sonst sofort ausgeführt")
         .build();
     settings.bind("warn-multiline-paste", &paste, "active").build();
     behaviour.add(&paste);
@@ -155,7 +155,7 @@ fn profiles_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
                     if p.id == default { format!("{} · Standardprofil", pal.name) } else { pal.name.clone() };
                 let row = adw::ActionRow::builder()
                     .title(glib::markup_escape_text(&p.name).as_str())
-                    .subtitle(subtitle.as_str())
+                    .subtitle(glib::markup_escape_text(&subtitle).as_str())
                     .activatable(true)
                     .build();
                 row.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
@@ -185,7 +185,7 @@ fn profiles_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
         let Some(d) = weak.upgrade() else { return };
         match ProfileManager::get().create("Neues Profil") {
             Ok(p) => d.push_subpage(&profile_editor(&d, &p.id)),
-            Err(e) => d.add_toast(adw::Toast::new(&format!("Profil nicht angelegt: {e}"))),
+            Err(e) => d.add_toast(crate::window::plain_toast(&format!("Profil nicht angelegt: {e}"))),
         }
     });
     page
@@ -200,7 +200,7 @@ fn update(dialog: &adw::PreferencesDialog, id: &str, f: impl FnOnce(&mut Profile
     }
     f(&mut p);
     if let Err(e) = manager.save(&p) {
-        dialog.add_toast(adw::Toast::new(&format!("Nicht gespeichert: {e}")));
+        dialog.add_toast(crate::window::plain_toast(&format!("Nicht gespeichert: {e}")));
     }
 }
 
@@ -351,9 +351,9 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str) -> adw::NavigationP
                     } else {
                         " (nur eine Fassung, gilt für hell und dunkel)".into()
                     };
-                    d.add_toast(adw::Toast::new(&format!("„{}“ importiert{note}", pal.name)));
+                    d.add_toast(crate::window::plain_toast(&format!("„{}“ importiert{note}", pal.name)));
                 }
-                Err(e) => d.add_toast(adw::Toast::new(&format!("Import fehlgeschlagen: {e}"))),
+                Err(e) => d.add_toast(crate::window::plain_toast(&format!("Import fehlgeschlagen: {e}"))),
             }
         });
     });
@@ -475,7 +475,7 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str) -> adw::NavigationP
         adw::EntryRow::builder().title("Startverzeichnis (leer = Einstellung)").text(&profile.directory).build();
     let env = adw::EntryRow::builder()
         .title("Umgebungsvariablen (NAME=wert, mit Leerzeichen getrennt)")
-        .text(profile.environment.join(" "))
+        .text(profile.environment_line())
         .build();
     for (row, which) in [(&command, 0u8), (&directory, 1), (&env, 2)] {
         let d = dialog.downgrade();
@@ -562,7 +562,7 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str) -> adw::NavigationP
             Ok(()) => {
                 d.pop_subpage();
             }
-            Err(e) => d.add_toast(adw::Toast::new(&e)),
+            Err(e) => d.add_toast(crate::window::plain_toast(&e)),
         }
     });
     nav
@@ -788,7 +788,13 @@ fn templates_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
                 };
                 let row = adw::ActionRow::builder()
                     .title(glib::markup_escape_text(&t.name).as_str())
-                    .subtitle(format!("{n} {} · {dir}", if n == 1 { "Bereich" } else { "Bereiche" }).as_str())
+                    .subtitle(
+                        glib::markup_escape_text(&format!(
+                            "{n} {} · {dir}",
+                            if n == 1 { "Bereich" } else { "Bereiche" }
+                        ))
+                        .as_str(),
+                    )
                     .activatable(true)
                     .build();
                 row.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
@@ -799,7 +805,7 @@ fn templates_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
                     // inzwischen gelöscht (z. B. aus einem zweiten Fenster)?
                     match template_editor(&d, &id) {
                         Some(page) => d.push_subpage(&page),
-                        None => d.add_toast(adw::Toast::new("Die Vorlage gibt es nicht mehr")),
+                        None => d.add_toast(crate::window::plain_toast("Die Vorlage gibt es nicht mehr")),
                     }
                 });
                 group.add(&row);
@@ -822,7 +828,7 @@ fn update_template(dialog: &adw::PreferencesDialog, id: &str, f: impl FnOnce(&mu
     let Some(mut t) = manager.template(id) else { return };
     f(&mut t);
     if let Err(e) = manager.save_template(&t) {
-        dialog.add_toast(adw::Toast::new(&format!("Nicht gespeichert: {e}")));
+        dialog.add_toast(crate::window::plain_toast(&format!("Nicht gespeichert: {e}")));
     }
 }
 
@@ -952,7 +958,7 @@ fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::Nav
             Ok(()) => {
                 d.pop_subpage();
             }
-            Err(e) => d.add_toast(adw::Toast::new(&e)),
+            Err(e) => d.add_toast(crate::window::plain_toast(&e)),
         }
     });
 

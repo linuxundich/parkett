@@ -67,7 +67,8 @@ für das zuletzt Geschlossene.
 | C3 | Mehrzeiligen Text einfügen | 🔧 Warnung fehlte (Funktionsmatrix P0); jetzt Dialog mit Vorschau, abschaltbar |
 | K1 | Alle Standardkürzel | ✅ in Phase 4 einzeln geprüft; änderbar, Konflikte abgelehnt |
 
-Hinweis C3: Die Warnung gilt für Strg+Umschalt+V und das Kontextmenü. Umschalt+Einfg und
+Hinweis C3 (Stand 0.1.0, inzwischen geändert: Umschalt+Einfg warnt ebenfalls, siehe
+`qa/2026-10-19/QA-BERICHT.md`): Die Warnung gilt für Strg+Umschalt+V und das Kontextmenü. Umschalt+Einfg und
 Mittelklick fügen weiter ohne Rückfrage ein (VTE-intern); moderne Shells schützen dort mit
 „Bracketed Paste“.
 

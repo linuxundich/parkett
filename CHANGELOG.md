@@ -22,6 +22,37 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 - Benachrichtigung, wenn ein Befehl (ab 10 s) in einem nicht sichtbaren Bereich endet;
   Reiter wird markiert, Klick zeigt den Bereich. Braucht `vte.sh`.
 
+### Geändert
+- Bereichstitel (Design V2 aus dem QA-Audit): schwebt weiter oben rechts, ist aber
+  ausgeblendet und verdeckt keine Zeile mehr. Er erscheint, solange der Zeiger oben im
+  Bereich steht, und 1,5 s nach einem Fokuswechsel, außer der Cursor steht in der obersten
+  Zeile. Ausgeblendet nimmt er keine Klicks an.
+- *Reiter umbenennen* hat kein Standardkürzel mehr (war F2); F10 öffnet nicht mehr das
+  Hauptmenü. Beide Tasten gehören wieder den Programmen im Terminal (htop, mc, nano).
+- Rauchtest: läuft auch in der Ubuntu-26.04-VM (`VM_DOM`, `VM_PORT`), prüft F10 in `htop`
+  und Profile mit „Neu starten“ und erkennt GLib-Meldungen im Journal zuverlässig.
+
+### Behoben (QA-Audit 2026-10-19, `qa/2026-10-19/QA-BERICHT.md`)
+- Ein geschlossener Reiter mit Profil „Neu starten“ startete nach Ablauf der
+  Rückgängig-Frist sein Programm unsichtbar neu (z. B. eine ssh-Verbindung); die
+  abgelaufene Einblendung hielt den Reiter samt Verlauf im Speicher.
+- Einfüge-Warnung: Eine einzelne Zeile mit Zeilenumbruch am Ende wurde ohne Rückfrage
+  eingefügt und in Shells ohne „Bracketed Paste“ sofort ausgeführt.
+- Neue Terminals übernahmen Verzeichnisse mit Leerzeichen oder Umlauten nicht (die Sitzung
+  speicherte `%20`); ein Verzeichnis, das eine SSH-Sitzung per OSC 7 meldet, wurde als
+  lokales Startverzeichnis genommen. Jetzt dekodiert und nur vom eigenen Rechner, sonst das
+  Verzeichnis der Shell.
+- Startbefehle mit `&&`, `<` oder `>` fehlten im Dialog „Vorlage öffnen“; Namen, Pfade und
+  Fehlermeldungen in Einblendungen, Tooltips und Listen werden nicht mehr als Markup gelesen.
+- Nach Hauptmenü, Neu-Menü oder Reiter-Übersicht bleibt der Fokus nicht mehr in der
+  Kopfleiste; Getipptes landet wieder im Terminal.
+- Farbschema „One“ dunkel: Vordergrund war die Kommentarfarbe (Kontrast 2,7:1), jetzt
+  `#ABB2BF`; ein Test prüft den Kontrast aller Schemata.
+- Umgebungsvariablen im Profil: Werte mit Leerzeichen oder Anführungszeichen werden
+  gequotet angezeigt und beim Bearbeiten nicht mehr zerlegt.
+- Ein geschlossener oder in ein anderes Fenster gezogener Reiter fragte seine alte
+  Fensterseite ab (`TabView::page` ohne Seite).
+
 ## [0.1.0] - 2026-10-19
 
 Erste Version: MVP (Phase 4), Qualitätssicherung (Phase 5) und Stabilisierung (Phase 6).

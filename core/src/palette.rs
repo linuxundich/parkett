@@ -356,6 +356,22 @@ mod tests {
         assert_eq!(black.mix(&white, 0.5), Rgb { r: 128, g: 128, b: 128 });
     }
 
+    /// Text muss in jeder eingebauten Fassung lesbar sein (QA-10: „One“ dunkel hatte 2,7:1).
+    /// Grenze 4,0 statt WCAG 4,5, weil Solarized hell im Original bei 4,1:1 liegt.
+    #[test]
+    fn builtin_foreground_is_readable() {
+        let ratio = |a: &Rgb, b: &Rgb| {
+            let (x, y) = (a.luminance(), b.luminance());
+            (x.max(y) + 0.05) / (x.min(y) + 0.05)
+        };
+        for p in builtin() {
+            for (name, face) in [("hell", &p.light), ("dunkel", &p.dark)] {
+                let r = ratio(&face.foreground, &face.background);
+                assert!(r >= 4.0, "{} {name}: Vordergrund nur {r:.1}:1", p.name);
+            }
+        }
+    }
+
     #[test]
     fn all_builtin_palettes_load_with_two_variants() {
         let all = builtin();

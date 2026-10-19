@@ -28,6 +28,7 @@ Anleitung: [`docs/BEDIENUNG.md`](docs/BEDIENUNG.md).
 | [`docs/PROTOTYP.md`](docs/PROTOTYP.md) | Phase 3: Prototyp und Testprotokoll |
 | [`docs/MVP.md`](docs/MVP.md) | Phase 4: Schritte 1–7 mit Tests |
 | [`docs/QA.md`](docs/QA.md) | Phase 5: Qualitätssicherung in VM und auf dem Host |
+| [`qa/2026-10-19/QA-BERICHT.md`](qa/2026-10-19/QA-BERICHT.md) | QA-Audit in Ubuntu 26.04 mit Befunden, Maßnahmenplan und [Designvarianten](qa/2026-10-19/designvarianten.html) |
 | [`BACKLOG.md`](BACKLOG.md) | offene Punkte und Entwicklungsplan |
 
 ## Bauen und starten
@@ -64,7 +65,7 @@ Rauchtest in der VM (startet Parkett, steuert es über D-Bus, prüft Prozesse un
 build-aux/vm/smoke.sh
 ```
 
-Test in der VM `fedora44-wor` (GNOME Boxes, SSH-Port 2223): `build-aux/vm/deploy.sh` baut dort,
+Test in der VM `fedora44-wor` (GNOME Boxes, SSH-Port 2223; Ubuntu 26.04: `VM_DOM=ubuntu26.04 VM_PORT=2222`): `build-aux/vm/deploy.sh` baut dort,
 installiert nach `~/.local` und startet wie GNOME Shell; `build-aux/vm/shot.sh datei.png` macht
 ein Bildschirmfoto, `build-aux/vm/click.py X Y` klickt.
 

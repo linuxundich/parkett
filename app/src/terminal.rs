@@ -61,6 +61,8 @@ struct Inner {
     command_name: RefCell<Option<String>>,
     /// Deckkraft des Hintergrunds aus dem Profil
     opacity: Cell<f64>,
+    /// Von Parkett beendet (Schließen): kein Neustart, keine Leiste (QA-03)
+    terminated: Cell<bool>,
 }
 
 /// Ab dieser Laufzeit meldet ein Befehl sein Ende, wenn sein Bereich nicht zu sehen ist.
@@ -132,6 +134,7 @@ impl Terminal {
             command_started: Cell::new(None),
             command_name: RefCell::new(None),
             opacity: Cell::new(1.0),
+            terminated: Cell::new(false),
         }));
 
         t.setup_style();
@@ -223,11 +226,13 @@ impl Terminal {
 
     /// Arbeitsverzeichnis aus `vte.cwd` (OSC 7, setzt vte.sh in der Shell voraus).
     /// vte4-rs bindet `ref_termprop_uri` nicht; daher der eine FFI-Aufruf.
+    /// Nur Pfade dieses Rechners, dekodiert: Ein OSC 7 aus einer SSH-Sitzung nennt den Pfad
+    /// auf dem Server und darf kein lokales Startverzeichnis setzen (QA-05, QA-06).
     pub fn cwd(&self) -> Option<String> {
         let uri: Option<glib::Uri> = unsafe {
             from_glib_full(vte::ffi::vte_terminal_ref_termprop_uri(self.0.vte.to_glib_none().0, c"vte.cwd".as_ptr()))
         };
-        uri.map(|u| u.path().to_string()).filter(|p| !p.is_empty())
+        uri.and_then(|u| parkett_core::uri::local_path(u.to_str().as_str(), glib::host_name().as_str()))
     }
 
     /// Wie der Prozess geendet hat; `None`, solange er läuft.
@@ -239,6 +244,7 @@ impl Terminal {
     /// es an ihre Jobs weiter). VTE tut das auch beim Freigeben des Widgets – hier
     /// ausdrücklich, damit kein Prozess an einer übersehenen Referenz hängen bleibt.
     pub fn terminate(&self) {
+        self.0.terminated.set(true);
         if self.0.exit.get().is_none() {
             if let Some(pid) = self.0.child_pid.get() {
                 unsafe { libc::kill(pid.0, libc::SIGHUP) };
@@ -407,6 +413,7 @@ impl Terminal {
 
     /// `focus`: danach den Fokus ins Terminal (nicht beim automatischen Neustart im Hintergrund).
     fn spawn(&self, focus: bool) {
+        self.0.terminated.set(false);
         self.0.exit_bar.set_reveal_child(false);
         self.0.exit_bar.set_visible(false);
         self.0.exit.set(None);
@@ -491,6 +498,11 @@ impl Terminal {
             let t = Terminal(inner);
             let exit = decode_wait_status(status);
             t.0.exit.set(Some(exit));
+            // bewusst beendet: nicht neu starten, sonst liefe im geschlossenen Reiter
+            // unsichtbar ein neuer Prozess (QA-03, z. B. eine ssh-Verbindung)
+            if t.0.terminated.get() {
+                return;
+            }
             let action = ProfileManager::get().profile(&t.profile_id()).exit_action;
             let quick = t.0.started_at.get().is_some_and(|s| s.elapsed() < Duration::from_secs(2));
             match action {
@@ -699,7 +711,7 @@ impl Terminal {
         }
         // file:-Links nur auf diesem Rechner: Ein OSC-8-Link aus einer SSH-Sitzung nennt den
         // fremden Rechner; dort gemeint ist eine andere Datei als hier (wie gnome-terminal)
-        if scheme == "file" && !is_local_file_uri(uri) {
+        if scheme == "file" && !parkett_core::uri::is_local_file(uri, glib::host_name().as_str()) {
             glib::g_warning!("parkett", "file:-Link auf anderen Rechner nicht geöffnet: {uri}");
             if let Some(w) = self.0.vte.root().and_downcast::<gtk::Window>() {
                 let d = adw::AlertDialog::new(
@@ -890,13 +902,6 @@ impl Terminal {
     }
 }
 
-/// `file:/pfad`, `file:///pfad`, `file://localhost/…` oder `file://<eigener Rechner>/…`.
-fn is_local_file_uri(uri: &str) -> bool {
-    let Some(rest) = uri.get(5..).and_then(|r| r.strip_prefix("//")) else { return true };
-    let host = rest.split('/').next().unwrap_or("");
-    host.is_empty() || host.eq_ignore_ascii_case("localhost") || host.eq_ignore_ascii_case(glib::host_name().as_str())
-}
-
 /// Erlaubte Schemata beim Öffnen von Links – keine „javascript:“, „data:“ o. Ä.
 const SAFE_SCHEMES: &[&str] = &["http", "https", "ftp", "mailto", "file"];
 
@@ -915,20 +920,29 @@ fn paste_with_check(vte: &vte::Terminal) {
     vte.clipboard().read_text_async(gio::Cancellable::NONE, move |res| {
         let Ok(Some(text)) = res else { return };
         let text = text.to_string();
-        // Auch \r führt aus (Enter); \r\n zählt als ein Umbruch
-        let norm = text.replace("\r\n", "\n");
-        let all: Vec<&str> = norm.trim_end_matches(['\n', '\r']).split(['\n', '\r']).collect();
-        let lines = all.len();
-        if lines <= 1 || !crate::settings::settings().boolean("warn-multiline-paste") {
+        // Jeder Umbruch zählt, auch einer am Ende einer einzelnen Zeile (QA-04)
+        let check = parkett_core::paste::check(&text);
+        if !check.executes || !crate::settings::settings().boolean("warn-multiline-paste") {
             vte.paste_text(&text);
             return;
         }
-        let preview: Vec<&str> = all.iter().take(6).copied().collect();
+        let lines = check.lines.len();
+        let preview: Vec<&str> = check.lines.iter().take(6).copied().collect();
         let more = if lines > 6 { format!("\n… ({} weitere Zeilen)", lines - 6) } else { String::new() };
-        let body = format!(
-            "Der Text hat {lines} Zeilen. Unterstützt die Shell kein „Bracketed Paste“, werden sie sofort ausgeführt."
-        );
-        let dialog = adw::AlertDialog::new(Some("Mehrzeiligen Text einfügen?"), Some(&body));
+        let (heading, body) = if lines == 1 {
+            (
+                "Text mit Zeilenumbruch einfügen?",
+                "Der Text endet mit einem Zeilenumbruch. Unterstützt die Shell kein „Bracketed Paste“, wird er sofort ausgeführt.".to_string(),
+            )
+        } else {
+            (
+                "Mehrzeiligen Text einfügen?",
+                format!(
+                    "Der Text hat {lines} Zeilen. Unterstützt die Shell kein „Bracketed Paste“, werden sie sofort ausgeführt."
+                ),
+            )
+        };
+        let dialog = adw::AlertDialog::new(Some(heading), Some(&body));
         let label = gtk::Label::builder()
             .label(format!("{}{more}", preview.join("\n")))
             .xalign(0.0)

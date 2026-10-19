@@ -35,7 +35,8 @@ pub const ENTRIES: &[Entry] = &[
     e("win.close-tab", "Reiter und Fenster", "Reiter schließen", &["<Control><Shift>q"]),
     e("win.next-tab", "Reiter und Fenster", "Nächster Reiter", &["<Control>Page_Down"]),
     e("win.prev-tab", "Reiter und Fenster", "Vorheriger Reiter", &["<Control>Page_Up"]),
-    e("win.rename-tab", "Reiter und Fenster", "Reiter umbenennen", &["F2"]),
+    // ohne Standard: F2 brauchen htop, mc und nano selbst (QA-01)
+    e("win.rename-tab", "Reiter und Fenster", "Reiter umbenennen", &[]),
     e("win.overview", "Reiter und Fenster", "Reiter-Übersicht", &["<Control><Shift>o"]),
     e("app.new-window", "Reiter und Fenster", "Neues Fenster", &["<Control><Shift>n"]),
     e("win.palette", "Reiter und Fenster", "Befehlspalette", &["<Control><Shift>p"]),

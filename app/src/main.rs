@@ -36,7 +36,9 @@ vte-terminal { padding: 6px 8px; }
   box-shadow: 0 0 0 1px var(--border-color), 0 1px 3px rgb(0 0 6 / 10%);
 }
 .parkett-pill button { min-width: 22px; min-height: 22px; padding: 0; }
-parkett-pane:not(.focused) .parkett-pill { opacity: 0.75; }
+.parkett-pill { opacity: 0; transition: opacity 150ms ease-out; }
+.parkett-pill.revealed { opacity: 1; }
+parkett-pane:not(.focused) .parkett-pill.revealed { opacity: 0.85; }
 paned > separator { background: var(--border-color); }
 window.parkett-translucent { background-color: transparent; }
 window.parkett-translucent toolbarview > .top-bar { background-color: var(--headerbar-bg-color); }

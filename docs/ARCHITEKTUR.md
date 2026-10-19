@@ -28,6 +28,8 @@ libadwaita 0.9 (`v1_8`), vte4 0.10 (`v0_80`), libc. Keine weiteren Pakete
 | `cli` | Befehlszeile auswerten (eigener Parser: alles nach `--` ist der Befehl) |
 | `session` | Sitzung als JSON, Reiter im Vorlagenformat (Verzeichnis `/`, absolute Pfade als Unterverzeichnis, keine Befehle) |
 | `paths` | `~` auflösen und anzeigen, Unterverzeichnisse von Vorlagen sicher anhängen |
+| `uri` | `file:`-URIs (OSC 7, OSC 8): lokaler Rechner?, Pfad mit aufgelöster Prozent-Kodierung |
+| `paste` | Einfüge-Prüfung: Zeilen und ob der Text einen Umbruch enthält (würde ausgeführt) |
 
 ### app/
 
@@ -36,7 +38,7 @@ libadwaita 0.9 (`v1_8`), vte4 0.10 (`v0_80`), libc. Keine weiteren Pakete
 | `main` | Anwendung, CSS, App-Aktionen, Kürzel-Übersicht |
 | `window` | `ParkettWindow` (AdwApplicationWindow): Kopfleiste mit Teilen-Knöpfen und Stilwahl, AdwTabBar/AdwTabOverview, Befehlspalette, Layout-Modus, Vorlagen-Dialoge, Rückgängig-Einblendungen |
 | `tab` | `ParkettTab`: hält `Layout` und die Bereichs-Widgets; `rebuild()` erzeugt den GtkPaned-Baum aus dem Modell |
-| `pane` | `ParkettPane`: Terminal plus schwebender Titel bzw. Titelzeile, Fokuslinie, Kontextlinie, Abblendung, Suchleiste |
+| `pane` | `ParkettPane`: Terminal plus schwebender Titel (ausgeblendet; Zeiger oben oder kurz nach Fokuswechsel) bzw. Titelzeile, Fokuslinie, Kontextlinie, Abblendung, Suchleiste |
 | `terminal` | VTE-Widget, Start des Prozesses, Leiste „Prozess beendet“, Links, Suche, Einfüge-Warnung, Vordergrundprozess, Kontexterkennung |
 | `profiles` | `ProfileManager` (GObject, Signal `changed`): Profile, Paletten, Vorlagen für die ganze App |
 | `prefs` | Einstellungen: Allgemein, Profile (Farbschema-Kacheln mit Live-Vorschau), Vorlagen, Kürzel |
@@ -91,10 +93,10 @@ Paletten ──┘     (Signal changed) └─> prefs│                └─ L
 
 | Ebene | Wie | Wo |
 |---|---|---|
-| Kern | 51 Unit-Tests, dazu 2 Tests für die Beispiele in `docs/BEDIENUNG.md` | `cargo test` |
+| Kern | 61 Unit-Tests (u. a. Kontrast aller Farbschemata), dazu 2 Tests für die Beispiele in `docs/BEDIENUNG.md`; 1 Test in der App | `cargo test` |
 | Daten | .desktop, Metainfo, Schema | `meson test` |
 | Alles ohne Fenster | fmt, clippy, Tests, Meson-Build | `build-aux/ci.sh` |
-| Oberfläche | Rauchtest in der VM über D-Bus-Aktionen: Teilen, Reiter, Schließen, Fristablauf, keine verwaisten Shells, Sitzung wiederhergestellt, Protokoll ohne Fehler | `build-aux/vm/smoke.sh` |
+| Oberfläche | Rauchtest in der VM über D-Bus-Aktionen und Tasten: Teilen, Reiter, Schließen, Fristablauf, F10 in `htop`, kein Neustart geschlossener Reiter, keine verwaisten Shells, Sitzung wiederhergestellt, Journal ohne GLib-Meldungen (Fedora 44 oder `VM_DOM=ubuntu26.04 VM_PORT=2222`) | `build-aux/vm/smoke.sh` |
 | Leistung | Durchsatz, Speicher/CPU | `build-aux/qa/` |
 
 Die Oberfläche hat keine Unit-Tests: GTK-Widgets brauchen eine Anzeige. Was sich ohne GTK

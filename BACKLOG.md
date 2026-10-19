@@ -44,6 +44,29 @@
 - [x] Entscheidung Veröffentlichung (2026-10-19): Tag v0.1.0, vorerst nur lokal; einziger Weg ist das Arch-Repo auf bender
 - [ ] Später: öffentliches Repo (GitHub, dann Englisch), AUR, COPR
 
+## QA-Audit 2026-10-19 (`qa/2026-10-19/QA-BERICHT.md`)
+- [x] QA-01 F2/F10 gehören wieder den Programmen im Terminal
+- [x] QA-02 Bereichstitel verdeckt Text → Design V2 (ausgeblendet, Hover/Fokuswechsel)
+- [x] QA-03 kein Neustart geschlossener Reiter, Einblendung loslassen; R-01 Seitenabfrage
+- [x] QA-04 Einfüge-Warnung bei jedem Zeilenumbruch
+- [x] QA-05/06 OSC 7 dekodieren, nur eigener Rechner
+- [x] QA-07 Markup maskieren; QA-09 Fokus nach Menüs
+- [x] QA-10 Palette One; R-03 Umgebungsfeld quoten; R-02 Rauchtest-Protokoll
+- [ ] QA-08 Umgebung eines zweiten Aufrufs (`FOO=1 parkett --tab`) übernehmen
+- [ ] QA-11 Prozessende-Standard (schließen bei Code 0? neutrale Leiste) – Entscheidung
+- [ ] QA-12 Tooltips aus aktueller Kürzelbelegung
+- [ ] QA-13 Kopfleiste unter 600 px (AdwBreakpoint)
+- [ ] QA-14 blinkender Text nur bei Fokus
+- [ ] QA-15 Fehlerdialog in Festbreitenschrift, Einblendung ohne Zeitablauf
+- [ ] QA-16 Profil-Editor ohne Fokus im Namensfeld
+- [ ] QA-17 kurze Reiter-Beschriftung „Programm · Ordner“ (Entscheidung)
+- [ ] QA-18 Screenreader-Namen (Übersicht, Kürzel nicht im Namen)
+- [ ] QA-19 Trefferzahl in der Suche (optional)
+- [ ] QA-20 Cursor nach Umbruch: gegen Ptyxis prüfen
+- [ ] R-04 `file:///`-Links aus SSH-Sitzungen; R-05 bis R-12 aus dem Bericht
+- [ ] „Hoher Kontrast“ hell: Farben unter 3:1 nachschärfen; `cargo audit` in CI
+- [ ] Hauptmenü um Palette, Layout-Modus, Vorlagen ergänzen
+
 ## Entwicklungsplan
 
 Reihenfolge als Vorschlag; jede Stufe endet mit Test in VM und auf dem Host und einem Paket.
@@ -76,7 +99,7 @@ Reihenfolge als Vorschlag; jede Stufe endet mit Test in VM und auf dem Host und 
 
 ### 0.4 – Verbreitung
 - [ ] Englische Oberfläche (gettext), dann Übersetzungen
-- [ ] Debian/Ubuntu: in den VMs `ubuntu26.04` und `tuxedo-os-forky` prüfen, ggf. libadwaita 1.7
+- [ ] Debian/Ubuntu: Ubuntu 26.04 baut und läuft unverändert (QA 2026-10-19); `tuxedo-os-forky` und ein .deb offen
 - [ ] AUR und Fedora COPR aus dem öffentlichen Repo
 
 ### Später

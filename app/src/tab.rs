@@ -358,7 +358,8 @@ impl Tab {
     /// Startverzeichnis für ein neues Terminal nach Einstellung „new-terminal-directory“.
     pub fn inherited_cwd(&self) -> Option<String> {
         if crate::settings::inherit_directory() {
-            self.cwd()
+            // ohne lokales OSC 7 (z. B. SSH-Sitzung) das Verzeichnis des Shell-Prozesses
+            self.focused_pane().terminal().working_directory()
         } else {
             None
         }
