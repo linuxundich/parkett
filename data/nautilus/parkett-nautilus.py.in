@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Parkett im Kontextmenü von Nautilus (nautilus-python).
+
+Nautilus 51 verdrahtet „In Konsole öffnen“ fest mit GNOME Console; andere Terminals kommen
+nur über eine Erweiterung ins Menü. Öffnet ein neues Parkett-Fenster, bei mehreren Ordnern
+mit je einem Reiter.
+"""
+
+from gi.repository import GObject, Gio, Nautilus
+
+PARKETT = "@BINDIR@/parkett"
+
+
+def _local_dirs(files):
+    """Pfade der markierten Ordner; Ordner ohne lokalen Pfad (z. B. ohne GVfs-FUSE) fehlen."""
+    out = []
+    for f in files:
+        if not f.is_directory():
+            continue
+        path = f.get_location().get_path()
+        if path:
+            out.append(path)
+    return out
+
+
+def _run(paths):
+    """Ein Aufruf: ein Fenster mit je einem Reiter pro Ordner (`-d` mehrfach). Asynchron,
+    damit Nautilus nicht wartet; das Ergebnis nur abholen, damit kein Zombie bleibt."""
+    args = [PARKETT]
+    for path in paths:
+        args += ["--working-directory", path]
+    try:
+        proc = Gio.Subprocess.new(args, Gio.SubprocessFlags.NONE)
+    except Exception as e:  # Parkett deinstalliert, Erweiterung noch da
+        print(f"parkett-nautilus: {e}")
+        return
+    proc.wait_async(None, lambda p, r: p.wait_finish(r))
+
+
+class ParkettExtension(GObject.GObject, Nautilus.MenuProvider):
+    def get_file_items(self, files):
+        paths = _local_dirs(files)
+        if not paths:
+            return []
+        item = Nautilus.MenuItem(
+            name="Parkett::open_folders",
+            label="In Parkett öffnen",
+            tip="Ordner in Parkett öffnen; mehrere Ordner als Reiter",
+        )
+        item.connect("activate", lambda _item: _run(paths))
+        return [item]
+
+    def get_background_items(self, current_folder):
+        paths = _local_dirs([current_folder])
+        if not paths:
+            return []
+        item = Nautilus.MenuItem(
+            name="Parkett::open_here",
+            label="Parkett hier öffnen",
+            tip="Diesen Ordner in Parkett öffnen",
+        )
+        item.connect("activate", lambda _item: _run(paths))
+        return [item]

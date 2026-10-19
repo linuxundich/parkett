@@ -15,6 +15,11 @@ Stand 2026-10-19. Mindestversionen laut `meson.build`: GTK ≥ 4.18, libadwaita 
 | **Flatpak** | – | **hoch** | siehe unten |
 | AppImage, Snap | – | – | **V** nicht verfolgen: Terminal braucht Host-Zugriff und Systemintegration |
 
+**Nautilus-Erweiterung:** `share/nautilus-python/extensions/parkett-nautilus.py`, wirkt nur mit
+`nautilus-python` (Arch: optionale Abhängigkeit im PKGBUILD). Mit dem Pfad zu `parkett` aus
+Meson (`@BINDIR@`); in einem Flatpak müsste sie `flatpak run` aufrufen und läge außerhalb
+der Sandbox.
+
 ## Flatpak im Detail
 
 **F** Parkett nutzt heute direkt den Host: Es startet die Shell per `vte_terminal_spawn_async`

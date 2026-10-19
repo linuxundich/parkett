@@ -154,23 +154,24 @@ fn open(app: &adw::Application, cmdline: &gio::ApplicationCommandLine, cli: park
     if first && cli.is_plain() && !cli.tab && session::restore(app) {
         return glib::ExitCode::SUCCESS;
     }
-    // Verzeichnis: Vorgabe (relativ zum Aufrufer, ~ aufgelöst), sonst das des Aufrufers
+    // Verzeichnisse: Vorgaben (relativ zum Aufrufer, ~ aufgelöst), sonst das des Aufrufers
     let caller = cmdline.cwd();
-    let cwd = match &cli.working_directory {
-        Some(d) => {
-            let p = parkett_core::paths::expand_home(d, &glib::home_dir());
-            let p = match &caller {
-                Some(base) if p.is_relative() => base.join(p),
-                _ => p,
-            };
-            if !p.is_dir() {
-                cmdline.printerr_literal(&format!("parkett: Verzeichnis „{}“ gibt es nicht\n", p.display()));
-                return glib::ExitCode::FAILURE;
-            }
-            p.to_str().map(String::from)
+    let mut dirs: Vec<Option<String>> = Vec::new();
+    for d in &cli.working_directories {
+        let p = parkett_core::paths::expand_home(d, &glib::home_dir());
+        let p = match &caller {
+            Some(base) if p.is_relative() => base.join(p),
+            _ => p,
+        };
+        if !p.is_dir() {
+            cmdline.printerr_literal(&format!("parkett: Verzeichnis „{}“ gibt es nicht\n", p.display()));
+            return glib::ExitCode::FAILURE;
         }
-        None => caller.and_then(|p| p.to_str().map(String::from)),
-    };
+        dirs.push(p.to_str().map(String::from));
+    }
+    if dirs.is_empty() {
+        dirs.push(caller.and_then(|p| p.to_str().map(String::from)));
+    }
     let manager = profiles::ProfileManager::get();
     let profile = match &cli.profile {
         Some(id) if manager.ensure_profile(id) => id.clone(),
@@ -182,7 +183,15 @@ fn open(app: &adw::Application, cmdline: &gio::ApplicationCommandLine, cli: park
     };
     let target = if cli.tab { app.active_window().and_downcast::<window::Window>() } else { None };
     let win = target.unwrap_or_else(|| window::Window::empty(app));
-    win.add_tab_with(cwd, &profile, cli.command, cli.title);
+    // ein Reiter je Verzeichnis (Nautilus: mehrere Ordner markiert), der erste bleibt gewählt
+    let mut first_tab = None;
+    for cwd in dirs {
+        let tab = win.add_tab_with(cwd, &profile, cli.command.clone(), cli.title.clone());
+        first_tab.get_or_insert(tab);
+    }
+    if let Some(tab) = first_tab {
+        win.select(&tab);
+    }
     win.present();
     glib::ExitCode::SUCCESS
 }

@@ -11,6 +11,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 - Befehlszeile: `-d/--working-directory`, `-e/-x/--` (Befehl statt Shell), `-p/--profile`,
   `-t/--title`, `--tab`, `--help`, `--version`; Schlüssel für `xdg-terminal-exec` in der
   `.desktop`-Datei. Unbekannte Profile werden vorher neu von der Platte gelesen.
+- Nautilus: „In Parkett öffnen“ (markierte Ordner, mehrere = Reiter) und „Parkett hier
+  öffnen“ per nautilus-python-Erweiterung (`share/nautilus-python/extensions`).
+- Befehlszeile: `-d` mehrfach = ein Reiter je Verzeichnis.
 - Profil: Schrift, Cursorform, Blinken, Glocke (Ton und Reiter markieren, nur markieren, aus).
 - Transparenter Hintergrund: Deckkraft je Profil (30–100 %), Kopfleiste bleibt deckend.
 - Sixel-Grafiken (Einstellung, Standard an); wirkt nur mit einer VTE, die mit Sixel gebaut

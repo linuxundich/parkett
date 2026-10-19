@@ -51,6 +51,7 @@ Reihenfolge als Vorschlag; jede Stufe endet mit Test in VM und auf dem Host und 
 ### 0.2 – Lücken aus dem Alltag
 - [x] Schrift, Cursorform, Blinken und Glocke je Profil (2026-10-19)
 - [x] Transparenter Hintergrund (Deckkraft je Profil) (2026-10-19)
+- [x] Nautilus-Kontextmenü per nautilus-python (2026-10-19)
 - [x] Sixel-Schalter, nur aktiv mit VTE mit Sixel (2026-10-19)
 - [ ] Sixel mit einer VTE testen, die mit Sixel-Unterstützung gebaut ist (Arch und Fedora 44 bauen ohne)
 - [ ] Hoher Kontrast: Farbschema „Hoher Kontrast“ automatisch verwenden

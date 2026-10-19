@@ -755,6 +755,11 @@ impl Window {
         false
     }
 
+    pub fn select(&self, tab: &Tab) {
+        let view = self.tab_view();
+        view.set_selected_page(&view.page(tab));
+    }
+
     pub fn select_tab(&self, index: usize) {
         let view = self.tab_view();
         if (index as i32) < view.n_pages() {

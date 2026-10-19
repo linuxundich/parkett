@@ -2,6 +2,7 @@
 """Mausklick in der Test-VM per QMP (absolute Koordinaten in Bildschirmpixeln).
 click.py X Y [BREITE HÖHE]   -> Linksklick; ohne Angabe gilt die aktuelle Auflösung der VM
 CLICKS=2 click.py X Y        -> Doppelklick
+BUTTON=right click.py X Y    -> Rechtsklick (auch middle)
 """
 import json, subprocess, sys, time
 DOM = "fedora44-wor"
@@ -24,5 +25,5 @@ time.sleep(0.1)
 import os
 for _ in range(int(os.environ.get("CLICKS", "1"))):
     for down in (True, False):
-        qmp([{"type": "btn", "data": {"down": down, "button": "left"}}])
+        qmp([{"type": "btn", "data": {"down": down, "button": os.environ.get("BUTTON", "left")}}])
         time.sleep(0.04)

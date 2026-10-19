@@ -56,7 +56,7 @@ Rechnername bzw. „root“ erscheint. Abschaltbar unter *Einstellungen › Allg
 
 ```text
 parkett [OPTIONEN] [-- BEFEHL [ARGUMENTE …]]
-  -d, --working-directory=DIR   Startverzeichnis
+  -d, --working-directory=DIR   Startverzeichnis; mehrfach = ein Reiter je Verzeichnis
   -e, -x, --                    Rest der Zeile statt der Shell ausführen
   -p, --profile=ID              Profil (Dateiname ohne .toml)
   -t, --title=TITEL             Titel des Reiters
@@ -67,6 +67,15 @@ Beispiele: `parkett -d ~/src --tab` öffnet einen Reiter in `~/src`, `parkett -t
 journalctl -f` ein Fenster mit laufendem `journalctl`. Läuft Parkett schon, übernimmt die
 laufende Instanz den Aufruf. Die `.desktop`-Datei nennt die Optionen für
 `xdg-terminal-exec` (`X-TerminalArgExec`, `X-TerminalArgDir`, `X-TerminalArgTitle`).
+
+## Nautilus
+
+Mit `nautilus-python` (Arch: Paket `nautilus-python`, Fedora: `nautilus-python`) bringt
+Parkett zwei Einträge ins Kontextmenü von Nautilus: *In Parkett öffnen* für markierte Ordner
+(mehrere Ordner = ein Fenster mit je einem Reiter) und *Parkett hier öffnen* im Menü des
+aktuellen Ordners bzw. auf freier Fläche. Nach der Installation einmal Nautilus beenden
+(`nautilus -q`), damit es die Erweiterung lädt. Das eingebaute *In Konsole öffnen* (Strg+.)
+ist in Nautilus fest mit GNOME Console verbunden und lässt sich nicht umbiegen.
 
 ## Sitzung
 

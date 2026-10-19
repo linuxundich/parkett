@@ -197,3 +197,15 @@ Nicht geprüft: Glocke mit Ton (nicht hörbar prüfbar), Aufruf über `xdg-termi
 | Sixel-Schalter | AT-SPI in den Einstellungen | ✅ ausgegraut, Untertitel „Die installierte VTE-Bibliothek ist ohne Sixel gebaut“ |
 | Sixel-Ausgabe | – | ⏭️ nicht ausführbar: keine VTE mit Sixel vorhanden |
 | Rauchtest, CI | `build-aux/vm/smoke.sh`, `build-aux/ci.sh` | ✅ 10/10, grün |
+
+## Nautilus (2026-10-19, VM Fedora 44, Nautilus 50.4, nautilus-python 4.1.0)
+
+| Test | Ergebnis |
+|---|---|
+| Menü des Ordners `/usr/share` zeigt *Parkett hier öffnen*; Klick bei nicht laufendem Parkett | ✅ eine Shell in `/usr/share`, keine Sitzung dazu |
+| zwei Ordner markiert, Rechtsklick → *In Parkett öffnen* | ✅ neues Fenster mit Reitern `abrt` und `accountsservice`, erster gewählt; 🔧 zuerst als Kette von `--tab`-Aufrufen geplant – das neue Fenster bekommt unter Mutter nicht sicher den Fokus, daher jetzt ein Aufruf mit mehreren `-d` |
+| Kindprozesse von Nautilus danach | ✅ keine (kein Zombie) |
+| Syntax der Erweiterung | ✅ Meson-Test `compile-nautilus-extension` |
+
+Nicht geprüft: Nautilus 51 auf dem Host (Erweiterung kommt mit dem Paket; Nautilus läuft dort
+mit offenen Fenstern und wurde für den Test nicht neu gestartet).
