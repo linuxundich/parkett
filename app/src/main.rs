@@ -40,6 +40,7 @@ parkett-pane:not(.focused) .parkett-pill { opacity: 0.75; }
 paned > separator { background: var(--border-color); }
 window.parkett-translucent { background-color: transparent; }
 window.parkett-translucent toolbarview > .top-bar { background-color: var(--headerbar-bg-color); }
+window.parkett-translucent paned > separator { background: color-mix(in srgb, var(--window-fg-color) 18%, var(--window-bg-color)); }
 .parkett-tile-preview { border-radius: 8px; box-shadow: 0 0 0 1px var(--border-color); }
 .parkett-schemes > flowboxchild { border-radius: 12px; padding: 6px; }
 .parkett-schemes > flowboxchild:selected { background: color-mix(in srgb, var(--accent-bg-color) 18%, transparent); box-shadow: inset 0 0 0 2px var(--accent-bg-color); }

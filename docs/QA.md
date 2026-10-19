@@ -192,6 +192,7 @@ Nicht geprüft: Glocke mit Ton (nicht hörbar prüfbar), Aufruf über `xdg-termi
 | Funktion | Test | Ergebnis |
 |---|---|---|
 | Transparenz | Profil `opacity = 0.7`, Fenster vor anderem Fenster | ✅ Terminalfläche scheint durch; 🔧 Kopfleiste war mit durchsichtig (libadwaita nutzt den Fensterhintergrund) → eigener Hintergrund für die obere Leiste |
+| Trenner bei Transparenz | Rückmeldung Christoph (Host): Trenner als helle Linie über hellem Fenster dahinter | 🔧 `--border-color` ist halbtransparent → deckende Farbe aus Fenster-Vorder- und Hintergrund; VM hell und dunkel: Trennerpixel gleich über Nautilus und Desktop ✅ |
 | Transparenz geteilt | *Unten teilen* im Glas-Fenster | ✅; abgeblendete Bereiche wirken etwas deckender (Abblendung malt die Hintergrundfarbe darüber) |
 | Sixel verfügbar? | `Vte.get_feature_flags()` auf Host und VM | Host (Arch, `vte4` 0.84.1) und VM (Fedora 44, `vte291-gtk4` 0.84.1): 7 = BIDI, ICU, SYSTEMD, **ohne Sixel** |
 | Sixel-Schalter | AT-SPI in den Einstellungen | ✅ ausgegraut, Untertitel „Die installierte VTE-Bibliothek ist ohne Sixel gebaut“ |

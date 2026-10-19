@@ -15,7 +15,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
   öffnen“ per nautilus-python-Erweiterung (`share/nautilus-python/extensions`).
 - Befehlszeile: `-d` mehrfach = ein Reiter je Verzeichnis.
 - Profil: Schrift, Cursorform, Blinken, Glocke (Ton und Reiter markieren, nur markieren, aus).
-- Transparenter Hintergrund: Deckkraft je Profil (30–100 %), Kopfleiste bleibt deckend.
+- Transparenter Hintergrund: Deckkraft je Profil (30–100 %), Kopfleiste und Trenner bleiben
+  deckend (der Trenner war halbtransparent und zeigte als helle Linie das Fenster dahinter).
 - Sixel-Grafiken (Einstellung, Standard an); wirkt nur mit einer VTE, die mit Sixel gebaut
   ist – Arch und Fedora 44 sind es derzeit nicht, dann ist der Schalter ausgegraut.
 - Benachrichtigung, wenn ein Befehl (ab 10 s) in einem nicht sichtbaren Bereich endet;
