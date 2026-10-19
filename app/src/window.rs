@@ -463,8 +463,22 @@ impl Window {
         tab
     }
 
+    /// Fensterhintergrund durchsichtig, sobald ein Terminal mit Deckkraft unter 100 % darin
+    /// ist – sonst schiene statt des Desktops nur die Fensterfarbe durch.
+    fn update_translucency(&self) {
+        let any = self.tabs().iter().any(Tab::is_translucent);
+        if any != self.has_css_class("parkett-translucent") {
+            if any {
+                self.add_css_class("parkett-translucent");
+            } else {
+                self.remove_css_class("parkett-translucent");
+            }
+        }
+    }
+
     fn update_page(&self, tab: &Tab) {
         crate::session::schedule_save();
+        self.update_translucency();
         let view = self.tab_view();
         let page = view.page(tab);
         page.set_title(&tab.title());

@@ -11,7 +11,7 @@ Einzeltasten), Befehlspalette, Vorlagen mit Startbefehlen, Profile, 14 Farbschem
 heller und dunkler Fassung (Import von Ptyxis und Tilix), Kontextfarbe für root und SSH,
 Rückgängig beim Schließen, Suche, Links, änderbare Kürzel, Hell/Dunkel von Hand,
 Sitzung beim Start wiederherstellen, Befehlszeile (`parkett -d DIR -- befehl`), Schrift,
-Cursor und Glocke je Profil, Benachrichtigung, wenn ein langer Befehl im Hintergrund endet.
+Cursor, Glocke und Deckkraft (transparenter Hintergrund) je Profil, Sixel-Grafiken (wo VTE sie kann), Benachrichtigung, wenn ein langer Befehl im Hintergrund endet.
 Anleitung: [`docs/BEDIENUNG.md`](docs/BEDIENUNG.md).
 
 ## Dokumentation

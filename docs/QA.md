@@ -186,3 +186,14 @@ Formatierung, Clippy ohne Warnungen, 45 Tests, Meson-Tests grün.
 
 Nicht geprüft: Glocke mit Ton (nicht hörbar prüfbar), Aufruf über `xdg-terminal-exec`
 (weder in der VM noch auf dem Host installiert), Host (Arch).
+
+## Transparenz und Sixel (2026-10-19, VM)
+
+| Funktion | Test | Ergebnis |
+|---|---|---|
+| Transparenz | Profil `opacity = 0.7`, Fenster vor anderem Fenster | ✅ Terminalfläche scheint durch; 🔧 Kopfleiste war mit durchsichtig (libadwaita nutzt den Fensterhintergrund) → eigener Hintergrund für die obere Leiste |
+| Transparenz geteilt | *Unten teilen* im Glas-Fenster | ✅; abgeblendete Bereiche wirken etwas deckender (Abblendung malt die Hintergrundfarbe darüber) |
+| Sixel verfügbar? | `Vte.get_feature_flags()` auf Host und VM | Host (Arch, `vte4` 0.84.1) und VM (Fedora 44, `vte291-gtk4` 0.84.1): 7 = BIDI, ICU, SYSTEMD, **ohne Sixel** |
+| Sixel-Schalter | AT-SPI in den Einstellungen | ✅ ausgegraut, Untertitel „Die installierte VTE-Bibliothek ist ohne Sixel gebaut“ |
+| Sixel-Ausgabe | – | ⏭️ nicht ausführbar: keine VTE mit Sixel vorhanden |
+| Rauchtest, CI | `build-aux/vm/smoke.sh`, `build-aux/ci.sh` | ✅ 10/10, grün |

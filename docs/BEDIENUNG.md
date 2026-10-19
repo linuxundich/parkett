@@ -44,6 +44,10 @@ markiert und eine Benachrichtigung erscheint; ein Klick darauf zeigt den Bereich
 die Shell-Integration von VTE (`vte.sh`, bei Fedora und Arch für bash und zsh dabei);
 abschaltbar unter *Einstellungen › Allgemein*.
 
+**Sixel-Grafiken:** Programme wie `img2sixel` oder `chafa -f sixel` zeigen Bilder direkt im
+Terminal, wenn die installierte VTE-Bibliothek mit Sixel-Unterstützung gebaut ist. Arch (`vte4` 0.84.1) und Fedora 44 (`vte291-gtk4` 0.84.1) bauen sie derzeit
+ohne; dann ist der Schalter unter *Einstellungen › Allgemein* ausgegraut und nennt den Grund.
+
 **Kontextfarbe:** Läuft im Bereich `ssh`/`mosh` oder ein Programm als root (`sudo`, `su`,
 `doas`, `run0`, `pkexec`), färbt sich der Hintergrund leicht und eine farbige Linie mit
 Rechnername bzw. „root“ erscheint. Abschaltbar unter *Einstellungen › Allgemein*.
@@ -83,7 +87,9 @@ wechseln mit.
 ## Profile
 
 *Einstellungen › Profile*: Farbschema (Kacheln mit Vorschau, wirkt sofort auf offene
-Terminals), Schrift (sonst die Festbreitenschrift des Systems), Cursorform, Blinken, Glocke
+Terminals), Deckkraft des Hintergrunds (30–100 %; darunter scheint der Desktop durch, die
+Kopfleiste bleibt deckend), Schrift (sonst die Festbreitenschrift des Systems), Cursorform,
+Blinken, Glocke
 (Ton und Reiter markieren, nur markieren, aus), Befehl statt Shell, Login-Shell, Startverzeichnis, Umgebungsvariablen, Verhalten
 beim Prozessende. Neue Reiter mit anderem Profil: Pfeil neben *Neuer Reiter*.
 
@@ -101,6 +107,7 @@ font = "JetBrains Mono 11" # leer = Systemschrift
 cursor_shape = "ibeam"   # block | ibeam | underline
 cursor_blink = "system"  # system | on | off
 bell = "mark"            # sound | mark | none
+opacity = 0.9            # 0.3–1.0
 ```
 
 ## Farbschemata

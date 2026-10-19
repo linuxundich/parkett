@@ -59,6 +59,8 @@ struct Inner {
     command_started: Cell<Option<Instant>>,
     /// Name des laufenden Befehls, sekündlich gemerkt (für die Benachrichtigung)
     command_name: RefCell<Option<String>>,
+    /// Deckkraft des Hintergrunds aus dem Profil
+    opacity: Cell<f64>,
 }
 
 /// Ab dieser Laufzeit meldet ein Befehl sein Ende, wenn sein Bereich nicht zu sehen ist.
@@ -129,6 +131,7 @@ impl Terminal {
             uid: NEXT_UID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             command_started: Cell::new(None),
             command_name: RefCell::new(None),
+            opacity: Cell::new(1.0),
         }));
 
         t.setup_style();
@@ -182,6 +185,11 @@ impl Terminal {
     }
 
     /// Hintergrundfarbe der aktiven Fassung (für die Abblendung im Bereich).
+    /// Hintergrund nicht voll deckend (Profil „Deckkraft“ unter 100 %).
+    pub fn is_translucent(&self) -> bool {
+        self.0.opacity.get() < 1.0
+    }
+
     pub fn background(&self) -> Rgb {
         self.0.background.get()
     }
@@ -571,7 +579,13 @@ impl Terminal {
         };
         self.0.accent.set(accent);
         let vte = &self.0.vte;
-        vte.set_colors(Some(&rgba(&face.foreground)), Some(&rgba(&background)), &refs);
+        // Transparenz: nur der Hintergrund bekommt Alpha; das Fenster dahinter wird dafür
+        // durchsichtig geschaltet (Window::update_translucency)
+        let opacity = manager.profile(&self.profile_id()).opacity();
+        let mut bg = rgba(&background);
+        bg.set_alpha(opacity as f32);
+        vte.set_colors(Some(&rgba(&face.foreground)), Some(&bg), &refs);
+        self.0.opacity.set(opacity);
         vte.set_color_cursor(face.cursor.as_ref().map(rgba).as_ref());
         vte.set_color_cursor_foreground(face.cursor_foreground.as_ref().map(rgba).as_ref());
         // Schrift, Cursor und Glocke aus dem Profil
@@ -589,10 +603,13 @@ impl Terminal {
             CursorBlink::Off => vte::CursorBlinkMode::Off,
         });
         vte.set_audible_bell(profile.bell == Bell::Sound);
+        vte.set_enable_sixel(sixel_supported() && crate::settings::settings().boolean("enable-sixel"));
         self.0.background.set(background);
         for f in self.0.on_colors_changed.borrow().iter() {
             f();
         }
+        // Fenster prüft Durchsichtigkeit, Reiter ihre Anzeige
+        self.emit_state_changed();
     }
 
     fn setup_links(&self) {
@@ -752,9 +769,12 @@ impl Terminal {
                 vte.set_scrollback_lines(crate::settings::scrollback_lines());
             }
         });
-        // Kontextfarbe ein/aus sofort übernehmen
+        // Kontextfarbe und Sixel ein/aus sofort übernehmen
         let weak = Rc::downgrade(&self.0);
-        let ctx = crate::settings::settings().connect_changed(Some("context-colors"), move |_, _| {
+        let ctx = crate::settings::settings().connect_changed(None, move |_, key| {
+            if key != "context-colors" && key != "enable-sixel" {
+                return;
+            }
             if let Some(inner) = weak.upgrade() {
                 let t = Terminal(inner);
                 t.apply_colors();
@@ -930,6 +950,13 @@ fn paste_with_check(vte: &vte::Terminal) {
         dialog.connect_response(Some("paste"), move |_, _| v2.paste_text(&text));
         dialog.present(Some(&vte));
     });
+}
+
+/// Ist die installierte VTE mit Sixel gebaut? (Arch und Fedora 44 sind es nicht.)
+pub fn sixel_supported() -> bool {
+    // vte4-rs bindet vte_get_feature_flags nicht; reine Abfrage ohne Argumente
+    let flags = unsafe { vte::ffi::vte_get_feature_flags() };
+    flags & vte::ffi::VTE_FEATURE_FLAG_SIXEL != 0
 }
 
 fn rgba(c: &Rgb) -> gtk::gdk::RGBA {

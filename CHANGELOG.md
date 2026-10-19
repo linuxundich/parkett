@@ -12,6 +12,9 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
   `-t/--title`, `--tab`, `--help`, `--version`; Schlüssel für `xdg-terminal-exec` in der
   `.desktop`-Datei. Unbekannte Profile werden vorher neu von der Platte gelesen.
 - Profil: Schrift, Cursorform, Blinken, Glocke (Ton und Reiter markieren, nur markieren, aus).
+- Transparenter Hintergrund: Deckkraft je Profil (30–100 %), Kopfleiste bleibt deckend.
+- Sixel-Grafiken (Einstellung, Standard an); wirkt nur mit einer VTE, die mit Sixel gebaut
+  ist – Arch und Fedora 44 sind es derzeit nicht, dann ist der Schalter ausgegraut.
 - Benachrichtigung, wenn ein Befehl (ab 10 s) in einem nicht sichtbaren Bereich endet;
   Reiter wird markiert, Klick zeigt den Bereich. Braucht `vte.sh`.
 

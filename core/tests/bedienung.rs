@@ -21,6 +21,7 @@ fn profil_beispiel() {
     assert_eq!(p.font, "JetBrains Mono 11");
     assert_eq!(p.cursor_shape, parkett_core::profile::CursorShape::Ibeam);
     assert_eq!(p.bell, parkett_core::profile::Bell::Mark);
+    assert_eq!(p.opacity(), 0.9);
 }
 
 #[test]

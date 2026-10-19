@@ -94,6 +94,11 @@
       <summary>Benachrichtigen, wenn ein Befehl endet</summary>
       <description>Meldung, wenn ein Befehl, der mindestens 10 Sekunden lief, in einem nicht sichtbaren Bereich endet. Setzt die Shell-Integration von VTE voraus (vte.sh).</description>
     </key>
+    <key name="enable-sixel" type="b">
+      <default>true</default>
+      <summary>Sixel-Grafiken anzeigen</summary>
+      <description>Bilder im Sixel-Format im Terminal darstellen. Wirkt nur, wenn die installierte VTE-Bibliothek mit Sixel gebaut ist.</description>
+    </key>
     <key name="scrollback-lines" type="i">
       <range min="-1" max="1000000"/>
       <default>10000</default>

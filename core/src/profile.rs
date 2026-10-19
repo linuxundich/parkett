@@ -77,7 +77,12 @@ pub struct Profile {
     pub cursor_shape: CursorShape,
     pub cursor_blink: CursorBlink,
     pub bell: Bell,
+    /// Deckkraft des Hintergrunds, 1.0 = undurchsichtig (siehe [`Profile::opacity`])
+    pub opacity: f64,
 }
+
+/// Kleinste erlaubte Deckkraft: darunter ist Text auf unruhigem Hintergrund kaum lesbar.
+pub const MIN_OPACITY: f64 = 0.3;
 
 impl Default for Profile {
     fn default() -> Self {
@@ -94,6 +99,7 @@ impl Default for Profile {
             cursor_shape: CursorShape::Block,
             cursor_blink: CursorBlink::System,
             bell: Bell::Sound,
+            opacity: 1.0,
         }
     }
 }
@@ -107,6 +113,15 @@ impl Profile {
         let mut p: Profile = toml::from_str(text)?;
         p.id = id.to_string();
         Ok(p)
+    }
+
+    /// Deckkraft im erlaubten Bereich (Handbearbeitung kann alles hineinschreiben).
+    pub fn opacity(&self) -> f64 {
+        if self.opacity.is_finite() {
+            self.opacity.clamp(MIN_OPACITY, 1.0)
+        } else {
+            1.0
+        }
     }
 
     /// Nur gültige `NAME=wert`-Einträge.
@@ -283,5 +298,16 @@ mod tests {
             (p.font.as_str(), p.cursor_shape, p.cursor_blink, p.bell),
             ("Mono 12", CursorShape::Ibeam, CursorBlink::Off, Bell::Mark)
         );
+    }
+
+    #[test]
+    fn opacity_is_clamped() {
+        let p = |o: f64| Profile { opacity: o, ..Profile::default() }.opacity();
+        assert_eq!(Profile::default().opacity(), 1.0);
+        assert_eq!(p(0.8), 0.8);
+        assert_eq!(p(0.0), MIN_OPACITY);
+        assert_eq!(p(7.0), 1.0);
+        assert_eq!(p(f64::NAN), 1.0);
+        assert_eq!(Profile::from_toml("x", "opacity = 0.85\n").unwrap().opacity(), 0.85);
     }
 }

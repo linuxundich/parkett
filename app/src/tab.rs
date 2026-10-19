@@ -375,6 +375,10 @@ impl Tab {
         any
     }
 
+    pub fn is_translucent(&self) -> bool {
+        self.imp().panes.borrow().values().any(|p| p.terminal().is_translucent())
+    }
+
     pub fn has_failed_pane(&self) -> bool {
         use crate::terminal::ExitStatus;
         self.imp().panes.borrow().values().any(|p| {

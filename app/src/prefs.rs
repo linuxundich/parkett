@@ -109,6 +109,15 @@ fn general_page() -> adw::PreferencesPage {
         .build();
     settings.bind("notify-command-finished", &notify, "active").build();
     behaviour.add(&notify);
+    let sixel = adw::SwitchRow::builder().title("Sixel-Grafiken anzeigen").build();
+    if crate::terminal::sixel_supported() {
+        sixel.set_subtitle("Bilder im Terminal, z. B. von img2sixel oder chafa");
+        settings.bind("enable-sixel", &sixel, "active").build();
+    } else {
+        sixel.set_subtitle("Die installierte VTE-Bibliothek ist ohne Sixel gebaut");
+        sixel.set_sensitive(false);
+    }
+    behaviour.add(&sixel);
     behaviour.add(&scrollback);
     page.add(&behaviour);
     page
@@ -398,6 +407,28 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str) -> adw::NavigationP
     });
     look.add(&system_font);
     look.add(&font_row);
+    let opacity = adw::SpinRow::builder()
+        .title("Deckkraft des Hintergrunds")
+        .subtitle("In Prozent; unter 100 scheint der Desktop durch")
+        .digits(0)
+        .adjustment(&gtk::Adjustment::new(
+            (profile.opacity() * 100.0).round(),
+            parkett_core::profile::MIN_OPACITY * 100.0,
+            100.0,
+            5.0,
+            10.0,
+            0.0,
+        ))
+        .build();
+    let d = dialog.downgrade();
+    let i = id.clone();
+    opacity.connect_value_notify(move |row| {
+        if let Some(d) = d.upgrade() {
+            let v = (row.value() / 100.0).clamp(parkett_core::profile::MIN_OPACITY, 1.0);
+            update(&d, &i, |p| p.opacity = v);
+        }
+    });
+    look.add(&opacity);
     let shapes = [CursorShape::Block, CursorShape::Ibeam, CursorShape::Underline];
     look.add(&choice_row(
         dialog,
