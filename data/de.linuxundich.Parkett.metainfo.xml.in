@@ -41,6 +41,11 @@
     <category>TerminalEmulator</category>
   </categories>
   <releases>
+    <release version="0.2.0" date="2026-10-19" type="stable">
+      <description>
+        <p>Sitzung beim Start wiederherstellen, Befehlszeile (Verzeichnis, Befehl, Profil, Titel, Reiter), Kontextmenü in Nautilus, transparenter Hintergrund, Schrift, Cursor und Glocke je Profil, Benachrichtigung bei Befehlsende im Hintergrund sowie zahlreiche Korrekturen.</p>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-10-19" type="stable">
       <description>
         <p>Erste Version: Reiter und geteilte Bereiche, Befehlspalette, Layout-Modus, Vorlagen mit Startbefehlen, Profile, Farbschemata mit heller und dunkler Fassung, Kontextfarbe für root und SSH, Rückgängig beim Schließen, Suche, Links und änderbare Tastenkürzel.</p>

@@ -4,6 +4,12 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-19
+
+Alltagsfunktionen: Sitzung, Befehlszeile, Nautilus, Transparenz, Schrift/Cursor/Glocke,
+Benachrichtigung; Korrekturen aus dem QA-Audit unter Ubuntu 26.04. Nur lokal; Paket im
+eigenen Arch-Repo `linuxundich` auf bender.
+
 ### Hinzugefügt
 - Sitzung: Fenster, Reiter, Aufteilung, Profile, Verzeichnisse und eigene Titel kommen
   beim Start wieder (ohne Programme); laufend gesichert, Schließen des letzten Reiters

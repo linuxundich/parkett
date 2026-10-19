@@ -51,7 +51,7 @@ meson install -C _build
 ```
 
 Arch: Paket `parkett` aus dem eigenen Repo `linuxundich` (bender, siehe `services/pacman-repo`) –
-derzeit der einzige Verteilweg. Aktuelle Version: 0.1.0 (Tag `v0.1.0`).
+derzeit der einzige Verteilweg. Aktuelle Version: 0.2.0 (Tag `v0.2.0`).
 
 Prüfen ohne Fenster (Formatierung, Clippy, Tests, Meson-Build und -Tests):
 

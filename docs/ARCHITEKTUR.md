@@ -1,6 +1,6 @@
 # Architektur
 
-Stand 2026-10-19, Version 0.1.0. Entstanden aus `docs/PROTOTYP.md` (Phase 3) und den
+Stand 2026-10-19, Version 0.2.0. Entstanden aus `docs/PROTOTYP.md` (Phase 3) und den
 Entscheidungen in Phase 4.
 
 ## Aufbau

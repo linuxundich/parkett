@@ -1,6 +1,6 @@
 # Bedienung
 
-Stand 0.2.0 (unveröffentlicht). Alle Kürzel lassen sich unter *Einstellungen › Kürzel* ändern oder abschalten;
+Stand 0.2.0. Alle Kürzel lassen sich unter *Einstellungen › Kürzel* ändern oder abschalten;
 *Strg+?* zeigt die aktuelle Belegung.
 
 ## Reiter und Bereiche
