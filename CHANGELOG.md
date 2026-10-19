@@ -27,6 +27,8 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
   ausgeblendet und verdeckt keine Zeile mehr. Er erscheint, solange der Zeiger oben im
   Bereich steht, und 1,5 s nach einem Fokuswechsel, außer der Cursor steht in der obersten
   Zeile. Ausgeblendet nimmt er keine Klicks an.
+- Maximieren-Knopf im Bereichstitel: eigenes, kleineres Symbol in der Größe des ✕
+  (`view-fullscreen` füllte das ganze 16-px-Raster und wirkte doppelt so groß).
 - *Reiter umbenennen* hat kein Standardkürzel mehr (war F2); F10 öffnet nicht mehr das
   Hauptmenü. Beide Tasten gehören wieder den Programmen im Terminal (htop, mc, nano).
 - Rauchtest: läuft auch in der Ubuntu-26.04-VM (`VM_DOM`, `VM_PORT`), prüft F10 in `htop`

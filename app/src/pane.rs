@@ -150,7 +150,7 @@ impl Pane {
         // kurz nach einem Fokuswechsel und solange der Zeiger im oberen Streifen steht.
         let pill_label = gtk::Label::builder().ellipsize(gtk::pango::EllipsizeMode::End).max_width_chars(28).build();
         let zoom = gtk::Button::builder()
-            .icon_name("view-fullscreen-symbolic")
+            .icon_name("parkett-pane-maximize-symbolic")
             .tooltip_text("Bereich maximieren (Strg+Umschalt+X)")
             .css_classes(["flat", "circular"])
             .build();
@@ -249,7 +249,7 @@ impl Pane {
         let row_label =
             gtk::Label::builder().xalign(0.0).hexpand(true).ellipsize(gtk::pango::EllipsizeMode::End).build();
         let row_zoom = gtk::Button::builder()
-            .icon_name("view-fullscreen-symbolic")
+            .icon_name("parkett-pane-maximize-symbolic")
             .tooltip_text("Bereich maximieren")
             .css_classes(["flat"])
             .build();

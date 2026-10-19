@@ -166,7 +166,7 @@ impl Tab {
             .spacing(10)
             .visible(false)
             .build();
-        banner.append(&gtk::Image::from_icon_name("view-fullscreen-symbolic"));
+        banner.append(&gtk::Image::from_icon_name("parkett-pane-maximize-symbolic"));
         banner.append(&zoom_label);
         banner.append(&show_all);
         overlay.add_overlay(&banner);
