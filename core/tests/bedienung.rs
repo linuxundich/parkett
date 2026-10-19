@@ -18,6 +18,9 @@ fn profil_beispiel() {
     assert!(p.login_shell);
     assert_eq!(p.exit_action, ExitAction::Hold);
     assert_eq!(p.valid_environment(), vec!["EDITOR=vim".to_string()]);
+    assert_eq!(p.font, "JetBrains Mono 11");
+    assert_eq!(p.cursor_shape, parkett_core::profile::CursorShape::Ibeam);
+    assert_eq!(p.bell, parkett_core::profile::Bell::Mark);
 }
 
 #[test]

@@ -14,6 +14,8 @@ shells() { remote 'pgrep -P $(pidof parkett) | wc -l'; }
 pointer_away() { virsh -c qemu:///session qemu-monitor-command fedora44-wor '{"execute":"input-send-event","arguments":{"events":[{"type":"abs","data":{"axis":"x","value":500}},{"type":"abs","data":{"axis":"y","value":500}}]}}' >/dev/null; }
 
 since=$(remote 'date +%s')
+# Sitzung: ohne gespeicherte Sitzung starten, Wiederherstellen am Ende prüfen
+remote 'GSETTINGS_SCHEMA_DIR=$HOME/.local/share/glib-2.0/schemas gsettings set de.linuxundich.Parkett restore-session true 2>/dev/null; pkill -x parkett; rm -f /home/testt/.local/state/parkett/session.json' || true
 build-aux/vm/deploy.sh >/dev/null
 sleep 1
 pointer_away
@@ -30,11 +32,17 @@ check "Reiter geschlossen, Rückgängig-Frist abgelaufen" "$(shells)" 4
 act close-pane 2>/dev/null || true
 sleep 10
 check "Bereich geschlossen, Frist abgelaufen" "$(shells)" 3
+sleep 2   # Sitzung wird 1,5 s nach der letzten Änderung gespeichert
 pids=$(remote 'pgrep -P $(pidof parkett) | tr "\n" " "')
 remote 'kill -TERM $(pidof parkett)'
 sleep 2
 check "Parkett beendet" "$(remote 'pidof parkett >/dev/null && echo läuft || echo beendet')" beendet
 check "keine verwaisten Shells" "$(remote "n=0; for p in $pids; do kill -0 \$p 2>/dev/null && n=\$((n+1)); done; echo \$n")" 0
+remote 'systemd-run --user -q --collect -u app-gnome-de.linuxundich.Parkett-smoke ~/.local/bin/parkett'
+sleep 2
+check "Sitzung wiederhergestellt" "$(shells)" 3
+remote 'kill -TERM $(pidof parkett)'
+sleep 1
 problems=$(remote "journalctl --user --since=@$since --no-pager -o cat | grep -cE 'panicked|Gtk-CRITICAL|Adwaita-CRITICAL|GLib-CRITICAL|Gtk-WARNING' || true")
 check "keine Panics/CRITICAL/Gtk-Warnungen im Protokoll" "$problems" 0
 exit $fail

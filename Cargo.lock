@@ -482,6 +482,8 @@ dependencies = [
 name = "parkett"
 version = "0.1.0"
 dependencies = [
+ "gio",
+ "glib",
  "gtk4",
  "libadwaita",
  "libc",

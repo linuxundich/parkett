@@ -5,6 +5,7 @@ mod commands;
 mod pane;
 mod prefs;
 mod profiles;
+mod session;
 mod settings;
 mod shortcuts;
 mod style;
@@ -117,19 +118,89 @@ fn main() -> glib::ExitCode {
         gtk::Window::set_default_icon_name(APP_ID);
         setup_actions(app);
         style::init();
+        session::init();
     });
 
-    // Arbeitsverzeichnis des Aufrufers übernehmen (z. B. „parkett“ aus einem Ordner heraus)
+    // Befehlszeile; kommt bei einer zweiten Instanz von deren Aufruf (Argumente, Verzeichnis)
     app.connect_command_line(|app, cmdline| {
-        let cwd = cmdline.cwd().and_then(|p| p.to_str().map(String::from));
-        window::Window::new(app, cwd).present();
-        glib::ExitCode::SUCCESS
+        let args: Vec<String> = cmdline.arguments().iter().skip(1).map(|a| a.to_string_lossy().into_owned()).collect();
+        let cli = match parkett_core::cli::parse(&args) {
+            Ok(cli) => cli,
+            Err(e) => {
+                cmdline.printerr_literal(&format!("parkett: {e}\n"));
+                return glib::ExitCode::FAILURE;
+            }
+        };
+        if cli.help {
+            cmdline.print_literal(parkett_core::cli::HELP);
+            return glib::ExitCode::SUCCESS;
+        }
+        if cli.version {
+            cmdline.print_literal(&format!("Parkett {}\n", env!("CARGO_PKG_VERSION")));
+            return glib::ExitCode::SUCCESS;
+        }
+        open(app, cmdline, cli)
     });
 
     app.run()
 }
 
+/// Fenster oder Reiter nach der Befehlszeile; ohne Vorgaben beim ersten Fenster die letzte
+/// Sitzung.
+fn open(app: &adw::Application, cmdline: &gio::ApplicationCommandLine, cli: parkett_core::cli::Cli) -> glib::ExitCode {
+    let first = app.windows().is_empty();
+    if first && cli.is_plain() && !cli.tab && session::restore(app) {
+        return glib::ExitCode::SUCCESS;
+    }
+    // Verzeichnis: Vorgabe (relativ zum Aufrufer, ~ aufgelöst), sonst das des Aufrufers
+    let caller = cmdline.cwd();
+    let cwd = match &cli.working_directory {
+        Some(d) => {
+            let p = parkett_core::paths::expand_home(d, &glib::home_dir());
+            let p = match &caller {
+                Some(base) if p.is_relative() => base.join(p),
+                _ => p,
+            };
+            if !p.is_dir() {
+                cmdline.printerr_literal(&format!("parkett: Verzeichnis „{}“ gibt es nicht\n", p.display()));
+                return glib::ExitCode::FAILURE;
+            }
+            p.to_str().map(String::from)
+        }
+        None => caller.and_then(|p| p.to_str().map(String::from)),
+    };
+    let manager = profiles::ProfileManager::get();
+    let profile = match &cli.profile {
+        Some(id) if manager.ensure_profile(id) => id.clone(),
+        Some(id) => {
+            cmdline.printerr_literal(&format!("parkett: Profil „{id}“ gibt es nicht, nehme das Standardprofil\n"));
+            manager.default_id()
+        }
+        None => manager.default_id(),
+    };
+    let target = if cli.tab { app.active_window().and_downcast::<window::Window>() } else { None };
+    let win = target.unwrap_or_else(|| window::Window::empty(app));
+    win.add_tab_with(cwd, &profile, cli.command, cli.title);
+    win.present();
+    glib::ExitCode::SUCCESS
+}
+
 fn setup_actions(app: &adw::Application) {
+    // Klick auf „Befehl beendet“: Bereich zeigen
+    let show = gio::SimpleAction::new("show-terminal", Some(glib::VariantTy::UINT64));
+    show.connect_activate({
+        let app = app.downgrade();
+        move |_, param| {
+            let (Some(app), Some(uid)) = (app.upgrade(), param.and_then(|p| p.get::<u64>())) else { return };
+            for w in app.windows().into_iter().filter_map(|w| w.downcast::<window::Window>().ok()) {
+                if w.show_terminal(uid) {
+                    break;
+                }
+            }
+        }
+    });
+    app.add_action(&show);
+
     let new_window = gio::SimpleAction::new("new-window", None);
     new_window.connect_activate({
         let app = app.downgrade();

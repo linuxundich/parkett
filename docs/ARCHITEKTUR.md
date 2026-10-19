@@ -25,6 +25,8 @@ libadwaita 0.9 (`v1_8`), vte4 0.10 (`v0_80`), libc. Keine weiteren Pakete
 | `template` | Vorlagen (Layout + Profil/Startbefehl/Unterverzeichnis je Bereich), `TemplateStore`, `instantiate`, `from_layout` |
 | `fuzzy` | Unscharfe Suche für die Befehlspalette |
 | `context` | Kontext eines Bereichs (lokal, Remote(Host), Superuser) aus Prozessname, Befehlszeile, UID |
+| `cli` | Befehlszeile auswerten (eigener Parser: alles nach `--` ist der Befehl) |
+| `session` | Sitzung als JSON, Reiter im Vorlagenformat (Verzeichnis `/`, absolute Pfade als Unterverzeichnis, keine Befehle) |
 | `paths` | `~` auflösen und anzeigen, Unterverzeichnisse von Vorlagen sicher anhängen |
 
 ### app/
@@ -41,6 +43,7 @@ libadwaita 0.9 (`v1_8`), vte4 0.10 (`v0_80`), libc. Keine weiteren Pakete
 | `commands` | Befehlspalette (Präfixe `>` Aktionen, `@` Reiter/Bereiche, `#` Vorlagen) |
 | `shortcuts` | Kürzel-Verzeichnis mit Standard- und eigener Belegung, Aufbau der Shortcut-Controller |
 | `settings`, `style` | GSettings-Zugriff; Hell/Dunkel von Hand |
+| `session` | Sitzung sichern (1,5 s nach Änderungen, beim Schließen des letzten Fensters) und beim Start öffnen |
 
 ## Regeln, die der Code einhält
 
@@ -81,16 +84,17 @@ Paletten ──┘     (Signal changed) └─> prefs│                └─ L
 | `~/.config/parkett/profiles/*.toml` | Profile |
 | `~/.config/parkett/templates/*.toml` | Vorlagen |
 | `~/.local/share/parkett/palettes/*.palette` | importierte Farbschemata |
+| `~/.local/state/parkett/session.json` | letzte Sitzung |
 | im Programm (`include_str!` aus `data/palettes/`) | mitgelieferte Farbschemata (14) |
 
 ## Tests
 
 | Ebene | Wie | Wo |
 |---|---|---|
-| Kern | 43 Unit-Tests, dazu 2 Tests für die Beispiele in `docs/BEDIENUNG.md` | `cargo test` |
+| Kern | 51 Unit-Tests, dazu 2 Tests für die Beispiele in `docs/BEDIENUNG.md` | `cargo test` |
 | Daten | .desktop, Metainfo, Schema | `meson test` |
 | Alles ohne Fenster | fmt, clippy, Tests, Meson-Build | `build-aux/ci.sh` |
-| Oberfläche | Rauchtest in der VM über D-Bus-Aktionen: Teilen, Reiter, Schließen, Fristablauf, keine verwaisten Shells, Protokoll ohne Fehler | `build-aux/vm/smoke.sh` |
+| Oberfläche | Rauchtest in der VM über D-Bus-Aktionen: Teilen, Reiter, Schließen, Fristablauf, keine verwaisten Shells, Sitzung wiederhergestellt, Protokoll ohne Fehler | `build-aux/vm/smoke.sh` |
 | Leistung | Durchsatz, Speicher/CPU | `build-aux/qa/` |
 
 Die Oberfläche hat keine Unit-Tests: GTK-Widgets brauchen eine Anzeige. Was sich ohne GTK

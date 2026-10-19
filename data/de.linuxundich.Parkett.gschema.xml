@@ -84,6 +84,16 @@
       <summary>Eigene Tastenkürzel</summary>
       <description>Aktion (z. B. „win.split-right“) → Kürzel in GTK-Schreibweise; leer = Kürzel aus. Fehlende Aktionen nutzen die Standardbelegung.</description>
     </key>
+    <key name="restore-session" type="b">
+      <default>true</default>
+      <summary>Letzte Sitzung wiederherstellen</summary>
+      <description>Beim Start die Fenster und Reiter der letzten Sitzung öffnen: Aufteilung, Profile, Verzeichnisse und eigene Titel, ohne die Programme darin.</description>
+    </key>
+    <key name="notify-command-finished" type="b">
+      <default>true</default>
+      <summary>Benachrichtigen, wenn ein Befehl endet</summary>
+      <description>Meldung, wenn ein Befehl, der mindestens 10 Sekunden lief, in einem nicht sichtbaren Bereich endet. Setzt die Shell-Integration von VTE voraus (vte.sh).</description>
+    </key>
     <key name="scrollback-lines" type="i">
       <range min="-1" max="1000000"/>
       <default>10000</default>

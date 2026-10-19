@@ -75,9 +75,14 @@ glib::wrapper! {
 
 impl Tab {
     pub fn new(cwd: Option<String>, profile_id: &str) -> Self {
+        Tab::with_command(cwd, profile_id, None)
+    }
+
+    /// Reiter mit einem Bereich, der `command` statt der Shell ausführt.
+    pub fn with_command(cwd: Option<String>, profile_id: &str, command: Option<Vec<String>>) -> Self {
         let tab = Tab::empty();
         let first = tab.imp().layout.borrow().focus();
-        tab.add_pane(first, cwd, profile_id);
+        tab.add_pane_with(first, cwd, profile_id, command);
         tab.rebuild();
         tab
     }
@@ -105,6 +110,22 @@ impl Tab {
         *tab.imp().layout.borrow_mut() = layout;
         tab.rebuild();
         tab
+    }
+
+    /// Stand für die Sitzung: Aufteilung, Profil und Verzeichnis je Bereich, eigener Titel.
+    pub fn to_session(&self) -> parkett_core::template::Template {
+        let panes = self.imp().panes.borrow().clone();
+        let spec = |id: PaneId| {
+            let t = panes[&id].terminal();
+            parkett_core::session::pane(&t.profile_id(), t.working_directory().as_deref())
+        };
+        let mut t = parkett_core::template::Template::from_layout(
+            &self.custom_title().unwrap_or_default(),
+            &self.layout(),
+            &spec,
+        );
+        t.directory = "/".into();
+        t
     }
 
     /// Vorlage aus diesem Reiter: Aufteilung, Profile, laufende Befehle; Unterverzeichnisse
@@ -241,7 +262,11 @@ impl Tab {
     }
 
     fn add_pane(&self, id: PaneId, cwd: Option<String>, profile_id: &str) -> Pane {
-        let pane = Pane::new(id, cwd, profile_id);
+        self.add_pane_with(id, cwd, profile_id, None)
+    }
+
+    fn add_pane_with(&self, id: PaneId, cwd: Option<String>, profile_id: &str, command: Option<Vec<String>>) -> Pane {
+        let pane = Pane::new(id, cwd, profile_id, command);
         let weak = self.downgrade();
         pane.terminal().connect_state_changed(move || {
             if let Some(tab) = weak.upgrade() {
@@ -340,6 +365,16 @@ impl Tab {
     }
 
     /// Hat ein Bereich mit Fehler geendet?
+    /// Glocke oder Befehlsende in einem Bereich seit dem letzten Aufruf (löscht die Markierung).
+    pub fn take_attention(&self) -> bool {
+        // alle Bereiche zurücksetzen, nicht beim ersten Treffer aufhören
+        let mut any = false;
+        for p in self.imp().panes.borrow().values() {
+            any |= p.terminal().take_attention();
+        }
+        any
+    }
+
     pub fn has_failed_pane(&self) -> bool {
         use crate::terminal::ExitStatus;
         self.imp().panes.borrow().values().any(|p| {
@@ -507,6 +542,11 @@ impl Tab {
     }
 
     /// Bereich Nummer `n` (1-basiert, Lesereihenfolge).
+    /// Bereich mit diesem Terminal (siehe `Terminal::uid`).
+    pub fn pane_with_terminal(&self, uid: u64) -> Option<PaneId> {
+        self.imp().panes.borrow().iter().find(|(_, p)| p.terminal().uid() == uid).map(|(id, _)| *id)
+    }
+
     pub fn focus_index(&self, n: usize) {
         if let Some(id) = self.layout().panes().get(n.wrapping_sub(1)) {
             self.focus_pane(*id);

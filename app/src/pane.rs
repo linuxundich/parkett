@@ -63,12 +63,12 @@ glib::wrapper! {
 }
 
 impl Pane {
-    pub fn new(id: u32, cwd: Option<String>, profile_id: &str) -> Self {
+    pub fn new(id: u32, cwd: Option<String>, profile_id: &str, command: Option<Vec<String>>) -> Self {
         let pane: Pane = glib::Object::new();
         let imp = pane.imp();
         imp.id.set(id);
 
-        let terminal = Terminal::new(cwd, profile_id);
+        let terminal = Terminal::new(cwd, profile_id, command);
         let overlay = gtk::Overlay::new();
         overlay.set_child(Some(terminal.widget()));
 

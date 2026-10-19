@@ -1,6 +1,6 @@
 # Bedienung
 
-Stand 0.1.0. Alle Kürzel lassen sich unter *Einstellungen › Kürzel* ändern oder abschalten;
+Stand 0.2.0 (unveröffentlicht). Alle Kürzel lassen sich unter *Einstellungen › Kürzel* ändern oder abschalten;
 *Strg+?* zeigt die aktuelle Belegung.
 
 ## Reiter und Bereiche
@@ -38,9 +38,41 @@ unscharfer Suche. Präfixe grenzen ein: `>` nur Aktionen, `@` nur Reiter und Ber
 Mehrzeiliger Text beim Einfügen über *Strg+Umschalt+V* oder das Kontextmenü zeigt erst eine
 Vorschau (abschaltbar unter *Einstellungen › Allgemein*).
 
+**Befehl fertig:** Endet ein Befehl, der mindestens 10 Sekunden lief, in einem Bereich, der
+gerade nicht zu sehen ist (anderer Reiter oder Fenster im Hintergrund), wird der Reiter
+markiert und eine Benachrichtigung erscheint; ein Klick darauf zeigt den Bereich. Das braucht
+die Shell-Integration von VTE (`vte.sh`, bei Fedora und Arch für bash und zsh dabei);
+abschaltbar unter *Einstellungen › Allgemein*.
+
 **Kontextfarbe:** Läuft im Bereich `ssh`/`mosh` oder ein Programm als root (`sudo`, `su`,
 `doas`, `run0`, `pkexec`), färbt sich der Hintergrund leicht und eine farbige Linie mit
 Rechnername bzw. „root“ erscheint. Abschaltbar unter *Einstellungen › Allgemein*.
+
+## Befehlszeile
+
+```text
+parkett [OPTIONEN] [-- BEFEHL [ARGUMENTE …]]
+  -d, --working-directory=DIR   Startverzeichnis
+  -e, -x, --                    Rest der Zeile statt der Shell ausführen
+  -p, --profile=ID              Profil (Dateiname ohne .toml)
+  -t, --title=TITEL             Titel des Reiters
+      --tab                     als Reiter im aktiven Fenster statt neuem Fenster
+```
+
+Beispiele: `parkett -d ~/src --tab` öffnet einen Reiter in `~/src`, `parkett -t Logs --
+journalctl -f` ein Fenster mit laufendem `journalctl`. Läuft Parkett schon, übernimmt die
+laufende Instanz den Aufruf. Die `.desktop`-Datei nennt die Optionen für
+`xdg-terminal-exec` (`X-TerminalArgExec`, `X-TerminalArgDir`, `X-TerminalArgTitle`).
+
+## Sitzung
+
+Parkett öffnet beim Start die Fenster und Reiter der letzten Sitzung: Aufteilung,
+Profile, Verzeichnisse und eigene Reitertitel. Programme laufen nicht weiter; es kommen
+Shells in den alten Verzeichnissen. Gespeichert wird laufend (kurz nach jeder Änderung),
+die Sitzung übersteht also auch Abmelden oder Absturz. Wer den letzten Reiter schließt,
+beendet die Sitzung, der nächste Start beginnt frisch. Mit Vorgaben auf der Befehlszeile
+(`-d`, `--`, `-p`, `-t`) öffnet Parkett nur das Verlangte. Abschaltbar unter
+*Einstellungen › Allgemein*; die Datei liegt in `~/.local/state/parkett/session.json`.
 
 ## Hell und Dunkel
 
@@ -51,7 +83,8 @@ wechseln mit.
 ## Profile
 
 *Einstellungen › Profile*: Farbschema (Kacheln mit Vorschau, wirkt sofort auf offene
-Terminals), Befehl statt Shell, Login-Shell, Startverzeichnis, Umgebungsvariablen, Verhalten
+Terminals), Schrift (sonst die Festbreitenschrift des Systems), Cursorform, Blinken, Glocke
+(Ton und Reiter markieren, nur markieren, aus), Befehl statt Shell, Login-Shell, Startverzeichnis, Umgebungsvariablen, Verhalten
 beim Prozessende. Neue Reiter mit anderem Profil: Pfeil neben *Neuer Reiter*.
 
 Gespeichert in `~/.config/parkett/profiles/<id>.toml`, von Hand bearbeitbar:
@@ -64,6 +97,10 @@ login_shell = true
 directory = "~/srv"      # leer = Einstellung „Neue Terminals öffnen in“
 environment = ["EDITOR=vim"]
 exit_action = "hold"     # hold | close | restart
+font = "JetBrains Mono 11" # leer = Systemschrift
+cursor_shape = "ibeam"   # block | ibeam | underline
+cursor_blink = "system"  # system | on | off
+bell = "mark"            # sound | mark | none
 ```
 
 ## Farbschemata

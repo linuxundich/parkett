@@ -47,11 +47,13 @@ mod imp {
             let obj = self.obj();
             if self.force_close.get() {
                 obj.save_size();
+                crate::session::window_closing(&obj);
                 return glib::Propagation::Proceed;
             }
             let procs: Vec<String> = obj.tabs().iter().flat_map(|t| t.foreground_processes()).collect();
             if procs.is_empty() {
                 obj.save_size();
+                crate::session::window_closing(&obj);
                 return glib::Propagation::Proceed;
             }
             let weak = obj.downgrade();
@@ -77,6 +79,13 @@ glib::wrapper! {
 
 impl Window {
     pub fn new(app: &adw::Application, cwd: Option<String>) -> Self {
+        let win = Window::empty(app);
+        win.add_tab(cwd);
+        win
+    }
+
+    /// Fenster ohne Reiter; der Aufrufer fügt sofort welche hinzu (Befehlszeile, Sitzung).
+    pub fn empty(app: &adw::Application) -> Self {
         let win: Window = glib::Object::builder()
             .property("application", app)
             .property("title", "Parkett")
@@ -89,9 +98,39 @@ impl Window {
         }
         win.build_ui();
         win.setup_actions();
-        win.add_tab(cwd);
         win.report_load_errors();
         win
+    }
+
+    /// Stand für die Sitzung: alle Reiter mit gewähltem Reiter.
+    pub fn to_session(&self) -> parkett_core::session::SessionWindow {
+        let view = self.tab_view();
+        let selected = view.selected_page().map(|p| view.page_position(&p).max(0) as usize).unwrap_or(0);
+        parkett_core::session::SessionWindow { selected, tabs: self.tabs().iter().map(Tab::to_session).collect() }
+    }
+
+    /// Reiter aus einer gespeicherten Sitzung öffnen.
+    pub fn restore_session(&self, w: &parkett_core::session::SessionWindow) {
+        for t in &w.tabs {
+            self.attach_tab(Tab::from_template(t, std::path::Path::new("/"), false));
+        }
+        let view = self.tab_view();
+        if (w.selected as i32) < view.n_pages() {
+            view.set_selected_page(&view.nth_page(w.selected as i32));
+        }
+    }
+
+    /// Reiter nach Vorgaben der Befehlszeile: Profil, Befehl statt Shell, Titel.
+    pub fn add_tab_with(
+        &self,
+        cwd: Option<String>,
+        profile: &str,
+        command: Option<Vec<String>>,
+        title: Option<String>,
+    ) -> Tab {
+        let tab = Tab::with_command(cwd, profile, command);
+        tab.set_custom_title(title);
+        self.attach_tab(tab)
     }
 
     /// Kaputte Profil-, Paletten- oder Vorlagendateien nennen statt sie still zu überspringen.
@@ -338,6 +377,7 @@ impl Window {
     /// Schließt einen Reiter endgültig, bietet aber 8 s lang „Rückgängig“ an (Vorschlag 4).
     /// Bis dahin laufen seine Prozesse weiter. Beim letzten Reiter schließt das Fenster.
     fn finish_close_page(&self, page: &adw::TabPage) {
+        crate::session::schedule_save();
         let view = self.tab_view();
         let tab = page.child().downcast::<Tab>().ok();
         let position = view.page_position(page);
@@ -424,11 +464,15 @@ impl Window {
     }
 
     fn update_page(&self, tab: &Tab) {
+        crate::session::schedule_save();
         let view = self.tab_view();
         let page = view.page(tab);
         page.set_title(&tab.title());
         page.set_tooltip(&tab.cwd().map(|c| tilde(&c)).unwrap_or_default());
         page.set_keyword(&tab.cwd().unwrap_or_default());
+        if tab.take_attention() && view.selected_page().as_ref() != Some(&page) {
+            page.set_needs_attention(true);
+        }
         if tab.has_failed_pane() {
             page.set_indicator_icon(Some(&gio::ThemedIcon::new("dialog-warning-symbolic")));
             page.set_indicator_tooltip("Ein Prozess ist mit Fehler beendet");
@@ -681,6 +725,20 @@ impl Window {
                 crate::settings::settings().disconnect(id);
             }
         });
+    }
+
+    /// Reiter und Bereich mit diesem Terminal zeigen. `false`, wenn es hier keins gibt.
+    pub fn show_terminal(&self, uid: u64) -> bool {
+        for tab in self.tabs() {
+            if let Some(id) = tab.pane_with_terminal(uid) {
+                let view = self.tab_view();
+                view.set_selected_page(&view.page(&tab));
+                tab.focus_pane(id);
+                self.present();
+                return true;
+            }
+        }
+        false
     }
 
     pub fn select_tab(&self, index: usize) {

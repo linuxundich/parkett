@@ -23,6 +23,38 @@ pub enum ExitAction {
     Restart,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CursorShape {
+    #[default]
+    Block,
+    /// senkrechter Strich
+    Ibeam,
+    Underline,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CursorBlink {
+    /// wie in den GNOME-Einstellungen (Barrierefreiheit › Cursor blinkt)
+    #[default]
+    System,
+    On,
+    Off,
+}
+
+/// Was beim Steuerzeichen BEL (`\a`) passiert.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Bell {
+    /// Systemton und Reiter markieren
+    #[default]
+    Sound,
+    /// nur den Reiter markieren
+    Mark,
+    None,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Profile {
@@ -40,6 +72,11 @@ pub struct Profile {
     /// Zusätzliche Umgebungsvariablen, je `NAME=wert`
     pub environment: Vec<String>,
     pub exit_action: ExitAction,
+    /// Pango-Schriftbeschreibung, z. B. „JetBrains Mono 11“; leer = System-Monospace
+    pub font: String,
+    pub cursor_shape: CursorShape,
+    pub cursor_blink: CursorBlink,
+    pub bell: Bell,
 }
 
 impl Default for Profile {
@@ -53,6 +90,10 @@ impl Default for Profile {
             directory: String::new(),
             environment: Vec::new(),
             exit_action: ExitAction::Hold,
+            font: String::new(),
+            cursor_shape: CursorShape::Block,
+            cursor_blink: CursorBlink::System,
+            bell: Bell::Sound,
         }
     }
 }
@@ -224,5 +265,23 @@ mod tests {
         assert_ne!(profiles[0].id, "standard");
         assert_eq!(std::fs::read_to_string(dir.join("standard.toml")).unwrap(), "name = ");
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn old_files_get_defaults_for_new_fields() {
+        let p = Profile::from_toml("alt", "name = \"Alt\"\npalette = \"nord\"\n").unwrap();
+        assert_eq!(
+            (p.font.as_str(), p.cursor_shape, p.cursor_blink, p.bell),
+            ("", CursorShape::Block, CursorBlink::System, Bell::Sound)
+        );
+        let p = Profile::from_toml(
+            "neu",
+            "cursor_shape = \"ibeam\"\ncursor_blink = \"off\"\nbell = \"mark\"\nfont = \"Mono 12\"\n",
+        )
+        .unwrap();
+        assert_eq!(
+            (p.font.as_str(), p.cursor_shape, p.cursor_blink, p.bell),
+            ("Mono 12", CursorShape::Ibeam, CursorBlink::Off, Bell::Mark)
+        );
     }
 }

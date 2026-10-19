@@ -4,6 +4,17 @@ Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
 
 ## [Unreleased]
 
+### Hinzugefügt
+- Sitzung: Fenster, Reiter, Aufteilung, Profile, Verzeichnisse und eigene Titel kommen
+  beim Start wieder (ohne Programme); laufend gesichert, Schließen des letzten Reiters
+  beendet die Sitzung; abschaltbar.
+- Befehlszeile: `-d/--working-directory`, `-e/-x/--` (Befehl statt Shell), `-p/--profile`,
+  `-t/--title`, `--tab`, `--help`, `--version`; Schlüssel für `xdg-terminal-exec` in der
+  `.desktop`-Datei. Unbekannte Profile werden vorher neu von der Platte gelesen.
+- Profil: Schrift, Cursorform, Blinken, Glocke (Ton und Reiter markieren, nur markieren, aus).
+- Benachrichtigung, wenn ein Befehl (ab 10 s) in einem nicht sichtbaren Bereich endet;
+  Reiter wird markiert, Klick zeigt den Bereich. Braucht `vte.sh`.
+
 ## [0.1.0] - 2026-10-19
 
 Erste Version: MVP (Phase 4), Qualitätssicherung (Phase 5) und Stabilisierung (Phase 6).

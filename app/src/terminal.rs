@@ -16,7 +16,7 @@ use vte::prelude::*;
 
 use parkett_core::context::{self, Context};
 use parkett_core::palette::Rgb;
-use parkett_core::profile::ExitAction;
+use parkett_core::profile::{Bell, CursorBlink, CursorShape, ExitAction};
 
 use crate::profiles::ProfileManager;
 
@@ -32,6 +32,7 @@ struct Inner {
     exit_bar: gtk::Revealer,
     exit_label: gtk::Label,
     cwd_at_start: Option<String>,
+    command: Option<Vec<String>>,
     profile_id: RefCell<String>,
     started_at: Cell<Option<Instant>>,
     background: Cell<Rgb>,
@@ -50,13 +51,27 @@ struct Inner {
     exit: Cell<Option<ExitStatus>>,
     on_state_changed: RefCell<Vec<Callback>>,
     on_close: RefCell<Vec<Callback>>,
+    /// Glocke oder Befehlsende, seit der Reiter zuletzt angesehen wurde
+    attention: Cell<bool>,
+    /// fortlaufende Nummer, um das Terminal aus einer Benachrichtigung wiederzufinden
+    uid: u64,
+    /// Start des laufenden Befehls (Termprop vte.shell.preexec aus vte.sh)
+    command_started: Cell<Option<Instant>>,
+    /// Name des laufenden Befehls, sekündlich gemerkt (für die Benachrichtigung)
+    command_name: RefCell<Option<String>>,
 }
+
+/// Ab dieser Laufzeit meldet ein Befehl sein Ende, wenn sein Bereich nicht zu sehen ist.
+const NOTIFY_AFTER: std::time::Duration = std::time::Duration::from_secs(10);
+
+static NEXT_UID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
 #[derive(Clone)]
 pub struct Terminal(Rc<Inner>);
 
 impl Terminal {
-    pub fn new(cwd: Option<String>, profile_id: &str) -> Self {
+    /// `command`: statt Shell bzw. Profilbefehl ausführen (Befehlszeile `parkett -- …`).
+    pub fn new(cwd: Option<String>, profile_id: &str, command: Option<Vec<String>>) -> Self {
         let vte = vte::Terminal::builder()
             .hexpand(true)
             .vexpand(true)
@@ -95,6 +110,7 @@ impl Terminal {
             exit_bar,
             exit_label,
             cwd_at_start: cwd,
+            command: command.filter(|c| !c.is_empty()),
             profile_id: RefCell::new(profile_id.to_string()),
             started_at: Cell::new(None),
             background: Cell::new(Rgb { r: 255, g: 255, b: 255 }),
@@ -109,6 +125,10 @@ impl Terminal {
             exit: Cell::new(None),
             on_state_changed: RefCell::default(),
             on_close: RefCell::default(),
+            attention: Cell::new(false),
+            uid: NEXT_UID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            command_started: Cell::new(None),
+            command_name: RefCell::new(None),
         }));
 
         t.setup_style();
@@ -173,9 +193,24 @@ impl Terminal {
     /// Fenstertitel, den die Shell per OSC 0/2 gesetzt hat; sonst der Befehl des Profils.
     pub fn title(&self) -> Option<String> {
         self.0.vte.termprop_string("xterm.title").0.map(String::from).filter(|s| !s.is_empty()).or_else(|| {
-            let command = ProfileManager::get().profile(&self.profile_id()).command;
+            // Befehl von der Befehlszeile, sonst der des Profils
+            let command = match &self.0.command {
+                Some(c) => c.join(" "),
+                None => ProfileManager::get().profile(&self.profile_id()).command,
+            };
             Some(command.trim().to_string()).filter(|c| !c.is_empty())
         })
+    }
+
+    /// Arbeitsverzeichnis für die Sitzung: `vte.cwd`, sonst das des Prozesses (/proc), sonst
+    /// das beim Start – Bereiche ohne Shell-Integration melden kein `vte.cwd`.
+    pub fn working_directory(&self) -> Option<String> {
+        self.cwd()
+            .or_else(|| {
+                let pid = self.0.child_pid.get()?.0;
+                std::fs::read_link(format!("/proc/{pid}/cwd")).ok()?.to_str().map(String::from)
+            })
+            .or_else(|| self.0.cwd_at_start.clone())
     }
 
     /// Arbeitsverzeichnis aus `vte.cwd` (OSC 7, setzt vte.sh in der Shell voraus).
@@ -203,6 +238,42 @@ impl Terminal {
         }
     }
 
+    pub fn uid(&self) -> u64 {
+        self.0.uid
+    }
+
+    /// Ist das Terminal gerade zu sehen (Reiter gewählt, Fenster aktiv)?
+    fn is_seen(&self) -> bool {
+        let vte = &self.0.vte;
+        vte.is_mapped() && vte.root().and_downcast::<gtk::Window>().is_some_and(|w| w.is_active())
+    }
+
+    /// Ein Befehl ist fertig: lief er lange und ist der Bereich nicht zu sehen, Reiter
+    /// markieren und eine Benachrichtigung schicken (Klick darauf zeigt den Bereich).
+    fn command_finished(&self, took: std::time::Duration) {
+        if took < NOTIFY_AFTER || self.is_seen() {
+            return;
+        }
+        self.0.attention.set(true);
+        self.emit_state_changed();
+        if !crate::settings::settings().boolean("notify-command-finished") {
+            return;
+        }
+        let Some(app) = gio::Application::default() else { return };
+        let secs = took.as_secs_f64().round() as u64;
+        let duration = if secs >= 60 { format!("{} min {} s", secs / 60, secs % 60) } else { format!("{secs} s") };
+        let n = gio::Notification::new("Befehl beendet");
+        let what = self.0.command_name.borrow_mut().take().or_else(|| self.title()).unwrap_or_else(|| "Befehl".into());
+        n.set_body(Some(&format!("{what} · nach {duration}")));
+        n.set_default_action_and_target_value("app.show-terminal", Some(&self.0.uid.to_variant()));
+        app.send_notification(Some(&format!("command-{}", self.0.uid)), &n);
+    }
+
+    /// Liefert und löscht die Markierung (Glocke, Befehlsende).
+    pub fn take_attention(&self) -> bool {
+        self.0.attention.replace(false)
+    }
+
     pub fn context(&self) -> Context {
         self.0.context.borrow().clone()
     }
@@ -219,6 +290,11 @@ impl Terminal {
         glib::timeout_add_local(Duration::from_millis(1000), move || {
             let Some(inner) = weak.upgrade() else { return glib::ControlFlow::Break };
             let t = Terminal(inner);
+            if t.0.command_started.get().is_some() {
+                if let Some(name) = t.foreground_process() {
+                    *t.0.command_name.borrow_mut() = Some(name);
+                }
+            }
             let now = t.detect_context();
             if now != *t.0.context.borrow() {
                 *t.0.context.borrow_mut() = now;
@@ -331,7 +407,9 @@ impl Terminal {
         let profile = ProfileManager::get().profile(&self.profile_id());
 
         // Befehl aus dem Profil (wie in einer Shell zerlegt), sonst die Login-Shell des Nutzers
-        let argv: Vec<String> = if profile.command.trim().is_empty() {
+        let argv: Vec<String> = if let Some(cmd) = &self.0.command {
+            cmd.clone()
+        } else if profile.command.trim().is_empty() {
             let mut a = vec![user_shell()];
             if profile.login_shell {
                 a.push("-l".into());
@@ -440,17 +518,38 @@ impl Terminal {
             t.emit_state_changed();
         });
 
+        // Glocke: Reiter markieren (Ton selbst macht VTE, siehe set_audible_bell)
+        let weak = Rc::downgrade(&self.0);
+        self.0.vte.connect_bell(move |_| {
+            let Some(inner) = weak.upgrade() else { return };
+            let t = Terminal(inner);
+            if ProfileManager::get().profile(&t.profile_id()).bell != Bell::None {
+                t.0.attention.set(true);
+                t.emit_state_changed();
+            }
+        });
+
         let weak = Rc::downgrade(&self.0);
         self.0.vte.connect_termprop_changed(None, move |_, name| {
-            if name == "xterm.title" || name == "vte.cwd" {
-                if let Some(inner) = weak.upgrade() {
-                    Terminal(inner).emit_state_changed();
+            let Some(inner) = weak.upgrade() else { return };
+            match name {
+                "xterm.title" | "vte.cwd" => Terminal(inner).emit_state_changed(),
+                // Shell-Integration (vte.sh): Befehl beginnt bzw. Prompt kommt wieder
+                "vte.shell.preexec" => {
+                    inner.command_started.set(Some(Instant::now()));
+                    inner.command_name.borrow_mut().take();
                 }
+                "vte.shell.precmd" => {
+                    if let Some(start) = inner.command_started.take() {
+                        Terminal(inner).command_finished(start.elapsed());
+                    }
+                }
+                _ => {}
             }
         });
     }
 
-    /// Farben aus der Palette des Profils, Fassung nach Systemstil; Schrift nach System.
+    /// Farben aus der Palette des Profils (Fassung nach Systemstil), Schrift, Cursor, Glocke.
     fn apply_colors(&self) {
         let sm = adw::StyleManager::default();
         let manager = ProfileManager::get();
@@ -475,7 +574,21 @@ impl Terminal {
         vte.set_colors(Some(&rgba(&face.foreground)), Some(&rgba(&background)), &refs);
         vte.set_color_cursor(face.cursor.as_ref().map(rgba).as_ref());
         vte.set_color_cursor_foreground(face.cursor_foreground.as_ref().map(rgba).as_ref());
-        vte.set_font(Some(&pango::FontDescription::from_string(&sm.monospace_font_name())));
+        // Schrift, Cursor und Glocke aus dem Profil
+        let profile = manager.profile(&self.profile_id());
+        let font = if profile.font.trim().is_empty() { sm.monospace_font_name() } else { profile.font.trim().into() };
+        vte.set_font(Some(&pango::FontDescription::from_string(&font)));
+        vte.set_cursor_shape(match profile.cursor_shape {
+            CursorShape::Block => vte::CursorShape::Block,
+            CursorShape::Ibeam => vte::CursorShape::Ibeam,
+            CursorShape::Underline => vte::CursorShape::Underline,
+        });
+        vte.set_cursor_blink_mode(match profile.cursor_blink {
+            CursorBlink::System => vte::CursorBlinkMode::System,
+            CursorBlink::On => vte::CursorBlinkMode::On,
+            CursorBlink::Off => vte::CursorBlinkMode::Off,
+        });
+        vte.set_audible_bell(profile.bell == Bell::Sound);
         self.0.background.set(background);
         for f in self.0.on_colors_changed.borrow().iter() {
             f();

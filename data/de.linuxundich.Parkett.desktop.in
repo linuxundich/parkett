@@ -10,3 +10,6 @@ Keywords=terminal;shell;console;split;tilix;reiter;tab;
 StartupNotify=true
 DBusActivatable=false
 X-GNOME-UsesNotifications=true
+X-TerminalArgExec=--
+X-TerminalArgDir=--working-directory=
+X-TerminalArgTitle=--title=

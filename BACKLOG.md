@@ -49,6 +49,7 @@
 Reihenfolge als Vorschlag; jede Stufe endet mit Test in VM und auf dem Host und einem Paket.
 
 ### 0.2 – Lücken aus dem Alltag
+- [x] Schrift, Cursorform, Blinken und Glocke je Profil (2026-10-19)
 - [ ] Hoher Kontrast: Farbschema „Hoher Kontrast“ automatisch verwenden
 - [ ] Auswahlfarbe im Dunkelmodus (`set_color_highlight`)
 - [ ] Trenner per Maus ziehen und Reiter in neues Fenster ziehen: Test und Feinschliff
@@ -57,17 +58,17 @@ Reihenfolge als Vorschlag; jede Stufe endet mit Test in VM und auf dem Host und 
 - [ ] Aufteilung einer Vorlage im Editor ändern
 - [ ] Strg+Eingabe in der Palette: Ziel im neuen Bereich öffnen
 
-- [ ] Befehlszeile: `parkett -- befehl`, `--working-directory` (xdg-terminal-exec, Nautilus)
+- [x] Befehlszeile: `parkett -- befehl`, `--working-directory`, `--tab`, `--profile`, `--title` (2026-10-19)
 - [ ] Aufräumen aus dem Review: L1/L2 schwache Referenzen in Einstellungen/Zeichenfunktionen,
       L3 Sekundentimer in Hintergrund-Reitern pausieren, D2/D3 Vordergrund-Abfrage und
       Farbumrechnung zusammenfassen, D6 Debug-Ausgabe (docs/QA.md, Phase 6)
 
 ### 0.3 – Sitzungen
-- [ ] Sitzung beim Beenden sichern und beim Start wiederherstellen (Layout, Verzeichnisse,
-      ohne Prozesse) – Tilix-Funktion „Sitzung speichern“
+- [x] Sitzung sichern und beim Start wiederherstellen (Layout, Verzeichnisse, ohne Prozesse)
+      (2026-10-19)
 - [ ] Eingabe an mehrere Bereiche gleichzeitig senden (Tilix „Synchronisierte Eingabe“), mit
       deutlicher Kennzeichnung
-- [ ] Benachrichtigung, wenn ein langer Befehl in einem Hintergrund-Reiter endet (OSC 777 / VTE)
+- [x] Benachrichtigung, wenn ein langer Befehl in einem Hintergrund-Reiter endet (vte.sh-Termprops, 2026-10-19)
 
 ### 0.4 – Verbreitung
 - [ ] Englische Oberfläche (gettext), dann Übersetzungen

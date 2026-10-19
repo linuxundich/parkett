@@ -9,7 +9,9 @@ steht für das Fischgrät-Muster aus Terminal-Bereichen, das die Splits bilden.
 Reiter und frei teilbare Bereiche (Knöpfe wie bei Tilix, Kürzel, Layout-Modus mit
 Einzeltasten), Befehlspalette, Vorlagen mit Startbefehlen, Profile, 14 Farbschemata mit
 heller und dunkler Fassung (Import von Ptyxis und Tilix), Kontextfarbe für root und SSH,
-Rückgängig beim Schließen, Suche, Links, änderbare Kürzel, Hell/Dunkel von Hand.
+Rückgängig beim Schließen, Suche, Links, änderbare Kürzel, Hell/Dunkel von Hand,
+Sitzung beim Start wiederherstellen, Befehlszeile (`parkett -d DIR -- befehl`), Schrift,
+Cursor und Glocke je Profil, Benachrichtigung, wenn ein langer Befehl im Hintergrund endet.
 Anleitung: [`docs/BEDIENUNG.md`](docs/BEDIENUNG.md).
 
 ## Dokumentation

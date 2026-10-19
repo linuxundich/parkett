@@ -7,9 +7,9 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use adw::prelude::*;
-use gtk::{gio, glib};
+use gtk::{gio, glib, pango};
 use parkett_core::palette::{Face, Palette};
-use parkett_core::profile::{ExitAction, Profile};
+use parkett_core::profile::{Bell, CursorBlink, CursorShape, ExitAction, Profile};
 
 use crate::profiles::ProfileManager;
 
@@ -97,6 +97,18 @@ fn general_page() -> adw::PreferencesPage {
         .build();
     settings.bind("warn-multiline-paste", &paste, "active").build();
     behaviour.add(&paste);
+    let restore = adw::SwitchRow::builder()
+        .title("Letzte Sitzung wiederherstellen")
+        .subtitle("Fenster, Reiter, Aufteilung und Verzeichnisse – ohne die Programme darin")
+        .build();
+    settings.bind("restore-session", &restore, "active").build();
+    behaviour.add(&restore);
+    let notify = adw::SwitchRow::builder()
+        .title("Benachrichtigen, wenn ein Befehl endet")
+        .subtitle("Nach mindestens 10 Sekunden Laufzeit, wenn der Bereich nicht zu sehen ist")
+        .build();
+    settings.bind("notify-command-finished", &notify, "active").build();
+    behaviour.add(&notify);
     behaviour.add(&scrollback);
     page.add(&behaviour);
     page
@@ -336,6 +348,84 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str) -> adw::NavigationP
             }
         });
     });
+
+    // Schrift, Cursor, Glocke
+    let look = adw::PreferencesGroup::builder().title("Schrift und Cursor").build();
+    let system_font = adw::SwitchRow::builder()
+        .title("Systemschrift verwenden")
+        .subtitle("Festbreitenschrift aus den GNOME-Einstellungen")
+        .active(profile.font.trim().is_empty())
+        .build();
+    let font_dialog = gtk::FontDialog::builder().title("Schrift für das Terminal").modal(true).build();
+    // nur Festbreitenschriften anbieten
+    font_dialog.set_filter(Some(&gtk::CustomFilter::new(|item| {
+        item.downcast_ref::<pango::FontFamily>().is_none_or(|f| f.is_monospace())
+    })));
+    let initial = if profile.font.trim().is_empty() {
+        adw::StyleManager::default().monospace_font_name().to_string()
+    } else {
+        profile.font.clone()
+    };
+    let font_button = gtk::FontDialogButton::builder()
+        .dialog(&font_dialog)
+        .font_desc(&pango::FontDescription::from_string(&initial))
+        .valign(gtk::Align::Center)
+        .build();
+    let font_row = adw::ActionRow::builder().title("Schrift").sensitive(!system_font.is_active()).build();
+    font_row.add_suffix(&font_button);
+    font_row.set_activatable_widget(Some(&font_button));
+    let d = dialog.downgrade();
+    let i = id.clone();
+    let (fr, fb) = (font_row.downgrade(), font_button.downgrade());
+    system_font.connect_active_notify(move |row| {
+        let Some(d) = d.upgrade() else { return };
+        let use_system = row.is_active();
+        if let Some(fr) = fr.upgrade() {
+            fr.set_sensitive(!use_system);
+        }
+        let font = if use_system {
+            String::new()
+        } else {
+            fb.upgrade().and_then(|b| b.font_desc()).map(|f| f.to_string()).unwrap_or_default()
+        };
+        update(&d, &i, |p| p.font = font);
+    });
+    let d = dialog.downgrade();
+    let i = id.clone();
+    font_button.connect_font_desc_notify(move |b| {
+        let (Some(d), Some(f)) = (d.upgrade(), b.font_desc()) else { return };
+        update(&d, &i, |p| p.font = f.to_string());
+    });
+    look.add(&system_font);
+    look.add(&font_row);
+    let shapes = [CursorShape::Block, CursorShape::Ibeam, CursorShape::Underline];
+    look.add(&choice_row(
+        dialog,
+        &id,
+        "Cursorform",
+        &["Block", "Strich", "Unterstrich"],
+        shapes.iter().position(|c| *c == profile.cursor_shape).unwrap_or(0),
+        move |p, n| p.cursor_shape = shapes[n],
+    ));
+    let blinks = [CursorBlink::System, CursorBlink::On, CursorBlink::Off];
+    look.add(&choice_row(
+        dialog,
+        &id,
+        "Cursor blinkt",
+        &["Wie im System", "Immer", "Nie"],
+        blinks.iter().position(|c| *c == profile.cursor_blink).unwrap_or(0),
+        move |p, n| p.cursor_blink = blinks[n],
+    ));
+    let bells = [Bell::Sound, Bell::Mark, Bell::None];
+    look.add(&choice_row(
+        dialog,
+        &id,
+        "Glocke",
+        &["Ton und Reiter markieren", "Nur Reiter markieren", "Aus"],
+        bells.iter().position(|c| *c == profile.bell).unwrap_or(0),
+        move |p, n| p.bell = bells[n],
+    ));
+    page.add(&look);
 
     // Start
     let start = adw::PreferencesGroup::builder().title("Start").build();
@@ -839,4 +929,26 @@ fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::Nav
     toolbar.add_top_bar(&adw::HeaderBar::new());
     toolbar.set_content(Some(&page));
     Some(adw::NavigationPage::builder().title(template.name.as_str()).child(&toolbar).build())
+}
+
+/// Auswahlzeile für ein Profilfeld; `set` bekommt den gewählten Index.
+fn choice_row(
+    dialog: &adw::PreferencesDialog,
+    id: &str,
+    title: &str,
+    labels: &[&str],
+    selected: usize,
+    set: impl Fn(&mut Profile, usize) + 'static,
+) -> adw::ComboRow {
+    let row =
+        adw::ComboRow::builder().title(title).model(&gtk::StringList::new(labels)).selected(selected as u32).build();
+    let d = dialog.downgrade();
+    let id = id.to_string();
+    row.connect_selected_notify(move |row| {
+        if let Some(d) = d.upgrade() {
+            let n = row.selected() as usize;
+            update(&d, &id, |p| set(p, n));
+        }
+    });
+    row
 }

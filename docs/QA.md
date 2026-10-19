@@ -168,3 +168,21 @@ G3 (Befehlszeile `-- befehl`, `--working-directory`).
 
 Rauchtest danach (`build-aux/vm/smoke.sh`): 9 von 9 Prüfungen bestanden. CI (`build-aux/ci.sh`):
 Formatierung, Clippy ohne Warnungen, 45 Tests, Meson-Tests grün.
+
+## Alltagsfunktionen für 0.2 (2026-10-19, VM)
+
+| Funktion | Test | Ergebnis |
+|---|---|---|
+| Befehlszeile | `--help`, `--version`; `--gibtsnicht` und `-d /gibtsnicht` → Meldung, Exit 1; `--tab -d /usr/share -t Logs` aus zweiter Instanz; `cd /tmp && parkett`; `--tab -- sh -c …` | ✅ Reiter „Logs“ in `/usr/share`, neues Fenster in `/tmp`, Befehl statt Shell |
+| Unbekanntes Profil | Profil-TOML anlegen, während Parkett läuft, dann `--profile qa-cursor` | 🔧 wurde zuerst nicht gefunden; jetzt neu eingelesen ✅ |
+| Schrift, Cursor | Profil mit `Monospace Bold 18`, `underline`, `off`, Nord | ✅ |
+| Glocke „markieren“ | `sleep 3; tput bel`, Reiter wechseln | ✅ Reiter markiert |
+| Sitzung | 2 Fenster, 4 Reiter, Titel, Verzeichnisse `~`, `/usr/share`, `/tmp`; SIGTERM; Neustart | ✅ alles zurück; 🔧 Befehlsbereich ohne `vte.cwd` wäre in `/` gelandet → Rückfall auf `/proc/<pid>/cwd` |
+| Fensterreihenfolge | zuletzt fokussiertes Fenster oben | 🔧 umgekehrtes Öffnen half nicht (Mutter fokussiert das erste Fenster) → in gespeicherter Reihenfolge öffnen ✅ |
+| Letzter Reiter geschlossen | teilen, sofort *Reiter schließen* | 🔧 alter Stand blieb stehen → Sitzung wird gelöscht, Neustart frisch ✅ |
+| Fenster mit Reitern geschlossen | teilen, sofort *Alt+F4* | ✅ 2 Bereiche beim Neustart |
+| Benachrichtigung | `sleep 12` / `sleep 11`, Reiter wechseln | ✅ Reiter markiert, `AddNotification` „Befehl beendet – sleep · nach 10 s“ (D-Bus), Banner sichtbar; `app.show-terminal` wechselt zum Bereich. 🔧 Dauer jetzt gerundet |
+| Rauchtest | `build-aux/vm/smoke.sh` mit neuer Prüfung „Sitzung wiederhergestellt“ | ✅ 10/10 |
+
+Nicht geprüft: Glocke mit Ton (nicht hörbar prüfbar), Aufruf über `xdg-terminal-exec`
+(weder in der VM noch auf dem Host installiert), Host (Arch).

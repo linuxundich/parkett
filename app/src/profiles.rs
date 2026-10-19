@@ -143,6 +143,17 @@ impl ProfileManager {
         })
     }
 
+    /// Neu einlesen, falls es `id` nicht gibt (Profil von Hand angelegt, während Parkett lief).
+    /// `true`, wenn es danach existiert.
+    pub fn ensure_profile(&self, id: &str) -> bool {
+        if self.imp().profiles.borrow().iter().any(|p| p.id == id) {
+            return true;
+        }
+        self.reload();
+        self.emit_changed();
+        self.imp().profiles.borrow().iter().any(|p| p.id == id)
+    }
+
     fn emit_changed(&self) {
         self.emit_by_name::<()>("changed", &[]);
     }
