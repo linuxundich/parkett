@@ -12,8 +12,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [0.2.0] - 2026-10-19
 
 Everyday features: session, command line, Nautilus, transparency, font/cursor/bell,
-notifications; fixes from the QA audit on Ubuntu 26.04. Local only; package in the
-own Arch repository `linuxundich` on bender.
+notifications; fixes from the QA audit on Ubuntu 26.04. First public release, source only;
+see `docs/BUILDING.md`.
 
 ### Added
 - Session: windows, tabs, split layout, profiles, directories and custom titles come
