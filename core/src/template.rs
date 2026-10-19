@@ -2,7 +2,7 @@
 //! Vorlagen: ein ganzes Layout mit Profil, Startbefehl und Unterverzeichnis je Bereich.
 //! Gespeichert als TOML (`$XDG_CONFIG_HOME/parkett/templates/<id>.toml`).
 //!
-//! Startbefehle werden in die Shell getippt (Vorschlag 5, KONZEPTE.md), nicht statt der
+//! Startbefehle werden in die Shell getippt (Vorschlag 5, CONCEPTS.md), nicht statt der
 //! Shell gestartet: Nach Strg+C bleibt der Bereich als Shell nutzbar.
 
 use std::io;

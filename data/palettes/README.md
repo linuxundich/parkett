@@ -1,16 +1,16 @@
-# Farbschemata
+# Color schemes
 
-Mitgelieferte Farbschemata im Paletten-Format von Ptyxis (Abschnitte `[Palette]`, `[Light]`,
-`[Dark]`; optional `SuperuserBackground`, `RemoteBackground` u. a.). Jede Datei enthält eine
-helle und eine dunkle Fassung; Parkett wählt sie nach dem Systemstil.
+Bundled color schemes in the Ptyxis palette format (sections `[Palette]`, `[Light]`,
+`[Dark]`; optionally `SuperuserBackground`, `RemoteBackground` and others). Each file contains a
+light and a dark variant; Parkett picks one according to the system style.
 
-Herkunft: [Ptyxis](https://gitlab.gnome.org/chergert/ptyxis) `src/palettes/`, Stand Commit
-`ecc97d39` (2026-10-11), GPL-3.0-or-later. Viele davon stammen ursprünglich aus
-[Gogh](https://github.com/Gogh-Co/Gogh) (MIT, Hinweis am Dateiende). Dateinamen wurden
-vereinheitlicht, drei Anzeigenamen eingedeutscht bzw. gekürzt (Hoher Kontrast, Catppuccin,
-GitHub); die Farben sind unverändert.
+Origin: [Ptyxis](https://gitlab.gnome.org/chergert/ptyxis) `src/palettes/`, as of commit
+`ecc97d39` (2026-10-11), GPL-3.0-or-later. Many of them originally come from
+[Gogh](https://github.com/Gogh-Co/Gogh) (MIT, notice at the end of the file). File names were
+normalized, three display names were translated into German or shortened (*Hoher Kontrast*
+(High Contrast), Catppuccin, GitHub); the colors are unchanged.
 
-| Datei | Ptyxis-Datei |
+| File | Ptyxis file |
 |---|---|
 | gnome.palette | gnome.palette |
 | gnome-high-contrast.palette | gnome-high-contrast.palette |
@@ -27,4 +27,4 @@ GitHub); die Farben sind unverändert.
 | papercolor.palette | Papercolor.palette |
 | vs-code.palette | Vs Code.palette |
 
-Eigene oder importierte Schemata legt Parkett unter `$XDG_DATA_HOME/parkett/palettes/` ab.
+Parkett stores custom or imported schemes under `$XDG_DATA_HOME/parkett/palettes/`.

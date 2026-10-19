@@ -1,19 +1,19 @@
 # Icon
 
-App-Icon für Parkett: Fischgrät-Parkett mit eingelassenem Terminal-Bereich
-(GNOME-HIG, 128-px-Raster, Kasten 104 × 100 bei (12, 12), 4 px Vorderkante).
+App icon for Parkett: herringbone parquet with an inset terminal area
+(GNOME HIG, 128 px grid, box 104 × 100 at (12, 12), 4 px front edge).
 
-| Datei | Inhalt |
+| File | Content |
 |---|---|
-| `parkett.svg` | App-Icon, **erzeugt** von `gen_icon.py` – dort ändern |
-| `parkett-symbolic.svg` | symbolisches Icon 16 px, von Hand |
-| `gen_icon.py` | Generator; `--no-grain` lässt die Maserung weg |
-| `vorschau.png` | 256 … 16 px plus symbolisch, hell und dunkel |
-| `entwuerfe/` | verworfene Varianten A (Korbflecht) und B (Split) |
+| `parkett.svg` | app icon, **generated** by `gen_icon.py` – make changes there |
+| `parkett-symbolic.svg` | symbolic icon 16 px, made by hand |
+| `gen_icon.py` | generator; `--no-grain` leaves out the wood grain |
+| `vorschau.png` | 256 … 16 px plus symbolic, light and dark |
+| `entwuerfe/` | rejected variants A (basket weave) and B (split) |
 
-Neu erzeugen:
+Regenerate:
 
     python3 gen_icon.py parkett.svg
 
-Sobald die App-ID feststeht, beide Dateien unter `data/icons/hicolor/` nach der
-App-ID umbenennen.
+Once the app ID is settled, rename both files under `data/icons/hicolor/` after the
+app ID.

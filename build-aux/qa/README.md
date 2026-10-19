@@ -1,8 +1,8 @@
-# QA-Hilfen (Phase 5)
+# QA helpers (phase 5)
 
-| Datei | Zweck |
+| File | Purpose |
 |---|---|
-| `durchsatz.sh` | im zu messenden Terminal ausführen: 3 Mio. Zeilen `seq` und 20 MB farbiger Text, Dauer nach `~/qa-durchsatz.txt` |
-| `messen.sh` | vom Host: RSS/Threads/Shells oder CPU-Anteil von Parkett in der VM |
+| `durchsatz.sh` | run inside the terminal being measured: 3 million lines of `seq` and 20 MB of colored text, duration written to `~/qa-durchsatz.txt` |
+| `messen.sh` | from the host: RSS/threads/shells or CPU share of Parkett in the VM |
 
-Ergebnisse und Protokoll: `docs/QA.md`.
+Results and log: `docs/QA.md`.

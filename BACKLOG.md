@@ -1,108 +1,111 @@
 # Backlog
 
 ## Phase 2 – Design
-- [x] Drei Konzepte (A GNOME Native, B Arbeitsbereiche, C Terminalzentriert) als HTML-Mockups
-- [x] Entscheidung: A + Palette/Layout-Modus aus C + Vorlagen aus B (2026-10-18)
-- [x] Kombiniertes Konzept A+ als Mockup (`mockups/combined.html`)
-- [x] Freigabe A+: Bereichstitel schwebend, Vorschläge 1–6 übernommen (2026-10-18)
-- [x] Projektname festlegen: Parkett (2026-10-18; „Parquet“ verworfen wegen Apache Parquet)
-- [x] App-Icon und symbolisches Icon (`icon/`)
-- [ ] Name noch prüfen: Markenregister (DPMA/EUIPO), Domains
-- [x] App-ID festlegen, Icons unter `data/icons/hicolor/` (de.linuxundich.Parkett)
+- [x] Three concepts (A GNOME Native, B Workspaces, C Terminal-centric) as HTML mockups
+- [x] Decision: A + palette/layout mode from C + templates from B (2026-10-18)
+- [x] Combined concept A+ as a mockup (`mockups/combined.html`)
+- [x] A+ approved: floating pane title, suggestions 1–6 adopted (2026-10-18)
+- [x] Choose the project name: Parkett (2026-10-18; "Parquet" rejected because of Apache Parquet)
+- [x] App icon and symbolic icon (`icon/`)
+- [ ] Still check the name: trademark registers (DPMA/EUIPO), domains
+- [x] Choose the app ID, icons under `data/icons/hicolor/` (de.linuxundich.Parkett)
 
-## Phase 3 – Prototyp
-- [x] Sprache Rust, App-ID de.linuxundich.Parkett (2026-10-18)
-- [x] Fenster mit libadwaita + VTE, Shell asynchron, Prozessende-Leiste mit Neu starten
-- [x] Titel/Verzeichnis aus Termprops, Farben/Schrift nach System, Zoom, Kopieren/Einfügen
-- [x] Kern `layout` mit Tests (Split, Schließen, Größe, Angleichen, Zoom, Nachbar, Mindestgröße)
-- [x] Test in Fedora-VM (Wayland, X11, Unicode, Dunkel, Resize, Speicher) – docs/PROTOTYP.md
-- [x] Start auf dem Host (Arch, GNOME 51) – Phase 5
-- [x] Freigabe für Phase 4 (2026-10-18, Architekturvorschläge angenommen)
+## Phase 3 – Prototype
+- [x] Language Rust, app ID de.linuxundich.Parkett (2026-10-18)
+- [x] Window with libadwaita + VTE, asynchronous shell, process-exited bar with *Neu starten* (Restart)
+- [x] Title/directory from termprops, colors/font following the system, zoom, copy/paste
+- [x] Core `layout` with tests (split, close, size, equalize, zoom, neighbor, minimum size)
+- [x] Test in a Fedora VM (Wayland, X11, Unicode, dark, resize, memory) – docs/PROTOTYPE.md
+- [x] Start on the host (Arch, GNOME 51) – phase 5
+- [x] Approval for phase 4 (2026-10-18, architecture proposals accepted)
 
 ## Phase 4 – MVP (docs/MVP.md)
-- [x] Architektur: Unterklassen, GSettings + Dateien, serde, Meson, GPL-3.0-or-later (angenommen)
-- [x] Schritt 1: Tabs und Splits, Schließen mit Nachfrage, Kürzel-Übersicht (VM-getestet)
-- [x] Schritt 2: Meson-Build, GSettings-Schema, LICENSE, Arch-Paket (2026-10-18)
-- [x] Schritt 3: Profile und Farbschemata (Ptyxis-Format, 14 Schemata, Import, Kacheln) (2026-10-18)
-- [x] Schritt 4: Einstellungen (Allgemein, Profile, Tastenkürzel) (2026-10-18)
-- [ ] Profil-Felder Umgebung/Verzeichnis/Login-Shell und Löschen in der VM testen
-- [x] Schritt 5: Suche, Links öffnen, änderbare Kürzel (2026-10-18)
-- [x] Schritt 6: Befehlspalette, Layout-Modus, Vorlagen mit Startbefehlen (2026-10-18)
-- [x] Schritt 7: Rückgängig beim Schließen, Kontextfarbe je Bereich (2026-10-18)
-- [x] Phase 5: Qualitätssicherung (docs/QA.md, 2026-10-19)
-- [x] Begriff: durchgehend „Reiter“ (2026-10-18)
-- [x] Flatpak von Anfang an oder zuerst nativ → zuerst nativ (docs/PAKETIERUNG.md)
-- [x] Farbschema-Format: Ptyxis-Palette (Schritt 3)
+- [x] Architecture: subclasses, GSettings + files, serde, Meson, GPL-3.0-or-later (accepted)
+- [x] Step 1: tabs and splits, close with confirmation, shortcuts overview (tested in VM)
+- [x] Step 2: Meson build, GSettings schema, LICENSE, Arch package (2026-10-18)
+- [x] Step 3: profiles and color schemes (Ptyxis format, 14 schemes, import, tiles) (2026-10-18)
+- [x] Step 4: preferences (General, Profiles, Keyboard Shortcuts) (2026-10-18)
+- [ ] Test the profile fields environment/directory/login shell and deleting in the VM
+- [x] Step 5: search, opening links, configurable shortcuts (2026-10-18)
+- [x] Step 6: command palette, layout mode, templates with startup commands (2026-10-18)
+- [x] Step 7: undo on close, context color per pane (2026-10-18)
+- [x] Phase 5: quality assurance (docs/QA.md, 2026-10-19)
+- [x] Terminology: *Reiter* (tab) throughout (2026-10-18)
+- [x] Flatpak from the start or native first → native first (docs/PACKAGING.md)
+- [x] Color scheme format: Ptyxis palette (step 3)
 
-## Phase 6 – Stabilisierung und Veröffentlichung
-- [x] Code-Review (Architektur, Codequalität) und Befunde behoben
-- [x] Formatierung (`rustfmt.toml`), Clippy ohne Warnungen, SPDX-Kennungen
-- [x] CI-Skript `build-aux/ci.sh` und VM-Rauchtest `build-aux/vm/smoke.sh`
-- [x] Doku: Architektur, Bedienung, README; Beispiele in der Bedienung als Test
-- [x] Paketierungswege untersucht (docs/PAKETIERUNG.md)
-- [x] Lizenzen geprüft (docs/LIZENZEN.md)
-- [x] Entscheidung Veröffentlichung (2026-10-19): Tag v0.1.0, vorerst nur lokal; einziger Weg ist das Arch-Repo auf bender
-- [ ] Später: öffentliches Repo (GitHub, dann Englisch), AUR, COPR
+## Phase 6 – Stabilization and release
+- [x] Code review (architecture, code quality) and findings fixed
+- [x] Formatting (`rustfmt.toml`), Clippy without warnings, SPDX identifiers
+- [x] CI script `build-aux/ci.sh` and VM smoke test `build-aux/vm/smoke.sh`
+- [x] Docs: architecture, usage, README; examples in the usage guide as a test
+- [x] Packaging options investigated (docs/PACKAGING.md)
+- [x] Licenses checked (docs/LICENSES.md)
+- [x] Release decision (2026-10-19): tag v0.1.0, local only for now; the only channel is the Arch repository on bender
+- [x] Public repository on GitHub, documentation in English (2026-10-19)
+- [ ] AUR and Fedora COPR
 
-## QA-Audit 2026-10-19 (`qa/2026-10-19/QA-BERICHT.md`)
-- [x] QA-01 F2/F10 gehören wieder den Programmen im Terminal
-- [x] QA-02 Bereichstitel verdeckt Text → Design V2 (ausgeblendet, Hover/Fokuswechsel)
-- [x] QA-03 kein Neustart geschlossener Reiter, Einblendung loslassen; R-01 Seitenabfrage
-- [x] QA-04 Einfüge-Warnung bei jedem Zeilenumbruch
-- [x] QA-05/06 OSC 7 dekodieren, nur eigener Rechner
-- [x] QA-07 Markup maskieren; QA-09 Fokus nach Menüs
-- [x] QA-10 Palette One; R-03 Umgebungsfeld quoten; R-02 Rauchtest-Protokoll
-- [ ] QA-08 Umgebung eines zweiten Aufrufs (`FOO=1 parkett --tab`) übernehmen
-- [ ] QA-11 Prozessende-Standard (schließen bei Code 0? neutrale Leiste) – Entscheidung
-- [ ] QA-12 Tooltips aus aktueller Kürzelbelegung
-- [ ] QA-13 Kopfleiste unter 600 px (AdwBreakpoint)
-- [ ] QA-14 blinkender Text nur bei Fokus
-- [ ] QA-15 Fehlerdialog in Festbreitenschrift, Einblendung ohne Zeitablauf
-- [ ] QA-16 Profil-Editor ohne Fokus im Namensfeld
-- [ ] QA-17 kurze Reiter-Beschriftung „Programm · Ordner“ (Entscheidung)
-- [ ] QA-18 Screenreader-Namen (Übersicht, Kürzel nicht im Namen)
-- [ ] QA-19 Trefferzahl in der Suche (optional)
-- [ ] QA-20 Cursor nach Umbruch: gegen Ptyxis prüfen
-- [ ] R-04 `file:///`-Links aus SSH-Sitzungen; R-05 bis R-12 aus dem Bericht
-- [ ] „Hoher Kontrast“ hell: Farben unter 3:1 nachschärfen; `cargo audit` in CI
-- [ ] Hauptmenü um Palette, Layout-Modus, Vorlagen ergänzen
+## QA audit 2026-10-19 (`qa/2026-10-19/QA-REPORT.md`)
+- [x] QA-01 F2/F10 belong to the programs in the terminal again
+- [x] QA-02 pane title covers text → design V2 (hidden, hover/focus change)
+- [x] QA-03 no restart of closed tabs, release the toast; R-01 page query
+- [x] QA-04 paste warning on every line break
+- [x] QA-05/06 decode OSC 7, local machine only
+- [x] QA-07 escape markup; QA-09 focus after menus
+- [x] QA-10 palette One; R-03 quote the environment field; R-02 smoke test log
+- [ ] QA-08 take over the environment of a second invocation (`FOO=1 parkett --tab`)
+- [ ] QA-11 default on process exit (close on code 0? neutral bar) – decision
+- [ ] QA-12 tooltips from the current shortcut assignment
+- [ ] QA-13 header bar below 600 px (AdwBreakpoint)
+- [ ] QA-14 blinking text only when focused
+- [ ] QA-15 error dialog in a monospace font, toast without timeout
+- [ ] QA-16 profile editor without focus in the name field
+- [ ] QA-17 short tab label "program · folder" (decision)
+- [ ] QA-18 screen reader names (overview, shortcut not in the name)
+- [ ] QA-19 match count in search (optional)
+- [ ] QA-20 cursor after line wrap: compare with Ptyxis
+- [ ] R-04 `file:///` links from SSH sessions; R-05 to R-12 from the report
+- [ ] *Hoher Kontrast* (High Contrast) light: sharpen colors below 3:1; `cargo audit` in CI
+- [ ] Add palette, layout mode and templates to the main menu
 
-## Entwicklungsplan
+## Development plan
 
-Reihenfolge als Vorschlag; jede Stufe endet mit Test in VM und auf dem Host und einem Paket.
+Order is a proposal; each stage ends with a test in the VM and on the host, and a package.
 
-### 0.2 – Lücken aus dem Alltag
-- [x] Schrift, Cursorform, Blinken und Glocke je Profil (2026-10-19)
-- [x] Transparenter Hintergrund (Deckkraft je Profil) (2026-10-19)
-- [x] Nautilus-Kontextmenü per nautilus-python (2026-10-19)
-- [x] Sixel-Schalter, nur aktiv mit VTE mit Sixel (2026-10-19)
-- [ ] Sixel mit einer VTE testen, die mit Sixel-Unterstützung gebaut ist (Arch und Fedora 44 bauen ohne)
-- [ ] Hoher Kontrast: Farbschema „Hoher Kontrast“ automatisch verwenden
-- [ ] Auswahlfarbe im Dunkelmodus (`set_color_highlight`)
-- [ ] Trenner per Maus ziehen und Reiter in neues Fenster ziehen: Test und Feinschliff
-- [ ] Cursor nach Schließen der Reiter-Übersicht unsichtbar – Ursache
-- [ ] Importierte Schemata sofort alphabetisch einsortieren
-- [ ] Aufteilung einer Vorlage im Editor ändern
-- [ ] Strg+Eingabe in der Palette: Ziel im neuen Bereich öffnen
+### 0.2 – Gaps found in daily use
+- [x] Font, cursor shape, blinking and bell per profile (2026-10-19)
+- [x] Transparent background (opacity per profile) (2026-10-19)
+- [x] Nautilus context menu via nautilus-python (2026-10-19)
+- [x] Sixel switch, only active with a VTE that has Sixel (2026-10-19)
+- [ ] Test Sixel with a VTE built with Sixel support (Arch and Fedora 44 build without it)
+- [ ] High contrast: use the *Hoher Kontrast* color scheme automatically
+- [ ] Selection color in dark mode (`set_color_highlight`)
+- [ ] Dragging the divider with the mouse and dragging tabs into a new window: test and polish
+- [ ] Cursor invisible after closing the tab overview – find the cause
+- [ ] Sort imported schemes alphabetically right away
+- [ ] Change the split layout of a template in the editor
+- [ ] Ctrl+Enter in the palette: open the target in a new pane
 
-- [x] Befehlszeile: `parkett -- befehl`, `--working-directory`, `--tab`, `--profile`, `--title` (2026-10-19)
-- [ ] Aufräumen aus dem Review: L1/L2 schwache Referenzen in Einstellungen/Zeichenfunktionen,
-      L3 Sekundentimer in Hintergrund-Reitern pausieren, D2/D3 Vordergrund-Abfrage und
-      Farbumrechnung zusammenfassen, D6 Debug-Ausgabe (docs/QA.md, Phase 6)
+- [x] Command line: `parkett -- command`, `--working-directory`, `--tab`, `--profile`, `--title` (2026-10-19)
+- [ ] Cleanup from the review: L1/L2 weak references in preferences/drawing functions,
+      L3 pause the per-second timer in background tabs, D2/D3 merge the foreground query and
+      color conversion, D6 debug output (docs/QA.md, phase 6)
 
-### 0.3 – Sitzungen
-- [x] Sitzung sichern und beim Start wiederherstellen (Layout, Verzeichnisse, ohne Prozesse)
+### 0.3 – Sessions
+- [x] Save the session and restore it on startup (layout, directories, without processes)
       (2026-10-19)
-- [ ] Eingabe an mehrere Bereiche gleichzeitig senden (Tilix „Synchronisierte Eingabe“), mit
-      deutlicher Kennzeichnung
-- [x] Benachrichtigung, wenn ein langer Befehl in einem Hintergrund-Reiter endet (vte.sh-Termprops, 2026-10-19)
+- [ ] Send input to several panes at once (Tilix "synchronized input"), with
+      clear marking
+- [x] Notification when a long command finishes in a background tab (vte.sh termprops, 2026-10-19)
 
-### 0.4 – Verbreitung
-- [ ] Englische Oberfläche (gettext), dann Übersetzungen
-- [ ] Debian/Ubuntu: Ubuntu 26.04 baut und läuft unverändert (QA 2026-10-19); `tuxedo-os-forky` und ein .deb offen
-- [ ] AUR und Fedora COPR aus dem öffentlichen Repo
+### 0.4 – Distribution
+- [ ] English interface (gettext), then translations
+- [ ] Debian/Ubuntu: Ubuntu 26.04 builds and runs unchanged (QA 2026-10-19); `tuxedo-os-forky` and a .deb still open
 
-### Später
-- [ ] Flatpak mit Host-Agent (wie Ptyxis), eigenes Repo – kein Flathub
-- [ ] Schnellterminal (Quake-Stil) – unter Wayland nur mit Hilfe der Shell möglich, erst prüfen
-- [ ] Orca mit Sprachausgabe von Hand prüfen; CPU unter Dauerausgabe auf dem Host messen
+### Later
+- [ ] Flatpak with a host agent (like Ptyxis), own repository – no Flathub
+- [ ] Drop-down terminal (Quake style) – on Wayland only possible with help from the shell, check first
+- [ ] Check Orca with speech output by hand; measure CPU under continuous output on the host
+
+## Observations
+- [ ] Search once reported no match for text that was on screen (after `clear`, with older output in the scrollback, search text replaced with Ctrl+A); not reproducible afterwards

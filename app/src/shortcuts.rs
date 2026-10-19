@@ -29,7 +29,7 @@ const fn e(
 
 pub const SECTIONS: &[&str] = &["Reiter und Fenster", "Bereiche", "Terminal"];
 
-/// Belegung nach Tilix, wo sie nicht mit GNOME kollidiert (KONZEPTE.md).
+/// Belegung nach Tilix, wo sie nicht mit GNOME kollidiert (CONCEPTS.md).
 pub const ENTRIES: &[Entry] = &[
     e("win.new-tab", "Reiter und Fenster", "Neuer Reiter", &["<Control><Shift>t"]),
     e("win.close-tab", "Reiter und Fenster", "Reiter schließen", &["<Control><Shift>q"]),

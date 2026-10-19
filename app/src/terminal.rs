@@ -20,7 +20,7 @@ use parkett_core::profile::{Bell, CursorBlink, CursorShape, ExitAction};
 
 use crate::profiles::ProfileManager;
 
-/// Kleinste sinnvolle Größe eines Bereichs in Zellen (siehe docs/ANALYSE.md, Funktionsmatrix).
+/// Kleinste sinnvolle Größe eines Bereichs in Zellen (siehe docs/ANALYSIS.md, Funktionsmatrix).
 pub const MIN_COLUMNS: i64 = 20;
 pub const MIN_ROWS: i64 = 5;
 

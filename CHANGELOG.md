@@ -1,152 +1,165 @@
 # Changelog
 
-Format nach [Keep a Changelog](https://keepachangelog.com/de/1.1.0/).
+Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- Published on GitHub: README as a product page with screenshots, documentation translated to
+  English (`docs/USAGE.md`, `ARCHITECTURE.md`, `PACKAGING.md`, `LICENSES.md`, design and QA
+  documents), build instructions in `docs/BUILDING.md`.
+
 ## [0.2.0] - 2026-10-19
 
-Alltagsfunktionen: Sitzung, Befehlszeile, Nautilus, Transparenz, Schrift/Cursor/Glocke,
-Benachrichtigung; Korrekturen aus dem QA-Audit unter Ubuntu 26.04. Nur lokal; Paket im
-eigenen Arch-Repo `linuxundich` auf bender.
+Everyday features: session, command line, Nautilus, transparency, font/cursor/bell,
+notifications; fixes from the QA audit on Ubuntu 26.04. Local only; package in the
+own Arch repository `linuxundich` on bender.
 
-### Hinzugefügt
-- Sitzung: Fenster, Reiter, Aufteilung, Profile, Verzeichnisse und eigene Titel kommen
-  beim Start wieder (ohne Programme); laufend gesichert, Schließen des letzten Reiters
-  beendet die Sitzung; abschaltbar.
-- Befehlszeile: `-d/--working-directory`, `-e/-x/--` (Befehl statt Shell), `-p/--profile`,
-  `-t/--title`, `--tab`, `--help`, `--version`; Schlüssel für `xdg-terminal-exec` in der
-  `.desktop`-Datei. Unbekannte Profile werden vorher neu von der Platte gelesen.
-- Nautilus: „In Parkett öffnen“ (markierte Ordner, mehrere = Reiter) und „Parkett hier
-  öffnen“ per nautilus-python-Erweiterung (`share/nautilus-python/extensions`).
-- Befehlszeile: `-d` mehrfach = ein Reiter je Verzeichnis.
-- Profil: Schrift, Cursorform, Blinken, Glocke (Ton und Reiter markieren, nur markieren, aus).
-- Transparenter Hintergrund: Deckkraft je Profil (30–100 %), Kopfleiste und Trenner bleiben
-  deckend (der Trenner war halbtransparent und zeigte als helle Linie das Fenster dahinter).
-- Sixel-Grafiken (Einstellung, Standard an); wirkt nur mit einer VTE, die mit Sixel gebaut
-  ist – Arch und Fedora 44 sind es derzeit nicht, dann ist der Schalter ausgegraut.
-- Benachrichtigung, wenn ein Befehl (ab 10 s) in einem nicht sichtbaren Bereich endet;
-  Reiter wird markiert, Klick zeigt den Bereich. Braucht `vte.sh`.
+### Added
+- Session: windows, tabs, split layout, profiles, directories and custom titles come
+  back on startup (without programs); saved continuously, closing the last tab
+  ends the session; can be turned off.
+- Command line: `-d/--working-directory`, `-e/-x/--` (command instead of shell), `-p/--profile`,
+  `-t/--title`, `--tab`, `--help`, `--version`; key for `xdg-terminal-exec` in the
+  `.desktop` file. Unknown profiles are re-read from disk first.
+- Nautilus: *In Parkett öffnen* (Open in Parkett; selected folders, several = tabs) and
+  *Parkett hier öffnen* (Open Parkett here) via a nautilus-python extension
+  (`share/nautilus-python/extensions`).
+- Command line: `-d` given several times = one tab per directory.
+- Profile: font, cursor shape, blinking, bell (sound and mark tab, mark only, off).
+- Transparent background: opacity per profile (30–100 %), header bar and divider stay
+  opaque (the divider was semi-transparent and showed the window behind it as a bright line).
+- Sixel graphics (setting, on by default); only takes effect with a VTE built with Sixel
+  support – Arch and Fedora 44 currently are not, in which case the switch is greyed out.
+- Notification when a command (running 10 s or longer) finishes in a pane that is not visible;
+  the tab is marked, clicking shows the pane. Requires `vte.sh`.
 
-### Geändert
-- Bereichstitel (Design V2 aus dem QA-Audit): schwebt weiter oben rechts, ist aber
-  ausgeblendet und verdeckt keine Zeile mehr. Er erscheint, solange der Zeiger oben im
-  Bereich steht, und 1,5 s nach einem Fokuswechsel, außer der Cursor steht in der obersten
-  Zeile. Ausgeblendet nimmt er keine Klicks an.
-- Maximieren-Knopf im Bereichstitel: eigenes, kleineres Symbol in der Größe des ✕
-  (`view-fullscreen` füllte das ganze 16-px-Raster und wirkte doppelt so groß).
-- *Reiter umbenennen* hat kein Standardkürzel mehr (war F2); F10 öffnet nicht mehr das
-  Hauptmenü. Beide Tasten gehören wieder den Programmen im Terminal (htop, mc, nano).
-- Rauchtest: läuft auch in der Ubuntu-26.04-VM (`VM_DOM`, `VM_PORT`), prüft F10 in `htop`
-  und Profile mit „Neu starten“ und erkennt GLib-Meldungen im Journal zuverlässig.
+### Changed
+- Pane title (design V2 from the QA audit): still floats at the top right, but is now
+  hidden and no longer covers a line. It appears while the pointer is at the top of the
+  pane, and for 1.5 s after a focus change, unless the cursor is in the top line.
+  While hidden it does not accept clicks.
+- Maximize button in the pane title: its own, smaller icon the size of the close button
+  (`view-fullscreen` filled the whole 16 px grid and looked twice as large).
+- *Reiter umbenennen* (Rename tab) no longer has a default shortcut (was F2); F10 no longer
+  opens the main menu. Both keys belong to the programs in the terminal again (htop, mc, nano).
+- Smoke test: also runs in the Ubuntu 26.04 VM (`VM_DOM`, `VM_PORT`), checks F10 in `htop`
+  and profiles with *Neu starten* (Restart), and reliably detects GLib messages in the journal.
 
-### Behoben (QA-Audit 2026-10-19, `qa/2026-10-19/QA-BERICHT.md`)
-- Ein geschlossener Reiter mit Profil „Neu starten“ startete nach Ablauf der
-  Rückgängig-Frist sein Programm unsichtbar neu (z. B. eine ssh-Verbindung); die
-  abgelaufene Einblendung hielt den Reiter samt Verlauf im Speicher.
-- Einfüge-Warnung: Eine einzelne Zeile mit Zeilenumbruch am Ende wurde ohne Rückfrage
-  eingefügt und in Shells ohne „Bracketed Paste“ sofort ausgeführt.
-- Neue Terminals übernahmen Verzeichnisse mit Leerzeichen oder Umlauten nicht (die Sitzung
-  speicherte `%20`); ein Verzeichnis, das eine SSH-Sitzung per OSC 7 meldet, wurde als
-  lokales Startverzeichnis genommen. Jetzt dekodiert und nur vom eigenen Rechner, sonst das
-  Verzeichnis der Shell.
-- Startbefehle mit `&&`, `<` oder `>` fehlten im Dialog „Vorlage öffnen“; Namen, Pfade und
-  Fehlermeldungen in Einblendungen, Tooltips und Listen werden nicht mehr als Markup gelesen.
-- Nach Hauptmenü, Neu-Menü oder Reiter-Übersicht bleibt der Fokus nicht mehr in der
-  Kopfleiste; Getipptes landet wieder im Terminal.
-- Farbschema „One“ dunkel: Vordergrund war die Kommentarfarbe (Kontrast 2,7:1), jetzt
-  `#ABB2BF`; ein Test prüft den Kontrast aller Schemata.
-- Umgebungsvariablen im Profil: Werte mit Leerzeichen oder Anführungszeichen werden
-  gequotet angezeigt und beim Bearbeiten nicht mehr zerlegt.
-- Ein geschlossener oder in ein anderes Fenster gezogener Reiter fragte seine alte
-  Fensterseite ab (`TabView::page` ohne Seite).
+### Fixed (QA audit 2026-10-19, `qa/2026-10-19/QA-REPORT.md`)
+- A closed tab with the profile setting *Neu starten* restarted its program invisibly after
+  the undo period expired (for example an ssh connection); the expired toast kept the tab
+  and its scrollback in memory.
+- Paste warning: a single line with a trailing line break was pasted without asking
+  and executed immediately in shells without bracketed paste.
+- New terminals did not pick up directories containing spaces or umlauts (the session
+  stored `%20`); a directory reported by an SSH session via OSC 7 was taken as the local
+  starting directory. Now decoded and only accepted from the local machine, otherwise the
+  shell's directory is used.
+- Startup commands containing `&&`, `<` or `>` were missing in the *Vorlage öffnen*
+  (Open template) dialog; names, paths and error messages in toasts, tooltips and lists are
+  no longer parsed as markup.
+- After the main menu, the new menu or the tab overview, focus no longer stays in the
+  header bar; typed text goes to the terminal again.
+- Color scheme "One" dark: the foreground was the comment color (contrast 2.7:1), now
+  `#ABB2BF`; a test checks the contrast of all schemes.
+- Environment variables in the profile: values with spaces or quotes are shown quoted
+  and are no longer split up when editing.
+- A tab that was closed or dragged into another window queried its old window page
+  (`TabView::page` without a page).
 
 ## [0.1.0] - 2026-10-19
 
-Erste Version: MVP (Phase 4), Qualitätssicherung (Phase 5) und Stabilisierung (Phase 6).
-Nur lokal; Paket im eigenen Arch-Repo `linuxundich` auf bender.
+First version: MVP (phase 4), quality assurance (phase 5) and stabilization (phase 6).
+Local only; package in the own Arch repository `linuxundich` on bender.
 
 ### Phase 6
-- Dokumentation: Bedienung (`docs/BEDIENUNG.md`, Beispiele für Profile und Vorlagen werden
-  von `cargo test` geladen), Architektur, Paketierungswege, Lizenzen; README überarbeitet.
-- `build-aux/ci.sh`: Formatierung, Clippy, Tests, Meson-Build und -Tests in einem Lauf.
-- `build-aux/vm/smoke.sh`: Rauchtest in der VM über D-Bus (Teilen, Reiter, Schließen,
-  Fristablauf, keine verwaisten Shells, Protokoll ohne Fehler).
-- Entwicklungsplan für 0.2–0.4 im BACKLOG.
+- Documentation: usage (`docs/USAGE.md`, the example profiles and templates are loaded
+  by `cargo test`), architecture, packaging options, licenses; README revised.
+- `build-aux/ci.sh`: formatting, Clippy, tests, Meson build and Meson tests in one run.
+- `build-aux/vm/smoke.sh`: smoke test in the VM over D-Bus (splitting, tabs, closing,
+  undo period expiry, no orphaned shells, log without errors).
+- Development plan for 0.2–0.4 in the BACKLOG.
 
-### Behoben (Phase 6, Code-Review)
-- Nach „Rückgängig“ an neuer Stelle trafen Fokus und Schließen den falschen Bereich.
-- Schließen eines schon geschlossenen Bereichs schloss den ganzen Reiter oder das Fenster.
-- Absturz beim Start bei nur kaputten Profildateien oder Nicht-ASCII-Farbwerten in Paletten;
-  nicht lesbare Dateien werden jetzt als Einblendung mit Details gemeldet.
-- Einfüge-Warnung erkennt auch Zeilenumbrüche mit `\r`.
-- `file:`-Links auf andere Rechner (OSC 8 aus SSH-Sitzungen) werden nicht mehr geöffnet.
-- Unterverzeichnisse in Vorlagen nur noch relativ und ohne „..“.
-- Layout-Modus: bleibt nicht mehr auf dem alten Reiter stehen und schluckt keine Tasten
-  mehr in Dialogen und der Befehlspalette.
-- Automatischer Neustart und Hintergrund-Reiter holen sich nicht mehr den Fokus.
-- Doppelklick auf die Kopfleiste öffnet nicht mehr zusätzlich die Befehlspalette.
-- Alt+1…9 / Strg+Alt+1…9 werden beim Aufnehmen eigener Kürzel als belegt gemeldet.
-- Halb getippte Umgebungsvariablen löschen die gespeicherten nicht mehr.
-- Änderungen an Vorlagen färben die Terminals nicht mehr neu ein.
+### Fixed (phase 6, code review)
+- After *Rückgängig* (Undo) at a new position, focus and close hit the wrong pane.
+- Closing a pane that was already closed closed the whole tab or the window.
+- Crash on startup when there were only broken profile files or non-ASCII color values in palettes;
+  unreadable files are now reported in a toast with details.
+- The paste warning also detects line breaks with `\r`.
+- `file:` links to other machines (OSC 8 from SSH sessions) are no longer opened.
+- Subdirectories in templates must now be relative and must not contain "..".
+- Layout mode: no longer stays on the old tab and no longer swallows keys
+  in dialogs and the command palette.
+- Automatic restart and background tabs no longer grab focus.
+- Double-clicking the header bar no longer also opens the command palette.
+- Alt+1…9 / Ctrl+Alt+1…9 are reported as taken when recording custom shortcuts.
+- Half-typed environment variables no longer delete the saved ones.
+- Changes to templates no longer recolor the terminals.
 
-### Hinzugefügt
-- Knöpfe „Rechts teilen“ und „Unten teilen“ in der Kopfleiste (wie bei Tilix), eigene Symbole.
-- Hell/Dunkel von Hand: Stilwahl System/Hell/Dunkel im Hauptmenü und in den Einstellungen.
-- Einstellung „Bereichstitel bei geteilten Reitern: Als Zeile“ (Titelzeile über jedem Bereich).
-- Warnung beim Einfügen von mehrzeiligem Text, mit Vorschau (abschaltbar).
+### Added
+- *Rechts teilen* (Split right) and *Unten teilen* (Split down) buttons in the header bar
+  (as in Tilix), with their own icons.
+- Manual light/dark: style choice *System*/*Hell*/*Dunkel* (System/Light/Dark) in the main menu
+  and in the preferences.
+- Setting *Bereichstitel bei geteilten Reitern: Als Zeile* (Pane title in split tabs: as a row;
+  a title row above each pane).
+- Warning when pasting multi-line text, with preview (can be turned off).
 
-### Behoben (Phase 5, QA)
-- Rückgängig-Einblendungen standen Schlange und hielten geschlossene Prozesse bis zu einer
-  Minute am Leben; eine neue Einblendung ersetzt jetzt die vorige.
-- Schwebender Bereichstitel verdeckte in schmalen Bereichen den Prompt; dort jetzt nur Knöpfe.
-- Screenreader-Namen: Neu-Knopf hieß „Weitere Möglichkeiten“, Suchknopf las das Kürzel mit.
+### Fixed (phase 5, QA)
+- Undo toasts queued up and kept closed processes alive for up to a minute;
+  a new toast now replaces the previous one.
+- The floating pane title covered the prompt in narrow panes; there it now shows only buttons.
+- Screen reader names: the new button was called *Weitere Möglichkeiten* (More options),
+  the search button read out its shortcut too.
 
-### Hinzugefügt (Schritte 1–7)
-- Kontextfarbe je Bereich: Bereiche mit SSH-Verbindung oder Root-Rechten werden getönt und
-  mit Linie und Chip (Hostname bzw. „root“) gekennzeichnet; Farben aus dem Farbschema,
-  abschaltbar.
-- Rückgängig: geschlossene Bereiche und Reiter lassen sich 8 s lang zurückholen, ihre
-  Programme laufen so lange weiter.
-- Befehlspalette (Strg+Umschalt+P oder Klick auf den Fenstertitel) für Reiter, Bereiche,
-  Aktionen, Vorlagen und Profile; Präfixe >, @, #.
-- Layout-Modus (Strg+Umschalt+L): nummerierte Bereiche, Einzeltasten zum Teilen, Tauschen,
-  Maximieren, Angleichen und Schließen.
-- Vorlagen: aktuellen Reiter mit Aufteilung, Profilen und laufenden Befehlen speichern,
-  in einem gewählten Verzeichnis öffnen (Startbefehle abschaltbar), Bearbeiten in den
-  Einstellungen.
-- Tastenkürzel änderbar (Einstellungen › Tastenkürzel), mit Konfliktprüfung und
-  „Alle zurücksetzen“; Fenster, Terminals und Übersicht übernehmen Änderungen sofort.
-- Suche im Terminal je Bereich (Strg+Umschalt+F; Groß/Klein, regulärer Ausdruck; Treffer
-  darüber/darunter), Suchknopf in der Kopfleiste.
-- Links: Strg+Klick öffnet Adressen und OSC-8-Links (nur http, https, ftp, mailto, file),
-  Kontextmenü „Link öffnen/kopieren“, Tooltip mit dem wahren Ziel eines OSC-8-Links.
-- Profile (TOML unter ~/.config/parkett/profiles): Farbschema, Befehl statt Shell,
-  Login-Shell, Startverzeichnis, Umgebungsvariablen, Verhalten bei Prozessende.
-- 14 Farbschemata mit heller und dunkler Fassung (aus Ptyxis), Wechsel live mit dem Systemstil.
-- Import von Ptyxis-Paletten und Tilix-Farbschemata.
-- Einstellungsdialog (Strg+,) mit Seiten „Allgemein“ und „Profile“, Farbschemata als Kacheln
-  mit Live-Vorschau; „Neuer Reiter mit Profil“ im Menü am Neu-Knopf.
-- Meson-Build mit .desktop, Metainfo, Icons und GSettings-Schema; Lizenztext GPL-3.0.
-- Einstellungen per GSettings: Fenstergröße merken, Nachfrage beim Schließen, Abblenden,
-  Reiterleiste ausblenden, Startverzeichnis neuer Terminals, Länge des Verlaufs.
-- Arch-Paket im eigenen Repo `linuxundich`.
+### Added (steps 1–7)
+- Context color per pane: panes with an SSH connection or root privileges are tinted and
+  marked with a line and a chip (host name or "root"); colors come from the color scheme,
+  can be turned off.
+- Undo: closed panes and tabs can be brought back for 8 s; their programs keep running
+  during that time.
+- Command palette (Ctrl+Shift+P or click on the window title) for tabs, panes,
+  actions, templates and profiles; prefixes >, @, #.
+- Layout mode (Ctrl+Shift+L): numbered panes, single keys to split, swap,
+  maximize, equalize and close.
+- Templates: save the current tab with its split layout, profiles and running commands,
+  open it in a chosen directory (startup commands can be turned off), edit in the
+  preferences.
+- Configurable keyboard shortcuts (*Einstellungen › Tastenkürzel*, Preferences › Keyboard
+  Shortcuts), with conflict check and *Alle zurücksetzen* (Reset all); windows, terminals and
+  the overview apply changes immediately.
+- Search in the terminal per pane (Ctrl+Shift+F; match case, regular expression; matches
+  above/below), search button in the header bar.
+- Links: Ctrl+click opens addresses and OSC 8 links (only http, https, ftp, mailto, file),
+  context menu *Link öffnen/kopieren* (Open/copy link), tooltip with the real target of an OSC 8 link.
+- Profiles (TOML under ~/.config/parkett/profiles): color scheme, command instead of shell,
+  login shell, starting directory, environment variables, behavior when the process exits.
+- 14 color schemes with light and dark variants (from Ptyxis), switching live with the system style.
+- Import of Ptyxis palettes and Tilix color schemes.
+- Preferences dialog (Ctrl+,) with the pages *Allgemein* (General) and *Profile* (Profiles), color
+  schemes as tiles with live preview; *Neuer Reiter mit Profil* (New tab with profile) in the menu
+  on the new button.
+- Meson build with .desktop file, metainfo, icons and GSettings schema; license text GPL-3.0.
+- Settings via GSettings: remember window size, confirm on close, dimming,
+  hide the tab bar, starting directory of new terminals, scrollback length.
+- Arch package in the own repository `linuxundich`.
 
-### Geändert
-- Oberfläche sagt „Reiter“ statt „Tab“ (wie libadwaita).
+### Changed
+- The interface says *Reiter* instead of *Tab* (as libadwaita does).
 
-### Hinzugefügt (Reiter und Bereiche)
-- Tabs mit AdwTabView: Tab-Leiste (bei einem Tab ausgeblendet), Tab-Übersicht mit Suche,
-  Tab umbenennen (F2), Warnsymbol bei Prozessende mit Fehler.
-- Geteilte Bereiche: rechts/unten/automatisch teilen, Fokus und Größe per Tastatur,
-  angleichen, maximieren mit Hinweis, Mindestgröße 20×5 Zellen, schwebender Titel,
-  Fokuslinie und Abblenden inaktiver Bereiche.
-- Nachfrage beim Schließen von Bereich, Tab oder Fenster, wenn noch ein Programm läuft.
-- Tastenkürzel-Übersicht (Strg+?).
-- 0.1.0 Prototyp (Phase 3): Fenster mit libadwaita und VTE, Shell-Start asynchron,
-  Leiste „Prozess beendet“ mit Exit-Code, *Neu starten* und *Schließen*.
-- Titel und Arbeitsverzeichnis in der Headerbar aus VTE-Termprops (`xterm.title`, `vte.cwd`).
-- Terminalfarben hell/dunkel nach System, Schrift nach System-Monospace.
-- Kopieren, Einfügen, Alles auswählen, Zoom per Kürzel und Kontextmenü; neues Fenster.
-- `parkett-core`: Split-Layout als unveränderlicher Baum mit Tests.
-- .desktop-Datei und Icons unter der App-ID `de.linuxundich.Parkett`.
+### Added (tabs and panes)
+- Tabs with AdwTabView: tab bar (hidden when there is only one tab), tab overview with search,
+  rename tab (F2), warning icon when the process exits with an error.
+- Split panes: split right/down/automatically, focus and size via keyboard,
+  equalize, maximize with a hint, minimum size 20×5 cells, floating title,
+  focus line and dimming of inactive panes.
+- Confirmation when closing a pane, tab or window while a program is still running.
+- Keyboard shortcuts overview (Ctrl+?).
+- 0.1.0 prototype (phase 3): window with libadwaita and VTE, asynchronous shell start,
+  *Prozess beendet* (Process exited) bar with exit code, *Neu starten* and *Schließen* (Close).
+- Title and working directory in the header bar from VTE termprops (`xterm.title`, `vte.cwd`).
+- Terminal colors light/dark following the system, font following the system monospace font.
+- Copy, paste, select all, zoom via shortcut and context menu; new window.
+- `parkett-core`: split layout as an immutable tree with tests.
+- .desktop file and icons under the app ID `de.linuxundich.Parkett`.

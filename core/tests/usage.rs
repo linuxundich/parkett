@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Die TOML-Beispiele in docs/BEDIENUNG.md müssen sich laden lassen.
+//! Die TOML-Beispiele in docs/USAGE.md müssen sich laden lassen.
 
 use parkett_core::profile::{ExitAction, Profile};
 use parkett_core::template::Template;
 
-const DOC: &str = include_str!("../../docs/BEDIENUNG.md");
+const DOC: &str = include_str!("../../docs/USAGE.md");
 
 fn blocks(lang: &str) -> Vec<String> {
     let fence = format!("```{lang}\n");
