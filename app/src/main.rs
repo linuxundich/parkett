@@ -135,7 +135,7 @@ fn main() -> glib::ExitCode {
     // Befehlszeile; kommt bei einer zweiten Instanz von deren Aufruf (Argumente, Verzeichnis)
     app.connect_command_line(|app, cmdline| {
         let args: Vec<String> = cmdline.arguments().iter().skip(1).map(|a| a.to_string_lossy().into_owned()).collect();
-        let cli = match parkett_core::cli::parse(&args) {
+        let mut cli = match parkett_core::cli::parse(&args) {
             Ok(cli) => cli,
             Err(e) => {
                 cmdline.printerr_literal(&format!("parkett: {e}\n"));
@@ -149,6 +149,15 @@ fn main() -> glib::ExitCode {
         if cli.version {
             cmdline.print_literal(&format!("Parkett {}\n", env!("CARGO_PKG_VERSION")));
             return glib::ExitCode::SUCCESS;
+        }
+        if let Some(line) = cli.command.as_ref().filter(|_| cli.command_needs_split).map(|c| c[0].clone()) {
+            match glib::shell_parse_argv(&line) {
+                Ok(v) => cli.command = Some(v.into_iter().map(|s| s.to_string_lossy().into_owned()).collect()),
+                Err(e) => {
+                    cmdline.printerr_literal(&format!("parkett: -e „{line}“: {}\n", e.message()));
+                    return glib::ExitCode::FAILURE;
+                }
+            }
         }
         open(app, cmdline, cli)
     });

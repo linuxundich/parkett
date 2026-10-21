@@ -9,11 +9,8 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 ### From the QA audit
 - [ ] QA-08 Take over the environment of a second invocation (`FOO=1 parkett --tab` reaches the
       running instance without `FOO`); needs rework in the spawn path
-- [ ] R-05 Undo after a normal exit (profile *Bereich schließen* (Close pane)) brings back a dead
-      pane without the exit bar
 - [ ] R-09 A startup command is typed immediately; with an ssh profile it lands in the password
       prompt. Wait for the first prompt (vte.sh `precmd`) where available
-- [ ] R-10 `-e "htop -d 5"` as one argument is not split; `--tab=x` is silently accepted
 - [ ] QA-12 Tooltips from the current shortcut assignment (some are hard-coded)
 - [ ] QA-14 Blinking text only while the window has focus (7.8 % CPU when idle in the VM)
 - [ ] QA-15 Error dialog for unreadable files in a monospace font; toast without timeout
@@ -74,9 +71,9 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 
 ## Testing gaps
 
-- [ ] R-04, R-06, R-07 by hand (only built and checked with Clippy, no window): OSC 8 `file:///`
-      link inside `ssh`, `env | grep GIO_LAUNCHED` after starting from the menu, drag a divider
-      and restart
+- [ ] By hand, only built and checked with Clippy so far (no window): R-04 OSC 8 `file:///` link
+      inside `ssh`; R-05 profile *Bereich schließen*, `exit`, Undo; R-06 `env | grep GIO_LAUNCHED`
+      after starting from the menu; R-07 drag a divider and restart; R-10 `parkett -e "htop -d 5"`
 - [ ] New features of 0.2 on the host (Arch, GNOME 51): session, command line, notification,
       transparency; Nautilus 51 with the extension
 - [ ] Sixel output with a VTE that has Sixel (Arch and Fedora 44 build without it)
@@ -161,6 +158,8 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [x] R-11 grouped ssh options (`ssh -vp 22 host`) in the context chip
 - [x] R-12 profiles, templates and session written with mode 0600
 - [x] R-13 docs: Shift+Insert warning in `docs/QA.md`, test counts in `docs/ARCHITECTURE.md`
+- [x] R-05 Undo after an automatic close on exit brings the pane back with the exit bar
+- [x] R-10 `-e "htop -d 5"` is split like a shell; flags with a value (`--tab=x`) are refused
 - [x] `cargo audit` in `build-aux/ci.sh` (no findings on 2026-10-21)
 - [x] Unit tests for the default shortcuts (QA-01: nothing without Ctrl/Alt/Super, no duplicates)
 

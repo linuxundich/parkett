@@ -71,13 +71,15 @@ the host name or "root" appears. Can be turned off under *Einstellungen › Allg
 parkett [OPTIONEN] [-- BEFEHL [ARGUMENTE …]]
   -d, --working-directory=DIR   Startverzeichnis; mehrfach = ein Reiter je Verzeichnis
   -e, -x, --                    Rest der Zeile statt der Shell ausführen
+                                (-e mit nur einem Argument: wie in einer Shell zerlegt)
   -p, --profile=ID              Profil (Dateiname ohne .toml)
   -t, --title=TITEL             Titel des Reiters
       --tab                     als Reiter im aktiven Fenster statt neuem Fenster
 ```
 
 In English: `-d` sets the start directory (given several times, one tab per directory); `-e`,
-`-x` or `--` run the rest of the line instead of the shell; `-p` selects a profile (file name
+`-x` or `--` run the rest of the line instead of the shell (a single argument after `-e`, as in
+`parkett -e "htop -d 5"`, is split like a shell would, as in GNOME Terminal); `-p` selects a profile (file name
 without `.toml`); `-t` sets the tab title; `--tab` opens a tab in the active window instead of
 a new window.
 

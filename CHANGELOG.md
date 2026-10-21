@@ -22,6 +22,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `GIO_LAUNCHED_DESKTOP_FILE` and `GIO_LAUNCHED_DESKTOP_FILE_PID` no longer reach the shells.
 - A template with `ratio = nan` (or `inf`) gets an even split instead of breaking the saved
   session.
+- Undo after a pane closed itself on exit (profile *Bereich schließen*) brings it back with the
+  exit bar (*Neu starten*, *Schließen*) instead of a dead terminal without a hint.
+- `parkett -e "htop -d 5"`: a single argument after `-e` is split like a shell would (as in GNOME
+  Terminal); flags given a value (`--tab=x`) are refused instead of silently accepted.
 - Context chip for grouped ssh options: `ssh -vp 22 host` shows „host“ instead of „22“.
 
 ## [0.2.0] - 2026-10-19

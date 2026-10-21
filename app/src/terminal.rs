@@ -507,6 +507,9 @@ impl Terminal {
             let quick = t.0.started_at.get().is_some_and(|s| s.elapsed() < Duration::from_secs(2));
             match action {
                 ExitAction::Close if exit == ExitStatus::Code(0) => {
+                    // Leiste schon jetzt füllen: Holt „Rückgängig“ den Bereich zurück, ist er
+                    // sonst ein totes Terminal ohne Hinweis und ohne „Neu starten“ (R-05)
+                    t.show_exit("<b>Prozess beendet</b>");
                     // nach dem Signal-Handler schließen, nicht mitten im VTE-Callback
                     let weak = Rc::downgrade(&t.0);
                     glib::idle_add_local_once(move || {
