@@ -21,8 +21,8 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [ ] QA-18 Screen reader names: tab overview button, shortcut not part of the name
 - [ ] QA-20 Cursor in the wrong place after line wrap: investigate, compare with Ptyxis
 - [ ] Contrast test: sharpen the light variant of *Hoher Kontrast* (High Contrast) below 3:1
-- [ ] `cargo audit` in `build-aux/ci.sh`
-- [ ] Regression tests for QA-01 to QA-09 in the smoke test or as unit tests
+- [ ] Regression tests for QA-02 (pane title), QA-07 (markup) and QA-09 (focus after menus) in the
+      VM smoke test; QA-01 and QA-03 to QA-06 are covered by unit tests and the smoke test
 
 ### From the code review
 - [ ] L1/L2 Weak references in the preferences and in the drawing functions of the pane
@@ -161,6 +161,8 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [x] R-11 grouped ssh options (`ssh -vp 22 host`) in the context chip
 - [x] R-12 profiles, templates and session written with mode 0600
 - [x] R-13 docs: Shift+Insert warning in `docs/QA.md`, test counts in `docs/ARCHITECTURE.md`
+- [x] `cargo audit` in `build-aux/ci.sh` (no findings on 2026-10-21)
+- [x] Unit tests for the default shortcuts (QA-01: nothing without Ctrl/Alt/Super, no duplicates)
 
 ### 0.2: Everyday features
 - [x] Command line: `parkett -- command`, `--working-directory` (several times = tabs), `--tab`,

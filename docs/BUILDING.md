@@ -36,9 +36,10 @@ Use `--prefix=/usr` and `sudo meson install -C _build` for a system-wide install
 
 ## Checks
 
-All checks that need no window: formatting, Clippy with warnings as errors, unit tests, a Meson
-build and the Meson tests (`.desktop`, metainfo, GSettings schema, Nautilus extension syntax,
-`cargo test`):
+All checks that need no window: formatting, Clippy with warnings as errors, unit tests,
+`cargo audit` (known vulnerabilities in dependencies; skipped if
+[cargo-audit](https://crates.io/crates/cargo-audit) is not installed), a Meson build and the Meson
+tests (`.desktop`, metainfo, GSettings schema, Nautilus extension syntax, `cargo test`):
 
 ```sh
 build-aux/ci.sh

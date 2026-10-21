@@ -10,6 +10,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   documents), build instructions in `docs/BUILDING.md`.
 - Profiles, templates and the session are written with mode 0600, regardless of the umask
   (environment variables in profiles may hold tokens).
+- `build-aux/ci.sh` runs `cargo audit` when it is installed; unit tests keep the default shortcuts
+  away from keys that programs in the terminal need (QA-01).
 - The session is saved after dragging a divider, and no longer waits until a program stops
   changing its title.
 

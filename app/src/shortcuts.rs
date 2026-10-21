@@ -197,3 +197,55 @@ pub fn from_key(key: gdk::Key, state: gdk::ModifierType) -> Result<Option<String
     }
     Ok(Some(gtk::accelerator_name(key.to_lower(), mods).to_string()))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// „<Control><Shift>t“ → ({"control", "shift"}, "t"), ohne GTK (`accelerator_parse` will
+    /// ein initialisiertes GTK und damit ein Display).
+    fn split(accel: &str) -> (Vec<String>, String) {
+        let mut mods = Vec::new();
+        let mut rest = accel;
+        while let Some(r) = rest.strip_prefix('<') {
+            let (m, r) = r.split_once('>').expect("„>“ fehlt");
+            mods.push(m.to_ascii_lowercase());
+            rest = r;
+        }
+        mods.sort();
+        (mods, rest.to_ascii_lowercase())
+    }
+
+    /// Programme im Terminal brauchen F-Tasten und alles ohne Strg/Alt selbst (QA-01: F2 in
+    /// htop, mc, nano). Einzige Ausnahme: Umschalt+Einfg zum Einfügen, wie in jedem Terminal.
+    #[test]
+    fn defaults_leave_keys_to_programs() {
+        for e in ENTRIES {
+            for &a in e.defaults {
+                let (mods, key) = split(a);
+                let strong = mods.iter().any(|m| ["control", "alt", "super"].contains(&m.as_str()));
+                assert!(strong || a == "<Shift>Insert", "{}: „{a}“ gehört den Programmen im Terminal", e.action);
+                assert!(!key.is_empty(), "{}: „{a}“ ohne Taste", e.action);
+                // Alt+1…9 und Strg+Alt+1…9 sind fest belegt (`reserved`)
+                let digit = key.len() == 1 && key.chars().all(|c| ('1'..='9').contains(&c));
+                assert!(!(digit && mods.contains(&"alt".to_string())), "{}: „{a}“ ist fest belegt", e.action);
+            }
+        }
+    }
+
+    #[test]
+    fn defaults_are_unique() {
+        let mut seen: Vec<((Vec<String>, String), &str)> = Vec::new();
+        for e in ENTRIES {
+            assert_eq!(ENTRIES.iter().filter(|o| o.action == e.action).count(), 1, "{} doppelt", e.action);
+            assert!(SECTIONS.contains(&e.section), "{}: Abschnitt „{}“", e.action, e.section);
+            for &a in e.defaults {
+                let k = split(a);
+                if let Some((_, other)) = seen.iter().find(|(k2, _)| *k2 == k) {
+                    panic!("„{a}“ für {} und {other}", e.action);
+                }
+                seen.push((k, e.action));
+            }
+        }
+    }
+}

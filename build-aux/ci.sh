@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Prüfungen vor jedem Commit/Release, ohne Fenster:
-#   Formatierung, Clippy (Warnungen = Fehler), Unit-Tests, Meson-Build und Meson-Tests
+#   Formatierung, Clippy (Warnungen = Fehler), Unit-Tests, cargo audit, Meson-Build und Meson-Tests
 #   (.desktop, Metainfo, GSettings-Schema, cargo test).
 #   build-aux/ci.sh
 set -euo pipefail
@@ -15,6 +15,14 @@ cargo clippy --all-targets --quiet -- -D warnings
 
 step "cargo test"
 cargo test --quiet
+
+# Bekannte Sicherheitslücken in Abhängigkeiten (RustSec); braucht Netz für die Datenbank
+step "cargo audit"
+if cargo audit --version >/dev/null 2>&1; then
+    cargo audit --quiet
+else
+    echo "übersprungen: cargo-audit fehlt (cargo install cargo-audit --locked)"
+fi
 
 step "meson (temporärer Build-Ordner)"
 dir=$(mktemp -d)
