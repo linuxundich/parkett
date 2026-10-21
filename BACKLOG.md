@@ -9,20 +9,11 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 ### From the QA audit
 - [ ] QA-08 Take over the environment of a second invocation (`FOO=1 parkett --tab` reaches the
       running instance without `FOO`); needs rework in the spawn path
-- [ ] R-04 `file:///` links (OSC 8) from an SSH session open local files with the same path;
-      refuse `file:` links while the pane's context is remote
 - [ ] R-05 Undo after a normal exit (profile *Bereich schließen* (Close pane)) brings back a dead
       pane without the exit bar
-- [ ] R-06 Remove `GIO_LAUNCHED_DESKTOP_FILE` and `GIO_LAUNCHED_DESKTOP_FILE_PID` from the
-      environment of new shells (GNOME Terminal does the same)
-- [ ] R-07 Save the session after dragging a divider; the save timer restarts on every title change
-- [ ] R-08 `ratio = nan` in a template ends up as `null` in `session.json` and the session is lost;
-      clamp non-finite ratios on load
 - [ ] R-09 A startup command is typed immediately; with an ssh profile it lands in the password
       prompt. Wait for the first prompt (vte.sh `precmd`) where available
 - [ ] R-10 `-e "htop -d 5"` as one argument is not split; `--tab=x` is silently accepted
-- [ ] R-11 `ssh -vp 22 host` shows the context chip „22“ instead of the host
-- [ ] R-12 Write profiles and templates with mode 0600 (environment variables may hold tokens)
 - [ ] QA-12 Tooltips from the current shortcut assignment (some are hard-coded)
 - [ ] QA-14 Blinking text only while the window has focus (7.8 % CPU when idle in the VM)
 - [ ] QA-15 Error dialog for unreadable files in a monospace font; toast without timeout
@@ -83,6 +74,9 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 
 ## Testing gaps
 
+- [ ] R-04, R-06, R-07 by hand (only built and checked with Clippy, no window): OSC 8 `file:///`
+      link inside `ssh`, `env | grep GIO_LAUNCHED` after starting from the menu, drag a divider
+      and restart
 - [ ] New features of 0.2 on the host (Arch, GNOME 51): session, command line, notification,
       transparency; Nautilus 51 with the extension
 - [ ] Sixel output with a VTE that has Sixel (Arch and Fedora 44 build without it)
@@ -98,8 +92,6 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 ## Housekeeping
 
 - [ ] Check the name: trademark registers (DPMA/EUIPO), domains
-- [ ] R-13 Docs: `docs/QA.md` still says Shift+Insert does not warn (it does now); test counts in
-      `docs/ARCHITECTURE.md` are outdated (now 61 + 2 + 1)
 - [ ] German file names in the repository (`build-aux/qa/durchsatz.sh`, `messen.sh`,
       `icon/vorschau.png`, `icon/entwuerfe/`, screenshots under `docs/` and `qa/`)
 - [ ] Code comments are German; translate when the code is touched anyway
@@ -160,6 +152,15 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [x] QA-05/06 decode OSC 7, local machine only
 - [x] QA-07 escape markup; QA-09 focus after menus
 - [x] QA-10 palette One; R-03 quote the environment field; R-02 smoke test log
+
+### 0.3 fixes from the QA audit
+- [x] R-04 refuse `file:` links while the pane's context is remote
+- [x] R-06 `GIO_LAUNCHED_DESKTOP_FILE(_PID)` removed from the environment of new shells
+- [x] R-07 save the session after dragging a divider; save timer no longer restarts
+- [x] R-08 non-finite ratios in templates become 0.5
+- [x] R-11 grouped ssh options (`ssh -vp 22 host`) in the context chip
+- [x] R-12 profiles, templates and session written with mode 0600
+- [x] R-13 docs: Shift+Insert warning in `docs/QA.md`, test counts in `docs/ARCHITECTURE.md`
 
 ### 0.2: Everyday features
 - [x] Command line: `parkett -- command`, `--working-directory` (several times = tabs), `--tab`,

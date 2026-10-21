@@ -8,6 +8,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Published on GitHub: README as a product page with screenshots, documentation translated to
   English (`docs/USAGE.md`, `ARCHITECTURE.md`, `PACKAGING.md`, `LICENSES.md`, design and QA
   documents), build instructions in `docs/BUILDING.md`.
+- Profiles, templates and the session are written with mode 0600, regardless of the umask
+  (environment variables in profiles may hold tokens).
+- The session is saved after dragging a divider, and no longer waits until a program stops
+  changing its title.
+
+### Fixed
+- `file:` links are not opened while a remote connection runs in the pane, even without a host
+  name (`file:///…`); before, an OSC 8 link from an SSH session opened a local file with the same
+  path.
+- `GIO_LAUNCHED_DESKTOP_FILE` and `GIO_LAUNCHED_DESKTOP_FILE_PID` no longer reach the shells.
+- A template with `ratio = nan` (or `inf`) gets an even split instead of breaking the saved
+  session.
+- Context chip for grouped ssh options: `ssh -vp 22 host` shows „host“ instead of „22“.
 
 ## [0.2.0] - 2026-10-19
 

@@ -684,6 +684,7 @@ impl Tab {
             let next = tab.imp().layout.borrow().set_ratio(&path, ratio);
             if let Some(next) = next {
                 *tab.imp().layout.borrow_mut() = next;
+                crate::session::schedule_save();
             }
         });
     }

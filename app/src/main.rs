@@ -106,6 +106,12 @@ parkett-pane.focused .parkett-badge { background: var(--accent-bg-color); color:
 ";
 
 fn main() -> glib::ExitCode {
+    // Gesetzt von GIO beim Start aus dem Menü; gilt für Parkett, nicht für die Shells darin
+    // (würde sonst an jedes daraus gestartete Programm vererbt, wie gnome-terminal es vermeidet).
+    // Hier ganz am Anfang, solange nur ein Thread läuft (R-06)
+    for var in ["GIO_LAUNCHED_DESKTOP_FILE", "GIO_LAUNCHED_DESKTOP_FILE_PID"] {
+        std::env::remove_var(var);
+    }
     settings::init();
     let app =
         adw::Application::builder().application_id(APP_ID).flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE).build();

@@ -60,14 +60,16 @@ fn write(app: &gtk::Application, skip: Option<&Window>) {
     }
 }
 
-/// Nach einer Änderung speichern, gebündelt (1,5 s nach der letzten Änderung).
+/// Nach einer Änderung speichern, gebündelt (1,5 s nach der ersten noch nicht gespeicherten
+/// Änderung). Ein laufender Zeitgeber wird nicht neu gestartet: Ein Programm, das laufend
+/// seinen Titel setzt, würde das Speichern sonst immer weiter aufschieben (R-07).
 pub fn schedule_save() {
     if !enabled() {
         return;
     }
     PENDING.with(|p| {
-        if let Some(id) = p.borrow_mut().take() {
-            id.remove();
+        if p.borrow().is_some() {
+            return;
         }
         let id = glib::timeout_add_local_once(Duration::from_millis(1500), || {
             PENDING.with(|p| p.borrow_mut().take());

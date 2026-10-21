@@ -103,7 +103,13 @@ impl Template {
                         SplitDirection::Horizontal => Orientation::Horizontal,
                         SplitDirection::Vertical => Orientation::Vertical,
                     },
-                    ratio: ratio.clamp(crate::layout::MIN_RATIO, 1.0 - crate::layout::MIN_RATIO),
+                    // „nan“/„inf“ aus einer Datei von Hand: clamp lässt NaN durch, und die Sitzung
+                    // schriebe es als `null`, das sich nicht mehr laden lässt (R-08)
+                    ratio: if ratio.is_finite() {
+                        ratio.clamp(crate::layout::MIN_RATIO, 1.0 - crate::layout::MIN_RATIO)
+                    } else {
+                        0.5
+                    },
                     first: Box::new(build(first, specs)),
                     second: Box::new(build(second, specs)),
                 },
@@ -184,8 +190,7 @@ impl TemplateStore {
     pub fn save(&self, t: &Template) -> io::Result<()> {
         std::fs::create_dir_all(&self.dir)?;
         let tmp = self.dir.join(format!(".{}.toml.tmp", t.id));
-        std::fs::write(&tmp, t.to_toml())?;
-        std::fs::rename(tmp, self.dir.join(format!("{}.toml", t.id)))
+        crate::paths::write_private(&tmp, &self.dir.join(format!("{}.toml", t.id)), &t.to_toml())
     }
 
     pub fn delete(&self, id: &str) -> io::Result<()> {
@@ -249,6 +254,15 @@ mod tests {
         let (l, specs) = t.instantiate();
         assert_eq!(l.ratio_at(&[]), Some(1.0 - crate::layout::MIN_RATIO), "Anteil wird begrenzt");
         assert_eq!(specs[1].1.command, "htop");
+    }
+
+    #[test]
+    fn non_finite_ratio_becomes_half() {
+        for r in ["nan", "inf", "-inf"] {
+            let text = format!("name = \"x\"\n[layout]\ntype = \"split\"\ndirection = \"vertical\"\nratio = {r}\n[layout.first]\ntype = \"pane\"\n[layout.second]\ntype = \"pane\"\n");
+            let (l, _) = Template::from_toml("x", &text).unwrap().instantiate();
+            assert_eq!(l.ratio_at(&[]), Some(0.5), "{r}");
+        }
     }
 
     #[test]

@@ -66,8 +66,7 @@ impl Session {
             std::fs::create_dir_all(dir)?;
         }
         let tmp = path.with_extension("json.tmp");
-        std::fs::write(&tmp, serde_json::to_string_pretty(self).map_err(io::Error::other)?)?;
-        std::fs::rename(tmp, path)
+        crate::paths::write_private(&tmp, path, &serde_json::to_string_pretty(self).map_err(io::Error::other)?)
     }
 }
 

@@ -202,8 +202,7 @@ impl ProfileStore {
         std::fs::create_dir_all(&self.dir)?;
         let target = self.dir.join(format!("{}.toml", p.id));
         let tmp = self.dir.join(format!(".{}.toml.tmp", p.id));
-        std::fs::write(&tmp, p.to_toml())?;
-        std::fs::rename(tmp, target)
+        crate::paths::write_private(&tmp, &target, &p.to_toml())
     }
 
     pub fn delete(&self, id: &str) -> io::Result<()> {

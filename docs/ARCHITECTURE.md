@@ -93,7 +93,7 @@ Palettes ──┘     (signal changed) └─> prefs│                └─ L
 
 | Level | How | Where |
 |---|---|---|
-| Core | 61 unit tests (including contrast of all color schemes), plus 2 tests for the examples in `docs/USAGE.md`; 1 test in the app | `cargo test` |
+| Core | 63 unit tests (including contrast of all color schemes), plus 2 tests for the examples in `docs/USAGE.md`; 1 test in the app | `cargo test` |
 | Data | .desktop, metainfo, schema | `meson test` |
 | Everything without a window | fmt, clippy, tests, Meson build | `build-aux/ci.sh` |
 | User interface | Smoke test in the VM via D-Bus actions and keys: split, tabs, close, period expiry, F10 in `htop`, no restart of closed tabs, no orphaned shells, session restored, journal without GLib messages (Fedora 44 or `VM_DOM=ubuntu26.04 VM_PORT=2222`) | `build-aux/vm/smoke.sh` |

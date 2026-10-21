@@ -710,8 +710,13 @@ impl Terminal {
             return;
         }
         // file:-Links nur auf diesem Rechner: Ein OSC-8-Link aus einer SSH-Sitzung nennt den
-        // fremden Rechner; dort gemeint ist eine andere Datei als hier (wie gnome-terminal)
-        if scheme == "file" && !parkett_core::uri::is_local_file(uri, glib::host_name().as_str()) {
+        // fremden Rechner; dort gemeint ist eine andere Datei als hier (wie gnome-terminal).
+        // Viele Programme lassen den Rechner weg (`file:///pfad`) – läuft im Bereich gerade
+        // eine Verbindung, ist auch der nicht von hier (R-04)
+        if scheme == "file"
+            && (matches!(self.detect_context(), Context::Remote(_))
+                || !parkett_core::uri::is_local_file(uri, glib::host_name().as_str()))
+        {
             glib::g_warning!("parkett", "file:-Link auf anderen Rechner nicht geöffnet: {uri}");
             if let Some(w) = self.0.vte.root().and_downcast::<gtk::Window>() {
                 let d = adw::AlertDialog::new(
