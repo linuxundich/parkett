@@ -5,6 +5,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Changed
+- New profiles close the pane when its process ends with exit code 0 (`exit`, Ctrl+D), like GNOME
+  Console, Ptyxis and Tilix. The bar „Prozess beendet“ only uses the warning icon and red tint for
+  errors. Existing profiles keep their setting (*Wenn der Prozess endet*).
 - Published on GitHub: README as a product page with screenshots, documentation translated to
   English (`docs/USAGE.md`, `ARCHITECTURE.md`, `PACKAGING.md`, `LICENSES.md`, design and QA
   documents), build instructions in `docs/BUILDING.md`.

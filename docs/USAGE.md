@@ -120,7 +120,9 @@ terminals), background opacity (30–100 %; below that the desktop shows through
 header bar stays opaque), font (otherwise the system monospace font), cursor shape,
 blinking, bell
 (sound and mark tab, mark only, off), command instead of shell, login shell, start directory, environment variables, behavior
-when the process exits. New tabs with a different profile: the arrow next to *Neuer Reiter* (New tab).
+when the process exits (default: close the pane on exit code 0, as in GNOME Console and Ptyxis;
+otherwise a bar with *Neu starten* (Restart) and *Schließen* (Close), red only for errors).
+New tabs with a different profile: the arrow next to *Neuer Reiter* (New tab).
 
 Stored in `~/.config/parkett/profiles/<id>.toml`, editable by hand:
 
@@ -131,7 +133,7 @@ command = ""             # empty = shell
 login_shell = true
 directory = "~/srv"      # empty = setting "Neue Terminals öffnen in" (Open new terminals in)
 environment = ["EDITOR=vim"]
-exit_action = "hold"     # hold | close | restart
+exit_action = "hold"     # close (default) | hold | restart
 font = "JetBrains Mono 11" # empty = system font
 cursor_shape = "ibeam"   # block | ibeam | underline
 cursor_blink = "system"  # system | on | off

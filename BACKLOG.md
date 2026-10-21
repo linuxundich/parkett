@@ -40,8 +40,6 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 
 ## Decisions needed
 
-- [ ] QA-11 Default when a process ends: keep the exit bar, or close the pane on exit code 0
-      and show a neutral bar otherwise
 - [ ] QA-17 Short tab label "program · folder" (with a number) instead of the shell title
 - [ ] QA-13 Adaptive header bar below about 600 px window width (`AdwBreakpoint`)
 - [ ] File paths in the output as links, Ctrl+click opens them in the file manager (audit T-53)
@@ -73,7 +71,8 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 
 - [ ] By hand, only built and checked with Clippy so far (no window): R-04 OSC 8 `file:///` link
       inside `ssh`; R-05 profile *Bereich schließen*, `exit`, Undo; R-06 `env | grep GIO_LAUNCHED`
-      after starting from the menu; R-07 drag a divider and restart; R-10 `parkett -e "htop -d 5"`
+      after starting from the menu; R-07 drag a divider and restart; R-10 `parkett -e "htop -d 5"`;
+      QA-11 `exit` in the only pane closes the window, `false` shows the red bar
 - [ ] New features of 0.2 on the host (Arch, GNOME 51): session, command line, notification,
       transparency; Nautilus 51 with the extension
 - [ ] Sixel output with a VTE that has Sixel (Arch and Fedora 44 build without it)
@@ -160,6 +159,7 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [x] R-13 docs: Shift+Insert warning in `docs/QA.md`, test counts in `docs/ARCHITECTURE.md`
 - [x] R-05 Undo after an automatic close on exit brings the pane back with the exit bar
 - [x] R-10 `-e "htop -d 5"` is split like a shell; flags with a value (`--tab=x`) are refused
+- [x] QA-11 default: close the pane on exit code 0; neutral bar for a normal end (decided 2026-10-21)
 - [x] `cargo audit` in `build-aux/ci.sh` (no findings on 2026-10-21)
 - [x] Unit tests for the default shortcuts (QA-01: nothing without Ctrl/Alt/Super, no duplicates)
 

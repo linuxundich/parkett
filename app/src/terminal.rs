@@ -30,6 +30,7 @@ struct Inner {
     root: gtk::Box,
     vte: vte::Terminal,
     exit_bar: gtk::Revealer,
+    exit_icon: gtk::Image,
     exit_label: gtk::Label,
     cwd_at_start: Option<String>,
     command: Option<Vec<String>>,
@@ -92,7 +93,8 @@ impl Terminal {
         let restart = gtk::Button::with_label("Neu starten");
         let close = gtk::Button::with_label("Schließen");
         let bar = gtk::Box::builder().spacing(10).css_classes(["parkett-exit-bar"]).build();
-        bar.append(&gtk::Image::from_icon_name("dialog-warning-symbolic"));
+        let exit_icon = gtk::Image::from_icon_name("dialog-warning-symbolic");
+        bar.append(&exit_icon);
         bar.append(&exit_label);
         bar.append(&restart);
         bar.append(&close);
@@ -112,6 +114,7 @@ impl Terminal {
             root,
             vte,
             exit_bar,
+            exit_icon,
             exit_label,
             cwd_at_start: cwd,
             command: command.filter(|c| !c.is_empty()),
@@ -477,16 +480,29 @@ impl Terminal {
 
     fn fail(&self, program: &str, message: &str) {
         self.0.exit.set(Some(ExitStatus::Code(-1)));
-        self.show_exit(&format!(
-            "<b>{}</b> konnte nicht gestartet werden: {}",
-            glib::markup_escape_text(program),
-            glib::markup_escape_text(message)
-        ));
+        self.show_exit(
+            &format!(
+                "<b>{}</b> konnte nicht gestartet werden: {}",
+                glib::markup_escape_text(program),
+                glib::markup_escape_text(message)
+            ),
+            true,
+        );
         self.emit_state_changed();
     }
 
-    fn show_exit(&self, markup: &str) {
+    /// `error`: Warnsymbol und rote Tönung; ein normales Ende (Exit-Code 0) bekommt eine
+    /// neutrale Leiste, sonst sieht `exit` wie ein Fehler aus (QA-11).
+    fn show_exit(&self, markup: &str, error: bool) {
         self.0.exit_label.set_markup(markup);
+        self.0.exit_icon.set_visible(error);
+        if let Some(bar) = self.0.exit_bar.child() {
+            if error {
+                bar.remove_css_class("neutral");
+            } else {
+                bar.add_css_class("neutral");
+            }
+        }
         self.0.exit_bar.set_visible(true);
         self.0.exit_bar.set_reveal_child(true);
     }
@@ -509,7 +525,7 @@ impl Terminal {
                 ExitAction::Close if exit == ExitStatus::Code(0) => {
                     // Leiste schon jetzt füllen: Holt „Rückgängig“ den Bereich zurück, ist er
                     // sonst ein totes Terminal ohne Hinweis und ohne „Neu starten“ (R-05)
-                    t.show_exit("<b>Prozess beendet</b>");
+                    t.show_exit("<b>Prozess beendet</b>", false);
                     // nach dem Signal-Handler schließen, nicht mitten im VTE-Callback
                     let weak = Rc::downgrade(&t.0);
                     glib::idle_add_local_once(move || {
@@ -537,7 +553,8 @@ impl Terminal {
             } else {
                 text
             };
-            t.show_exit(&text);
+            // ein Neustart-Profil, dessen Prozess sofort endet, ist ein Problem, auch mit Code 0
+            t.show_exit(&text, exit != ExitStatus::Code(0) || action == ExitAction::Restart);
             t.emit_state_changed();
         });
 

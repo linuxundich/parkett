@@ -26,6 +26,7 @@ vte-terminal { padding: 6px 8px; }
   background: color-mix(in srgb, var(--destructive-bg-color) 14%, var(--view-bg-color));
   box-shadow: inset 0 1px var(--border-color);
 }
+.parkett-exit-bar.neutral { background: color-mix(in srgb, var(--window-fg-color) 5%, var(--view-bg-color)); }
 .parkett-focus-line { background: var(--accent-bg-color); }
 .parkett-pill {
   padding: 2px 2px 2px 9px;
