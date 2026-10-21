@@ -169,7 +169,7 @@ fn profiles_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
                 let dialog = dialog.clone();
                 row.connect_activated(move |_| {
                     if let Some(d) = dialog.upgrade() {
-                        d.push_subpage(&profile_editor(&d, &id));
+                        d.push_subpage(&profile_editor(&d, &id, false));
                     }
                 });
                 group.add(&row);
@@ -190,7 +190,7 @@ fn profiles_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
     add.connect_clicked(move |_| {
         let Some(d) = weak.upgrade() else { return };
         match ProfileManager::get().create("Neues Profil") {
-            Ok(p) => d.push_subpage(&profile_editor(&d, &p.id)),
+            Ok(p) => d.push_subpage(&profile_editor(&d, &p.id, true)),
             Err(e) => d.add_toast(crate::window::plain_toast(&format!("Profil nicht angelegt: {e}"))),
         }
     });
@@ -210,7 +210,8 @@ fn update(dialog: &adw::PreferencesDialog, id: &str, f: impl FnOnce(&mut Profile
     }
 }
 
-fn profile_editor(dialog: &adw::PreferencesDialog, id: &str) -> adw::NavigationPage {
+/// `new`: frisch angelegt – dann bleibt der Name markiert, um ihn gleich zu überschreiben.
+fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::NavigationPage {
     let manager = ProfileManager::get();
     let profile = manager.profile(id);
     let id = profile.id.clone();
@@ -556,6 +557,19 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str) -> adw::NavigationP
     toolbar.add_top_bar(&adw::HeaderBar::new());
     toolbar.set_content(Some(&page));
     let nav = adw::NavigationPage::builder().title(profile.name.as_str()).child(&toolbar).build();
+    // Beim Öffnen landet der Fokus im Namensfeld, der Name ist markiert: ein Tastendruck
+    // überschriebe ihn, und gespeichert wird sofort (QA-16). Bei einem vorhandenen Profil
+    // die Markierung aufheben, Schreibmarke ans Ende.
+    if !new {
+        let name = name.clone();
+        nav.connect_shown(move |_| {
+            let name = name.clone();
+            glib::idle_add_local_once(move || {
+                let end = name.text().chars().count() as i32;
+                name.select_region(end, end);
+            });
+        });
+    }
     nav.connect_hidden(move |_| {
         if let Some(h) = handler.borrow_mut().take() {
             ProfileManager::get().disconnect(h);

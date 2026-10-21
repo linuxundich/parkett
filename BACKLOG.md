@@ -11,10 +11,7 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
       running instance without `FOO`); needs rework in the spawn path
 - [ ] R-09 A startup command is typed immediately; with an ssh profile it lands in the password
       prompt. Wait for the first prompt (vte.sh `precmd`) where available
-- [ ] QA-12 Tooltips from the current shortcut assignment (some are hard-coded)
 - [ ] QA-15 Error dialog for unreadable files in a monospace font; toast without timeout
-- [ ] QA-16 Profile editor opens without focus in the name field
-- [ ] QA-18 Screen reader names: tab overview button, shortcut not part of the name
 - [ ] QA-20 Cursor in the wrong place after line wrap: investigate, compare with Ptyxis
 - [ ] Contrast test: sharpen the light variant of *Hoher Kontrast* (High Contrast) below 3:1
 - [ ] Regression tests for QA-02 (pane title), QA-07 (markup) and QA-09 (focus after menus) in the
@@ -73,7 +70,9 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
       QA-11 `exit` in the only pane closes the window, `false` shows the red bar; QA-17 labels
       while running `htop`/`ssh`, after `cd`, reordering tabs, renaming, switch in the preferences;
       QA-14/L3 measure idle CPU again (blinking text, 7 terminals), label of a background tab
-      after its command ends (≤ 5 s), context color right after switching tabs
+      after its command ends (≤ 5 s), context color right after switching tabs; QA-12 change a
+      shortcut, hover the pane buttons of an open pane; QA-16 open a profile, type a letter;
+      QA-18 Orca on header bar and pane buttons
 - [ ] New features of 0.2 on the host (Arch, GNOME 51): session, command line, notification,
       transparency; Nautilus 51 with the extension
 - [ ] Sixel output with a VTE that has Sixel (Arch and Fedora 44 build without it)
@@ -164,6 +163,9 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [x] QA-17 short tab label „1 htop · parkett“, switch under *Allgemein* (decided 2026-10-21)
 - [x] QA-14 blinking text only in the focused pane (`TextBlinkMode::Focused`)
 - [x] L3 foreground poll every 5 s instead of every second in background tabs and inactive windows
+- [x] QA-12 tooltips built from the current shortcuts when shown (header bar, pane, search)
+- [x] QA-16 existing profile opens without the name selected (new profile: name selected)
+- [x] QA-18 screen reader names without shortcut; overview button „Reiter-Übersicht, 4 Reiter“
 - [x] `cargo audit` in `build-aux/ci.sh` (no findings on 2026-10-21)
 - [x] Unit tests for the default shortcuts (QA-01: nothing without Ctrl/Alt/Super, no duplicates)
 

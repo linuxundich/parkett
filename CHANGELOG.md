@@ -15,6 +15,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   was 7.8 % with blinking text in several panes.
 - Panes in background tabs and inactive windows check their foreground process every 5 s instead
   of every second (context color, tab label), and immediately when they come into view.
+- Tooltips show the current shortcut, also after changing it and in panes that are already open;
+  screen readers get the name without the shortcut, the tab overview button says how many tabs
+  are open.
+- Opening an existing profile no longer selects its name, so a key press does not overwrite it.
 - New profiles close the pane when its process ends with exit code 0 (`exit`, Ctrl+D), like GNOME
   Console, Ptyxis and Tilix. The bar „Prozess beendet“ only uses the warning icon and red tint for
   errors. Existing profiles keep their setting (*Wenn der Prozess endet*).

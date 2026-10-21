@@ -143,6 +143,49 @@ pub fn label(accels: &[String]) -> String {
         .join(" / ")
 }
 
+/// Tooltip „Bezeichnung (Kürzel)“ mit der aktuellen Belegung; `fixed`: Tasten, die nicht
+/// änderbar sind (z. B. „Eingabe“ in der Suche), vor den Kürzeln der Aktion.
+pub fn tooltip(label: &str, action: &str, fixed: &[&str]) -> String {
+    let accels = effective(action);
+    let mut keys: Vec<String> = fixed.iter().map(|s| s.to_string()).collect();
+    if !accels.is_empty() {
+        keys.push(self::label(&accels));
+    }
+    if keys.is_empty() {
+        label.to_string()
+    } else {
+        format!("{label} ({})", keys.join(", "))
+    }
+}
+
+/// Tooltip, der beim Zeigen aus der aktuellen Belegung entsteht – folgt so geänderten
+/// Kürzeln auch in schon offenen Bereichen (QA-12). Der Name für Screenreader ist nur die
+/// Bezeichnung, ohne Kürzel (QA-18).
+pub fn live_tooltip(
+    widget: &impl IsA<gtk::Widget>,
+    label: &'static str,
+    action: &'static str,
+    fixed: &'static [&'static str],
+) {
+    widget.upcast_ref::<gtk::Widget>().update_property(&[gtk::accessible::Property::Label(label)]);
+    tooltip_only(widget, label, action, fixed);
+}
+
+/// Wie `live_tooltip`, aber ohne den Namen für Screenreader zu setzen (Widgets, die ihren
+/// eigenen Namen behalten sollen, z. B. der Fenstertitel).
+pub fn tooltip_only(
+    widget: &impl IsA<gtk::Widget>,
+    label: &'static str,
+    action: &'static str,
+    fixed: &'static [&'static str],
+) {
+    widget.set_has_tooltip(true);
+    widget.connect_query_tooltip(move |_, _, _, _, tip| {
+        tip.set_text(Some(&tooltip(label, action, fixed)));
+        true
+    });
+}
+
 /// Shortcut-Controller (Capture-Phase, vor VTE) für alle Aktionen mit Präfix `prefix`.
 pub fn controller(prefix: &str) -> gtk::ShortcutController {
     let c = gtk::ShortcutController::new();
