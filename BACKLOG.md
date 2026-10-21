@@ -12,7 +12,6 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [ ] R-09 A startup command is typed immediately; with an ssh profile it lands in the password
       prompt. Wait for the first prompt (vte.sh `precmd`) where available
 - [ ] QA-12 Tooltips from the current shortcut assignment (some are hard-coded)
-- [ ] QA-14 Blinking text only while the window has focus (7.8 % CPU when idle in the VM)
 - [ ] QA-15 Error dialog for unreadable files in a monospace font; toast without timeout
 - [ ] QA-16 Profile editor opens without focus in the name field
 - [ ] QA-18 Screen reader names: tab overview button, shortcut not part of the name
@@ -23,8 +22,8 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 
 ### From the code review
 - [ ] L1/L2 Weak references in the preferences and in the drawing functions of the pane
-- [ ] L3 Pause the per-second foreground poll in background tabs and inactive windows
-- [ ] D2 Merge the three foreground process queries in `terminal.rs`
+- [ ] D2 Merge the foreground process queries in `terminal.rs` (notification and label share one
+      read since L3; `detect_context` still reads `/proc` on its own)
 - [ ] D3 One `Rgb` to Cairo/RGBA conversion in `core`
 - [ ] D6 Debug output without `format!` on every divider move
 
@@ -72,7 +71,9 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
       inside `ssh`; R-05 profile *Bereich schließen*, `exit`, Undo; R-06 `env | grep GIO_LAUNCHED`
       after starting from the menu; R-07 drag a divider and restart; R-10 `parkett -e "htop -d 5"`;
       QA-11 `exit` in the only pane closes the window, `false` shows the red bar; QA-17 labels
-      while running `htop`/`ssh`, after `cd`, reordering tabs, renaming, switch in the preferences
+      while running `htop`/`ssh`, after `cd`, reordering tabs, renaming, switch in the preferences;
+      QA-14/L3 measure idle CPU again (blinking text, 7 terminals), label of a background tab
+      after its command ends (≤ 5 s), context color right after switching tabs
 - [ ] New features of 0.2 on the host (Arch, GNOME 51): session, command line, notification,
       transparency; Nautilus 51 with the extension
 - [ ] Sixel output with a VTE that has Sixel (Arch and Fedora 44 build without it)
@@ -161,6 +162,8 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [x] R-10 `-e "htop -d 5"` is split like a shell; flags with a value (`--tab=x`) are refused
 - [x] QA-11 default: close the pane on exit code 0; neutral bar for a normal end (decided 2026-10-21)
 - [x] QA-17 short tab label „1 htop · parkett“, switch under *Allgemein* (decided 2026-10-21)
+- [x] QA-14 blinking text only in the focused pane (`TextBlinkMode::Focused`)
+- [x] L3 foreground poll every 5 s instead of every second in background tabs and inactive windows
 - [x] `cargo audit` in `build-aux/ci.sh` (no findings on 2026-10-21)
 - [x] Unit tests for the default shortcuts (QA-01: nothing without Ctrl/Alt/Super, no duplicates)
 

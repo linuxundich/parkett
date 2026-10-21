@@ -11,6 +11,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Reiter-Namen*).
 
 ### Changed
+- Blinking text (SGR 5) only blinks in the focused pane, like GNOME Terminal; idle CPU in the VM
+  was 7.8 % with blinking text in several panes.
+- Panes in background tabs and inactive windows check their foreground process every 5 s instead
+  of every second (context color, tab label), and immediately when they come into view.
 - New profiles close the pane when its process ends with exit code 0 (`exit`, Ctrl+D), like GNOME
   Console, Ptyxis and Tilix. The bar „Prozess beendet“ only uses the warning icon and red tint for
   errors. Existing profiles keep their setting (*Wenn der Prozess endet*).
