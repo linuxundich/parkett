@@ -182,9 +182,15 @@ impl Window {
                 }
             }
         });
-        let dim = std::cell::RefCell::new(Some(dim));
+        let weak = self.downgrade();
+        let labels = settings.connect_changed(Some("short-tab-labels"), move |_, _| {
+            if let Some(w) = weak.upgrade() {
+                w.update_labels();
+            }
+        });
+        let handlers = std::cell::RefCell::new(vec![dim, labels]);
         self.connect_destroy(move |_| {
-            if let Some(id) = dim.borrow_mut().take() {
+            for id in handlers.borrow_mut().drain(..) {
                 crate::settings::settings().disconnect(id);
             }
         });
@@ -364,14 +370,21 @@ impl Window {
             glib::Propagation::Stop
         });
 
-        // letzter Tab weg → Fenster zu
+        // letzter Tab weg → Fenster zu; sonst stimmen die Nummern im Label nicht mehr
         let weak = self.downgrade();
         tab_view.connect_n_pages_notify(move |view| {
+            let Some(w) = weak.upgrade() else { return };
             if view.n_pages() == 0 {
-                if let Some(w) = weak.upgrade() {
-                    w.imp().force_close.set(true);
-                    w.close();
-                }
+                w.imp().force_close.set(true);
+                w.close();
+            } else {
+                w.update_labels();
+            }
+        });
+        let weak = self.downgrade();
+        tab_view.connect_page_reordered(move |_, _, _| {
+            if let Some(w) = weak.upgrade() {
+                w.update_labels();
             }
         });
 
@@ -537,8 +550,11 @@ impl Window {
         self.update_translucency();
         let view = self.tab_view();
         let Some(page) = self.page_of(tab) else { return };
-        page.set_title(&tab.title());
-        page.set_tooltip(&glib::markup_escape_text(&tab.cwd().map(|c| tilde(&c)).unwrap_or_default()));
+        page.set_title(&self.page_label(tab, &page));
+        // voller Titel der Shell und Verzeichnis, wenn das Label kurz ist
+        let cwd = tab.cwd().map(|c| tilde(&c)).unwrap_or_default();
+        let tooltip = if crate::settings::short_tab_labels() { format!("{}\n{cwd}", tab.title()) } else { cwd };
+        page.set_tooltip(&glib::markup_escape_text(tooltip.trim()));
         page.set_keyword(&tab.cwd().unwrap_or_default());
         if tab.take_attention() && view.selected_page().as_ref() != Some(&page) {
             page.set_needs_attention(true);
@@ -554,6 +570,24 @@ impl Window {
         }
         if view.selected_page().as_ref() == Some(&page) {
             self.update_title();
+        }
+    }
+
+    /// Label in der Reiterleiste: kurz „1 htop · parkett“ (QA-17) oder der Titel der Shell.
+    fn page_label(&self, tab: &Tab, page: &adw::TabPage) -> String {
+        if crate::settings::short_tab_labels() {
+            tab.short_label(Some(self.tab_view().page_position(page) as usize + 1))
+        } else {
+            tab.title()
+        }
+    }
+
+    /// Alle Labels neu (Reihenfolge oder Einstellung geändert).
+    fn update_labels(&self) {
+        for tab in self.tabs() {
+            if let Some(page) = self.page_of(&tab) {
+                page.set_title(&self.page_label(&tab, &page));
+            }
         }
     }
 

@@ -4,6 +4,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Short tab labels: number, running program and folder (`1 zsh · parkett`, `3 ssh bender`)
+  instead of the shell title, which looked the same in every tab; the full title stays in the
+  window title and the tooltip. Can be turned off (*Einstellungen › Allgemein › Kurze
+  Reiter-Namen*).
+
 ### Changed
 - New profiles close the pane when its process ends with exit code 0 (`exit`, Ctrl+D), like GNOME
   Console, Ptyxis and Tilix. The bar „Prozess beendet“ only uses the warning icon and red tint for

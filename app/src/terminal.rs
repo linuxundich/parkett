@@ -60,6 +60,8 @@ struct Inner {
     command_started: Cell<Option<Instant>>,
     /// Name des laufenden Befehls, sekündlich gemerkt (für die Benachrichtigung)
     command_name: RefCell<Option<String>>,
+    /// Programm im kurzen Reiter-Label, zuletzt gemeldet (QA-17)
+    label_program: RefCell<Option<String>>,
     /// Deckkraft des Hintergrunds aus dem Profil
     opacity: Cell<f64>,
     /// Von Parkett beendet (Schließen): kein Neustart, keine Leiste (QA-03)
@@ -136,6 +138,7 @@ impl Terminal {
             uid: NEXT_UID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             command_started: Cell::new(None),
             command_name: RefCell::new(None),
+            label_program: RefCell::new(None),
             opacity: Cell::new(1.0),
             terminated: Cell::new(false),
         }));
@@ -313,9 +316,18 @@ impl Terminal {
                 }
             }
             let now = t.detect_context();
+            let mut changed = false;
             if now != *t.0.context.borrow() {
                 *t.0.context.borrow_mut() = now;
                 t.apply_colors();
+                changed = true;
+            }
+            let program = t.label_program();
+            if program != *t.0.label_program.borrow() {
+                *t.0.label_program.borrow_mut() = program;
+                changed = true;
+            }
+            if changed {
                 t.emit_state_changed();
             }
             glib::ControlFlow::Continue
@@ -388,6 +400,24 @@ impl Terminal {
     /// Name des Vordergrundprozesses, wenn er nicht die Shell selbst ist (z. B. „vim“, „ssh“).
     /// Muster wie Ptyxis (`agent/ptyxis-process-impl.c`): tcgetpgrp auf der PTY gegen die
     /// PID der Shell vergleichen, Name aus /proc. Nur ohne Flatpak-Sandbox aussagekräftig.
+    /// Programm für das kurze Reiter-Label: bei SSH „ssh host“, sonst das Programm im
+    /// Vordergrund, am Prompt die Shell selbst.
+    pub fn label_program(&self) -> Option<String> {
+        if self.0.exit.get().is_some() {
+            return None;
+        }
+        let foreground = self.foreground_process();
+        if let Context::Remote(host) = self.context() {
+            let name = foreground.unwrap_or_else(|| "ssh".into());
+            return Some(if name == host { name } else { format!("{name} {host}") });
+        }
+        foreground.or_else(|| {
+            let pid = self.0.child_pid.get()?.0;
+            let comm = std::fs::read_to_string(format!("/proc/{pid}/comm")).ok()?;
+            Some(comm.trim().to_string()).filter(|c| !c.is_empty())
+        })
+    }
+
     pub fn foreground_process(&self) -> Option<String> {
         if self.0.exit.get().is_some() {
             return None;

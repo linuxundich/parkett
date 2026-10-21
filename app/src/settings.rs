@@ -34,6 +34,11 @@ pub fn inherit_directory() -> bool {
     settings().string("new-terminal-directory") == "current"
 }
 
+/// Reiter-Label „1 htop · parkett“ statt des Titels der Shell (QA-17).
+pub fn short_tab_labels() -> bool {
+    settings().boolean("short-tab-labels")
+}
+
 pub fn context_colors() -> bool {
     settings().boolean("context-colors")
 }

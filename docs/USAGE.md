@@ -19,6 +19,10 @@ As of 0.2.0. All shortcuts can be changed or disabled under *Einstellungen › K
 - **Close:** Ctrl+Shift+W (pane), Ctrl+Shift+Q (tab). If a program other than the shell is still
   running there, Parkett asks first. Afterwards, *Rückgängig* (Undo) is available for 8 seconds;
   the process keeps running until then. Closing something else finalizes the previous close.
+- **Tab labels:** number, running program and folder, e.g. `1 zsh · parkett`, `2 htop · ~` or
+  `3 ssh bender`; the number matches Ctrl+Alt+1…9. The full title set by the shell is in the
+  window title and in the tab's tooltip. A tab you renamed keeps its name. Back to the shell
+  title: *Einstellungen › Allgemein › Kurze Reiter-Namen* (Preferences › General › Short tab names).
 - **Tab overview:** Ctrl+Shift+O; **rename:** main menu or command palette (no
   default shortcut: F2 and F10 stay with the programs in the terminal, e.g. `htop`, `mc`, `nano`).
 - **Pane title** (in split tabs): floats at the top right, but is normally hidden so it does

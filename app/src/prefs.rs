@@ -32,6 +32,11 @@ fn general_page() -> adw::PreferencesPage {
         .subtitle("Zeigt in geteilten Reitern, welcher Bereich den Fokus hat")
         .build();
     settings.bind("dim-unfocused", &dim, "active").build();
+    let labels = adw::SwitchRow::builder()
+        .title("Kurze Reiter-Namen")
+        .subtitle("Nummer, Programm und Ordner statt des Titels der Shell")
+        .build();
+    settings.bind("short-tab-labels", &labels, "active").build();
     let tabbar = adw::SwitchRow::builder().title("Reiterleiste bei einem Reiter ausblenden").build();
     settings.bind("autohide-tab-bar", &tabbar, "active").build();
     let context = adw::SwitchRow::builder()
@@ -65,6 +70,7 @@ fn general_page() -> adw::PreferencesPage {
     look.add(&title);
     look.add(&dim);
     look.add(&context);
+    look.add(&labels);
     look.add(&tabbar);
     page.add(&look);
 
