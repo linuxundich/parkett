@@ -19,6 +19,10 @@ As of 0.2.0. All shortcuts can be changed or disabled under *Einstellungen › K
 - **Close:** Ctrl+Shift+W (pane), Ctrl+Shift+Q (tab). If a program other than the shell is still
   running there, Parkett asks first. Afterwards, *Rückgängig* (Undo) is available for 8 seconds;
   the process keeps running until then. Closing something else finalizes the previous close.
+- **Tab labels:** number, running program and folder, e.g. `1 zsh · parkett`, `2 htop · ~` or
+  `3 ssh bender`; the number matches Ctrl+Alt+1…9. The full title set by the shell is in the
+  window title and in the tab's tooltip. A tab you renamed keeps its name. Back to the shell
+  title: *Einstellungen › Allgemein › Kurze Reiter-Namen* (Preferences › General › Short tab names).
 - **Tab overview:** Ctrl+Shift+O; **rename:** main menu or command palette (no
   default shortcut: F2 and F10 stay with the programs in the terminal, e.g. `htop`, `mc`, `nano`).
 - **Pane title** (in split tabs): floats at the top right, but is normally hidden so it does
@@ -71,13 +75,15 @@ the host name or "root" appears. Can be turned off under *Einstellungen › Allg
 parkett [OPTIONEN] [-- BEFEHL [ARGUMENTE …]]
   -d, --working-directory=DIR   Startverzeichnis; mehrfach = ein Reiter je Verzeichnis
   -e, -x, --                    Rest der Zeile statt der Shell ausführen
+                                (-e mit nur einem Argument: wie in einer Shell zerlegt)
   -p, --profile=ID              Profil (Dateiname ohne .toml)
   -t, --title=TITEL             Titel des Reiters
       --tab                     als Reiter im aktiven Fenster statt neuem Fenster
 ```
 
 In English: `-d` sets the start directory (given several times, one tab per directory); `-e`,
-`-x` or `--` run the rest of the line instead of the shell; `-p` selects a profile (file name
+`-x` or `--` run the rest of the line instead of the shell (a single argument after `-e`, as in
+`parkett -e "htop -d 5"`, is split like a shell would, as in GNOME Terminal); `-p` selects a profile (file name
 without `.toml`); `-t` sets the tab title; `--tab` opens a tab in the active window instead of
 a new window.
 
@@ -118,7 +124,9 @@ terminals), background opacity (30–100 %; below that the desktop shows through
 header bar stays opaque), font (otherwise the system monospace font), cursor shape,
 blinking, bell
 (sound and mark tab, mark only, off), command instead of shell, login shell, start directory, environment variables, behavior
-when the process exits. New tabs with a different profile: the arrow next to *Neuer Reiter* (New tab).
+when the process exits (default: close the pane on exit code 0, as in GNOME Console and Ptyxis;
+otherwise a bar with *Neu starten* (Restart) and *Schließen* (Close), red only for errors).
+New tabs with a different profile: the arrow next to *Neuer Reiter* (New tab).
 
 Stored in `~/.config/parkett/profiles/<id>.toml`, editable by hand:
 
@@ -129,7 +137,7 @@ command = ""             # empty = shell
 login_shell = true
 directory = "~/srv"      # empty = setting "Neue Terminals öffnen in" (Open new terminals in)
 environment = ["EDITOR=vim"]
-exit_action = "hold"     # hold | close | restart
+exit_action = "hold"     # close (default) | hold | restart
 font = "JetBrains Mono 11" # empty = system font
 cursor_shape = "ibeam"   # block | ibeam | underline
 cursor_blink = "system"  # system | on | off

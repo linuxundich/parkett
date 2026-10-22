@@ -351,6 +351,28 @@ impl Tab {
         }
     }
 
+    /// Kurzes Label „1 htop · parkett“ für die Reiterleiste (QA-17); ein eigener Name hat
+    /// Vorrang. `number`: Platz des Reiters, 1-basiert.
+    pub fn short_label(&self, number: Option<usize>) -> String {
+        let zoom = self.layout().zoomed().map(|_| format!(" (1/{})", self.pane_count())).unwrap_or_default();
+        if let Some(custom) = self.custom_title() {
+            return match number.filter(|n| (1..=9).contains(n)) {
+                Some(n) => format!("{n} {custom}{zoom}"),
+                None => format!("{custom}{zoom}"),
+            };
+        }
+        let pane = self.focused_pane();
+        let t = pane.terminal();
+        // In einer SSH-Sitzung ist das lokale Verzeichnis (das der ssh) bedeutungslos
+        let dir = match t.context() {
+            parkett_core::context::Context::Remote(_) => None,
+            _ => t.working_directory(),
+        };
+        let program = t.label_program();
+        let label = parkett_core::label::tab_label(number, program.as_deref(), dir.as_deref(), &glib::home_dir());
+        format!("{label}{zoom}")
+    }
+
     pub fn cwd(&self) -> Option<String> {
         self.focused_pane().terminal().cwd()
     }
@@ -684,6 +706,7 @@ impl Tab {
             let next = tab.imp().layout.borrow().set_ratio(&path, ratio);
             if let Some(next) = next {
                 *tab.imp().layout.borrow_mut() = next;
+                crate::session::schedule_save();
             }
         });
     }

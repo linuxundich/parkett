@@ -9,34 +9,18 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 ### From the QA audit
 - [ ] QA-08 Take over the environment of a second invocation (`FOO=1 parkett --tab` reaches the
       running instance without `FOO`); needs rework in the spawn path
-- [ ] R-04 `file:///` links (OSC 8) from an SSH session open local files with the same path;
-      refuse `file:` links while the pane's context is remote
-- [ ] R-05 Undo after a normal exit (profile *Bereich schließen* (Close pane)) brings back a dead
-      pane without the exit bar
-- [ ] R-06 Remove `GIO_LAUNCHED_DESKTOP_FILE` and `GIO_LAUNCHED_DESKTOP_FILE_PID` from the
-      environment of new shells (GNOME Terminal does the same)
-- [ ] R-07 Save the session after dragging a divider; the save timer restarts on every title change
-- [ ] R-08 `ratio = nan` in a template ends up as `null` in `session.json` and the session is lost;
-      clamp non-finite ratios on load
 - [ ] R-09 A startup command is typed immediately; with an ssh profile it lands in the password
       prompt. Wait for the first prompt (vte.sh `precmd`) where available
-- [ ] R-10 `-e "htop -d 5"` as one argument is not split; `--tab=x` is silently accepted
-- [ ] R-11 `ssh -vp 22 host` shows the context chip „22“ instead of the host
-- [ ] R-12 Write profiles and templates with mode 0600 (environment variables may hold tokens)
-- [ ] QA-12 Tooltips from the current shortcut assignment (some are hard-coded)
-- [ ] QA-14 Blinking text only while the window has focus (7.8 % CPU when idle in the VM)
 - [ ] QA-15 Error dialog for unreadable files in a monospace font; toast without timeout
-- [ ] QA-16 Profile editor opens without focus in the name field
-- [ ] QA-18 Screen reader names: tab overview button, shortcut not part of the name
 - [ ] QA-20 Cursor in the wrong place after line wrap: investigate, compare with Ptyxis
 - [ ] Contrast test: sharpen the light variant of *Hoher Kontrast* (High Contrast) below 3:1
-- [ ] `cargo audit` in `build-aux/ci.sh`
-- [ ] Regression tests for QA-01 to QA-09 in the smoke test or as unit tests
+- [ ] Regression tests for QA-02 (pane title), QA-07 (markup) and QA-09 (focus after menus) in the
+      VM smoke test; QA-01 and QA-03 to QA-06 are covered by unit tests and the smoke test
 
 ### From the code review
 - [ ] L1/L2 Weak references in the preferences and in the drawing functions of the pane
-- [ ] L3 Pause the per-second foreground poll in background tabs and inactive windows
-- [ ] D2 Merge the three foreground process queries in `terminal.rs`
+- [ ] D2 Merge the foreground process queries in `terminal.rs` (notification and label share one
+      read since L3; `detect_context` still reads `/proc` on its own)
 - [ ] D3 One `Rgb` to Cairo/RGBA conversion in `core`
 - [ ] D6 Debug output without `format!` on every divider move
 
@@ -52,9 +36,6 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 
 ## Decisions needed
 
-- [ ] QA-11 Default when a process ends: keep the exit bar, or close the pane on exit code 0
-      and show a neutral bar otherwise
-- [ ] QA-17 Short tab label "program · folder" (with a number) instead of the shell title
 - [ ] QA-13 Adaptive header bar below about 600 px window width (`AdwBreakpoint`)
 - [ ] File paths in the output as links, Ctrl+click opens them in the file manager (audit T-53)
 - [ ] Sixel: build and ship a VTE with Sixel support, or wait for the distributions
@@ -83,6 +64,15 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 
 ## Testing gaps
 
+- [ ] By hand, only built and checked with Clippy so far (no window): R-04 OSC 8 `file:///` link
+      inside `ssh`; R-05 profile *Bereich schließen*, `exit`, Undo; R-06 `env | grep GIO_LAUNCHED`
+      after starting from the menu; R-07 drag a divider and restart; R-10 `parkett -e "htop -d 5"`;
+      QA-11 `exit` in the only pane closes the window, `false` shows the red bar; QA-17 labels
+      while running `htop`/`ssh`, after `cd`, reordering tabs, renaming, switch in the preferences;
+      QA-14/L3 measure idle CPU again (blinking text, 7 terminals), label of a background tab
+      after its command ends (≤ 5 s), context color right after switching tabs; QA-12 change a
+      shortcut, hover the pane buttons of an open pane; QA-16 open a profile, type a letter;
+      QA-18 Orca on header bar and pane buttons
 - [ ] New features of 0.2 on the host (Arch, GNOME 51): session, command line, notification,
       transparency; Nautilus 51 with the extension
 - [ ] Sixel output with a VTE that has Sixel (Arch and Fedora 44 build without it)
@@ -98,8 +88,6 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 ## Housekeeping
 
 - [ ] Check the name: trademark registers (DPMA/EUIPO), domains
-- [ ] R-13 Docs: `docs/QA.md` still says Shift+Insert does not warn (it does now); test counts in
-      `docs/ARCHITECTURE.md` are outdated (now 61 + 2 + 1)
 - [ ] German file names in the repository (`build-aux/qa/durchsatz.sh`, `messen.sh`,
       `icon/vorschau.png`, `icon/entwuerfe/`, screenshots under `docs/` and `qa/`)
 - [ ] Code comments are German; translate when the code is touched anyway
@@ -160,6 +148,26 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [x] QA-05/06 decode OSC 7, local machine only
 - [x] QA-07 escape markup; QA-09 focus after menus
 - [x] QA-10 palette One; R-03 quote the environment field; R-02 smoke test log
+
+### 0.3 fixes from the QA audit
+- [x] R-04 refuse `file:` links while the pane's context is remote
+- [x] R-06 `GIO_LAUNCHED_DESKTOP_FILE(_PID)` removed from the environment of new shells
+- [x] R-07 save the session after dragging a divider; save timer no longer restarts
+- [x] R-08 non-finite ratios in templates become 0.5
+- [x] R-11 grouped ssh options (`ssh -vp 22 host`) in the context chip
+- [x] R-12 profiles, templates and session written with mode 0600
+- [x] R-13 docs: Shift+Insert warning in `docs/QA.md`, test counts in `docs/ARCHITECTURE.md`
+- [x] R-05 Undo after an automatic close on exit brings the pane back with the exit bar
+- [x] R-10 `-e "htop -d 5"` is split like a shell; flags with a value (`--tab=x`) are refused
+- [x] QA-11 default: close the pane on exit code 0; neutral bar for a normal end (decided 2026-10-21)
+- [x] QA-17 short tab label „1 htop · parkett“, switch under *Allgemein* (decided 2026-10-21)
+- [x] QA-14 blinking text only in the focused pane (`TextBlinkMode::Focused`)
+- [x] L3 foreground poll every 5 s instead of every second in background tabs and inactive windows
+- [x] QA-12 tooltips built from the current shortcuts when shown (header bar, pane, search)
+- [x] QA-16 existing profile opens without the name selected (new profile: name selected)
+- [x] QA-18 screen reader names without shortcut; overview button „Reiter-Übersicht, 4 Reiter“
+- [x] `cargo audit` in `build-aux/ci.sh` (no findings on 2026-10-21)
+- [x] Unit tests for the default shortcuts (QA-01: nothing without Ctrl/Alt/Super, no duplicates)
 
 ### 0.2: Everyday features
 - [x] Command line: `parkett -- command`, `--working-directory` (several times = tabs), `--tab`,

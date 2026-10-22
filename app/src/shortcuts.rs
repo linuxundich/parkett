@@ -143,6 +143,49 @@ pub fn label(accels: &[String]) -> String {
         .join(" / ")
 }
 
+/// Tooltip „Bezeichnung (Kürzel)“ mit der aktuellen Belegung; `fixed`: Tasten, die nicht
+/// änderbar sind (z. B. „Eingabe“ in der Suche), vor den Kürzeln der Aktion.
+pub fn tooltip(label: &str, action: &str, fixed: &[&str]) -> String {
+    let accels = effective(action);
+    let mut keys: Vec<String> = fixed.iter().map(|s| s.to_string()).collect();
+    if !accels.is_empty() {
+        keys.push(self::label(&accels));
+    }
+    if keys.is_empty() {
+        label.to_string()
+    } else {
+        format!("{label} ({})", keys.join(", "))
+    }
+}
+
+/// Tooltip, der beim Zeigen aus der aktuellen Belegung entsteht – folgt so geänderten
+/// Kürzeln auch in schon offenen Bereichen (QA-12). Der Name für Screenreader ist nur die
+/// Bezeichnung, ohne Kürzel (QA-18).
+pub fn live_tooltip(
+    widget: &impl IsA<gtk::Widget>,
+    label: &'static str,
+    action: &'static str,
+    fixed: &'static [&'static str],
+) {
+    widget.upcast_ref::<gtk::Widget>().update_property(&[gtk::accessible::Property::Label(label)]);
+    tooltip_only(widget, label, action, fixed);
+}
+
+/// Wie `live_tooltip`, aber ohne den Namen für Screenreader zu setzen (Widgets, die ihren
+/// eigenen Namen behalten sollen, z. B. der Fenstertitel).
+pub fn tooltip_only(
+    widget: &impl IsA<gtk::Widget>,
+    label: &'static str,
+    action: &'static str,
+    fixed: &'static [&'static str],
+) {
+    widget.set_has_tooltip(true);
+    widget.connect_query_tooltip(move |_, _, _, _, tip| {
+        tip.set_text(Some(&tooltip(label, action, fixed)));
+        true
+    });
+}
+
 /// Shortcut-Controller (Capture-Phase, vor VTE) für alle Aktionen mit Präfix `prefix`.
 pub fn controller(prefix: &str) -> gtk::ShortcutController {
     let c = gtk::ShortcutController::new();
@@ -196,4 +239,56 @@ pub fn from_key(key: gdk::Key, state: gdk::ModifierType) -> Result<Option<String
         return Err("Bitte mit Strg, Alt oder Super kombinieren (ohne nur F-Tasten)");
     }
     Ok(Some(gtk::accelerator_name(key.to_lower(), mods).to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// „<Control><Shift>t“ → ({"control", "shift"}, "t"), ohne GTK (`accelerator_parse` will
+    /// ein initialisiertes GTK und damit ein Display).
+    fn split(accel: &str) -> (Vec<String>, String) {
+        let mut mods = Vec::new();
+        let mut rest = accel;
+        while let Some(r) = rest.strip_prefix('<') {
+            let (m, r) = r.split_once('>').expect("„>“ fehlt");
+            mods.push(m.to_ascii_lowercase());
+            rest = r;
+        }
+        mods.sort();
+        (mods, rest.to_ascii_lowercase())
+    }
+
+    /// Programme im Terminal brauchen F-Tasten und alles ohne Strg/Alt selbst (QA-01: F2 in
+    /// htop, mc, nano). Einzige Ausnahme: Umschalt+Einfg zum Einfügen, wie in jedem Terminal.
+    #[test]
+    fn defaults_leave_keys_to_programs() {
+        for e in ENTRIES {
+            for &a in e.defaults {
+                let (mods, key) = split(a);
+                let strong = mods.iter().any(|m| ["control", "alt", "super"].contains(&m.as_str()));
+                assert!(strong || a == "<Shift>Insert", "{}: „{a}“ gehört den Programmen im Terminal", e.action);
+                assert!(!key.is_empty(), "{}: „{a}“ ohne Taste", e.action);
+                // Alt+1…9 und Strg+Alt+1…9 sind fest belegt (`reserved`)
+                let digit = key.len() == 1 && key.chars().all(|c| ('1'..='9').contains(&c));
+                assert!(!(digit && mods.contains(&"alt".to_string())), "{}: „{a}“ ist fest belegt", e.action);
+            }
+        }
+    }
+
+    #[test]
+    fn defaults_are_unique() {
+        let mut seen: Vec<((Vec<String>, String), &str)> = Vec::new();
+        for e in ENTRIES {
+            assert_eq!(ENTRIES.iter().filter(|o| o.action == e.action).count(), 1, "{} doppelt", e.action);
+            assert!(SECTIONS.contains(&e.section), "{}: Abschnitt „{}“", e.action, e.section);
+            for &a in e.defaults {
+                let k = split(a);
+                if let Some((_, other)) = seen.iter().find(|(k2, _)| *k2 == k) {
+                    panic!("„{a}“ für {} und {other}", e.action);
+                }
+                seen.push((k, e.action));
+            }
+        }
+    }
 }

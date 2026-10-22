@@ -30,6 +30,7 @@ struct Inner {
     root: gtk::Box,
     vte: vte::Terminal,
     exit_bar: gtk::Revealer,
+    exit_icon: gtk::Image,
     exit_label: gtk::Label,
     cwd_at_start: Option<String>,
     command: Option<Vec<String>>,
@@ -59,6 +60,10 @@ struct Inner {
     command_started: Cell<Option<Instant>>,
     /// Name des laufenden Befehls, sekündlich gemerkt (für die Benachrichtigung)
     command_name: RefCell<Option<String>>,
+    /// Programm im kurzen Reiter-Label, zuletzt gemeldet (QA-17)
+    label_program: RefCell<Option<String>>,
+    /// nächste Abfrage des Vordergrundprozesses (`watch_context`)
+    poll_source: RefCell<Option<glib::SourceId>>,
     /// Deckkraft des Hintergrunds aus dem Profil
     opacity: Cell<f64>,
     /// Von Parkett beendet (Schließen): kein Neustart, keine Leiste (QA-03)
@@ -92,7 +97,8 @@ impl Terminal {
         let restart = gtk::Button::with_label("Neu starten");
         let close = gtk::Button::with_label("Schließen");
         let bar = gtk::Box::builder().spacing(10).css_classes(["parkett-exit-bar"]).build();
-        bar.append(&gtk::Image::from_icon_name("dialog-warning-symbolic"));
+        let exit_icon = gtk::Image::from_icon_name("dialog-warning-symbolic");
+        bar.append(&exit_icon);
         bar.append(&exit_label);
         bar.append(&restart);
         bar.append(&close);
@@ -112,6 +118,7 @@ impl Terminal {
             root,
             vte,
             exit_bar,
+            exit_icon,
             exit_label,
             cwd_at_start: cwd,
             command: command.filter(|c| !c.is_empty()),
@@ -133,6 +140,8 @@ impl Terminal {
             uid: NEXT_UID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             command_started: Cell::new(None),
             command_name: RefCell::new(None),
+            label_program: RefCell::new(None),
+            poll_source: RefCell::new(None),
             opacity: Cell::new(1.0),
             terminated: Cell::new(false),
         }));
@@ -297,26 +306,69 @@ impl Terminal {
         self.0.accent.get()
     }
 
-    /// Fragt einmal pro Sekunde den Vordergrundprozess ab (wie Ptyxis, aber je Bereich).
-    /// /proc lesen ist billig; der Timer endet mit dem Terminal.
+    /// Fragt den Vordergrundprozess ab (wie Ptyxis, aber je Bereich): jede Sekunde, solange
+    /// der Bereich zu sehen und sein Fenster aktiv ist, sonst alle 5 s – Reiter im Hintergrund
+    /// und Fenster ohne Fokus wecken die CPU seltener (L3). Kommt der Bereich in Sicht oder
+    /// bekommt er den Fokus, sofort. 5 s reichen auch für die Benachrichtigung: Sie meldet nur
+    /// Befehle ab 10 s Laufzeit, deren Namen kennt die Abfrage bis dahin.
     fn watch_context(&self) {
         let weak = Rc::downgrade(&self.0);
-        glib::timeout_add_local(Duration::from_millis(1000), move || {
-            let Some(inner) = weak.upgrade() else { return glib::ControlFlow::Break };
-            let t = Terminal(inner);
-            if t.0.command_started.get().is_some() {
-                if let Some(name) = t.foreground_process() {
-                    *t.0.command_name.borrow_mut() = Some(name);
-                }
+        self.0.vte.connect_map(move |_| {
+            if let Some(inner) = weak.upgrade() {
+                Terminal(inner).poll_now();
             }
-            let now = t.detect_context();
-            if now != *t.0.context.borrow() {
-                *t.0.context.borrow_mut() = now;
-                t.apply_colors();
-                t.emit_state_changed();
-            }
-            glib::ControlFlow::Continue
         });
+        let weak = Rc::downgrade(&self.0);
+        self.0.vte.connect_has_focus_notify(move |vte| {
+            if let Some(inner) = weak.upgrade().filter(|_| vte.has_focus()) {
+                Terminal(inner).poll_now();
+            }
+        });
+        self.poll_now();
+    }
+
+    /// Abfrage jetzt, dann die nächste planen (eine geplante wird ersetzt).
+    fn poll_now(&self) {
+        if let Some(id) = self.0.poll_source.borrow_mut().take() {
+            id.remove();
+        }
+        self.poll();
+        let watched =
+            self.0.vte.is_mapped() && self.0.vte.root().and_downcast::<gtk::Window>().is_some_and(|w| w.is_active());
+        let weak = Rc::downgrade(&self.0);
+        let id = glib::timeout_add_local_once(Duration::from_millis(if watched { 1000 } else { 5000 }), move || {
+            if let Some(inner) = weak.upgrade() {
+                // schon abgelaufen: nur vergessen, nicht entfernen
+                inner.poll_source.borrow_mut().take();
+                Terminal(inner).poll_now();
+            }
+        });
+        *self.0.poll_source.borrow_mut() = Some(id);
+    }
+
+    fn poll(&self) {
+        // Vordergrundprozess einmal lesen, für Benachrichtigung und Label (D2)
+        let foreground = self.foreground_process();
+        if self.0.command_started.get().is_some() {
+            if let Some(name) = &foreground {
+                *self.0.command_name.borrow_mut() = Some(name.clone());
+            }
+        }
+        let now = self.detect_context();
+        let mut changed = false;
+        if now != *self.0.context.borrow() {
+            *self.0.context.borrow_mut() = now;
+            self.apply_colors();
+            changed = true;
+        }
+        let program = self.label_program_with(foreground);
+        if program != *self.0.label_program.borrow() {
+            *self.0.label_program.borrow_mut() = program;
+            changed = true;
+        }
+        if changed {
+            self.emit_state_changed();
+        }
     }
 
     fn detect_context(&self) -> Context {
@@ -385,6 +437,27 @@ impl Terminal {
     /// Name des Vordergrundprozesses, wenn er nicht die Shell selbst ist (z. B. „vim“, „ssh“).
     /// Muster wie Ptyxis (`agent/ptyxis-process-impl.c`): tcgetpgrp auf der PTY gegen die
     /// PID der Shell vergleichen, Name aus /proc. Nur ohne Flatpak-Sandbox aussagekräftig.
+    /// Programm für das kurze Reiter-Label: bei SSH „ssh host“, sonst das Programm im
+    /// Vordergrund, am Prompt die Shell selbst.
+    pub fn label_program(&self) -> Option<String> {
+        self.label_program_with(self.foreground_process())
+    }
+
+    fn label_program_with(&self, foreground: Option<String>) -> Option<String> {
+        if self.0.exit.get().is_some() {
+            return None;
+        }
+        if let Context::Remote(host) = self.context() {
+            let name = foreground.unwrap_or_else(|| "ssh".into());
+            return Some(if name == host { name } else { format!("{name} {host}") });
+        }
+        foreground.or_else(|| {
+            let pid = self.0.child_pid.get()?.0;
+            let comm = std::fs::read_to_string(format!("/proc/{pid}/comm")).ok()?;
+            Some(comm.trim().to_string()).filter(|c| !c.is_empty())
+        })
+    }
+
     pub fn foreground_process(&self) -> Option<String> {
         if self.0.exit.get().is_some() {
             return None;
@@ -477,16 +550,29 @@ impl Terminal {
 
     fn fail(&self, program: &str, message: &str) {
         self.0.exit.set(Some(ExitStatus::Code(-1)));
-        self.show_exit(&format!(
-            "<b>{}</b> konnte nicht gestartet werden: {}",
-            glib::markup_escape_text(program),
-            glib::markup_escape_text(message)
-        ));
+        self.show_exit(
+            &format!(
+                "<b>{}</b> konnte nicht gestartet werden: {}",
+                glib::markup_escape_text(program),
+                glib::markup_escape_text(message)
+            ),
+            true,
+        );
         self.emit_state_changed();
     }
 
-    fn show_exit(&self, markup: &str) {
+    /// `error`: Warnsymbol und rote Tönung; ein normales Ende (Exit-Code 0) bekommt eine
+    /// neutrale Leiste, sonst sieht `exit` wie ein Fehler aus (QA-11).
+    fn show_exit(&self, markup: &str, error: bool) {
         self.0.exit_label.set_markup(markup);
+        self.0.exit_icon.set_visible(error);
+        if let Some(bar) = self.0.exit_bar.child() {
+            if error {
+                bar.remove_css_class("neutral");
+            } else {
+                bar.add_css_class("neutral");
+            }
+        }
         self.0.exit_bar.set_visible(true);
         self.0.exit_bar.set_reveal_child(true);
     }
@@ -507,6 +593,9 @@ impl Terminal {
             let quick = t.0.started_at.get().is_some_and(|s| s.elapsed() < Duration::from_secs(2));
             match action {
                 ExitAction::Close if exit == ExitStatus::Code(0) => {
+                    // Leiste schon jetzt füllen: Holt „Rückgängig“ den Bereich zurück, ist er
+                    // sonst ein totes Terminal ohne Hinweis und ohne „Neu starten“ (R-05)
+                    t.show_exit("<b>Prozess beendet</b>", false);
                     // nach dem Signal-Handler schließen, nicht mitten im VTE-Callback
                     let weak = Rc::downgrade(&t.0);
                     glib::idle_add_local_once(move || {
@@ -534,7 +623,8 @@ impl Terminal {
             } else {
                 text
             };
-            t.show_exit(&text);
+            // ein Neustart-Profil, dessen Prozess sofort endet, ist ein Problem, auch mit Code 0
+            t.show_exit(&text, exit != ExitStatus::Code(0) || action == ExitAction::Restart);
             t.emit_state_changed();
         });
 
@@ -609,6 +699,9 @@ impl Terminal {
             CursorShape::Ibeam => vte::CursorShape::Ibeam,
             CursorShape::Underline => vte::CursorShape::Underline,
         });
+        // blinkender Text (SGR 5) nur im Bereich mit Fokus, wie gnome-terminal: in allen
+        // Bereichen kostete er im Leerlauf 7,8 % CPU in der VM (QA-14)
+        vte.set_text_blink_mode(vte::TextBlinkMode::Focused);
         vte.set_cursor_blink_mode(match profile.cursor_blink {
             CursorBlink::System => vte::CursorBlinkMode::System,
             CursorBlink::On => vte::CursorBlinkMode::On,
@@ -710,8 +803,13 @@ impl Terminal {
             return;
         }
         // file:-Links nur auf diesem Rechner: Ein OSC-8-Link aus einer SSH-Sitzung nennt den
-        // fremden Rechner; dort gemeint ist eine andere Datei als hier (wie gnome-terminal)
-        if scheme == "file" && !parkett_core::uri::is_local_file(uri, glib::host_name().as_str()) {
+        // fremden Rechner; dort gemeint ist eine andere Datei als hier (wie gnome-terminal).
+        // Viele Programme lassen den Rechner weg (`file:///pfad`) – läuft im Bereich gerade
+        // eine Verbindung, ist auch der nicht von hier (R-04)
+        if scheme == "file"
+            && (matches!(self.detect_context(), Context::Remote(_))
+                || !parkett_core::uri::is_local_file(uri, glib::host_name().as_str()))
+        {
             glib::g_warning!("parkett", "file:-Link auf anderen Rechner nicht geöffnet: {uri}");
             if let Some(w) = self.0.vte.root().and_downcast::<gtk::Window>() {
                 let d = adw::AlertDialog::new(

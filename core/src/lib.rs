@@ -5,6 +5,7 @@
 pub mod cli;
 pub mod context;
 pub mod fuzzy;
+pub mod label;
 pub mod layout;
 pub mod palette;
 pub mod paste;

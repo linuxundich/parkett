@@ -64,6 +64,11 @@
       <summary>Kontextfarbe für root und SSH</summary>
       <description>Bereiche, in denen ein Programm mit Root-Rechten oder eine SSH-Verbindung läuft, mit Linie, Chip und getöntem Hintergrund kennzeichnen. Die Farben kommen aus dem Farbschema.</description>
     </key>
+    <key name="short-tab-labels" type="b">
+      <default>true</default>
+      <summary>Kurze Reiter-Namen</summary>
+      <description>Reiter zeigen Nummer, laufendes Programm und Ordner („1 htop · parkett“) statt des Titels, den die Shell setzt. Ein selbst vergebener Name hat Vorrang.</description>
+    </key>
     <key name="autohide-tab-bar" type="b">
       <default>true</default>
       <summary>Reiterleiste bei einem Reiter ausblenden</summary>

@@ -16,11 +16,8 @@ pub enum Context {
 const REMOTE: &[&str] = &["ssh", "mosh", "mosh-client", "autossh", "et", "telnet"];
 const SUPERUSER: &[&str] = &["sudo", "su", "doas", "run0", "pkexec"];
 
-/// Optionen von ssh, die einen Wert erwarten (`man ssh`).
-const SSH_ARG_OPTS: &[&str] = &[
-    "-b", "-B", "-c", "-D", "-E", "-e", "-F", "-I", "-i", "-J", "-L", "-l", "-m", "-O", "-o", "-P", "-p", "-Q", "-R",
-    "-S", "-W", "-w",
-];
+/// Optionsbuchstaben von ssh, die einen Wert erwarten (`man ssh`).
+const SSH_ARG_OPTS: &str = "bBcDEeFIiJLlmOoPpQRSWw";
 
 /// `comm`: Prozessname, `args`: Befehlszeile, `euid`: effektive UID des Vordergrundprozesses.
 pub fn classify(comm: &str, args: &[String], euid: Option<u32>) -> Context {
@@ -42,10 +39,14 @@ pub fn remote_host(args: &[String]) -> Option<String> {
         if a == "--" {
             return it.next().map(|h| clean_host(h));
         }
-        if a.starts_with('-') {
-            // „-p22“ trägt den Wert schon, „-p 22“ nicht
-            if SSH_ARG_OPTS.contains(&a.as_str()) {
-                it.next();
+        if let Some(flags) = a.strip_prefix('-') {
+            // Wie getopt: Schalter lassen sich bündeln („-vp“); der erste Buchstabe mit Wert
+            // nimmt den Rest des Arguments („-p22“, „-vp22“) oder, wenn nichts folgt, das
+            // nächste Argument („-p 22“, „-vp 22“)
+            if let Some(i) = flags.find(|c| SSH_ARG_OPTS.contains(c)) {
+                if i + 1 == flags.len() {
+                    it.next();
+                }
             }
             continue;
         }
@@ -76,6 +77,10 @@ mod tests {
         assert_eq!(remote_host(&v("ssh -A -o ProxyJump=x toff@bender.fritz.box ls")), Some("bender.fritz.box".into()));
         assert_eq!(remote_host(&v("ssh -p22 ssh://root@nas:2222")), Some("nas".into()));
         assert_eq!(remote_host(&v("ssh -- host")), Some("host".into()));
+        assert_eq!(remote_host(&v("ssh -vp 22 host")), Some("host".into()), "R-11");
+        assert_eq!(remote_host(&v("ssh -vp22 host")), Some("host".into()));
+        assert_eq!(remote_host(&v("ssh -At -l root host")), Some("host".into()));
+        assert_eq!(remote_host(&v("ssh -pv host")), Some("host".into()), "„v“ ist hier der Wert von -p");
         assert_eq!(remote_host(&v("ssh -v")), None);
     }
 

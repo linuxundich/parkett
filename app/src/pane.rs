@@ -6,6 +6,7 @@ use adw::subclass::prelude::*;
 use gtk::glib;
 use vte::prelude::*;
 
+use crate::shortcuts::live_tooltip;
 use crate::terminal::Terminal;
 
 mod imp {
@@ -151,14 +152,11 @@ impl Pane {
         let pill_label = gtk::Label::builder().ellipsize(gtk::pango::EllipsizeMode::End).max_width_chars(28).build();
         let zoom = gtk::Button::builder()
             .icon_name("parkett-pane-maximize-symbolic")
-            .tooltip_text("Bereich maximieren (Strg+Umschalt+X)")
             .css_classes(["flat", "circular"])
             .build();
-        let close = gtk::Button::builder()
-            .icon_name("window-close-symbolic")
-            .tooltip_text("Bereich schließen (Strg+Umschalt+W)")
-            .css_classes(["flat", "circular"])
-            .build();
+        live_tooltip(&zoom, "Bereich maximieren", "win.toggle-zoom", &[]);
+        let close = gtk::Button::builder().icon_name("window-close-symbolic").css_classes(["flat", "circular"]).build();
+        live_tooltip(&close, "Bereich schließen", "win.close-pane", &[]);
         let pill = gtk::Box::builder()
             .css_classes(["parkett-pill"])
             .halign(gtk::Align::End)
@@ -208,21 +206,16 @@ impl Pane {
             .build();
         let regex =
             gtk::ToggleButton::builder().label(".*").tooltip_text("Regulärer Ausdruck").css_classes(["flat"]).build();
-        let up = gtk::Button::builder()
-            .icon_name("go-up-symbolic")
-            .tooltip_text("Treffer darüber (Eingabe, Strg+Umschalt+G)")
-            .css_classes(["flat"])
-            .build();
-        let down = gtk::Button::builder()
-            .icon_name("go-down-symbolic")
-            .tooltip_text("Treffer darunter (Umschalt+Eingabe, Strg+Umschalt+H)")
-            .css_classes(["flat"])
-            .build();
+        let up = gtk::Button::builder().icon_name("go-up-symbolic").css_classes(["flat"]).build();
+        live_tooltip(&up, "Treffer darüber", "win.find-up", &["Eingabe"]);
+        let down = gtk::Button::builder().icon_name("go-down-symbolic").css_classes(["flat"]).build();
+        live_tooltip(&down, "Treffer darunter", "win.find-down", &["Umschalt+Eingabe"]);
         let close_search = gtk::Button::builder()
             .icon_name("window-close-symbolic")
             .tooltip_text("Suche schließen (Esc)")
             .css_classes(["flat"])
             .build();
+        close_search.update_property(&[gtk::accessible::Property::Label("Suche schließen")]);
         let bar = gtk::Box::builder().spacing(2).css_classes(["parkett-search"]).build();
         for w in [
             entry.upcast_ref::<gtk::Widget>(),
@@ -248,16 +241,10 @@ impl Pane {
         // Titelzeile (Einstellung „Bereichstitel: Als Zeile“) über dem Terminal
         let row_label =
             gtk::Label::builder().xalign(0.0).hexpand(true).ellipsize(gtk::pango::EllipsizeMode::End).build();
-        let row_zoom = gtk::Button::builder()
-            .icon_name("parkett-pane-maximize-symbolic")
-            .tooltip_text("Bereich maximieren")
-            .css_classes(["flat"])
-            .build();
-        let row_close = gtk::Button::builder()
-            .icon_name("window-close-symbolic")
-            .tooltip_text("Bereich schließen")
-            .css_classes(["flat"])
-            .build();
+        let row_zoom = gtk::Button::builder().icon_name("parkett-pane-maximize-symbolic").css_classes(["flat"]).build();
+        live_tooltip(&row_zoom, "Bereich maximieren", "win.toggle-zoom", &[]);
+        let row_close = gtk::Button::builder().icon_name("window-close-symbolic").css_classes(["flat"]).build();
+        live_tooltip(&row_close, "Bereich schließen", "win.close-pane", &[]);
         let row = gtk::Box::builder().css_classes(["parkett-ptitle"]).spacing(4).visible(false).build();
         row.append(&row_label);
         row.append(&row_zoom);

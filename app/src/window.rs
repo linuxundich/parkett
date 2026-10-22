@@ -30,7 +30,7 @@ mod imp {
         pub pending_swap: Cell<bool>,
         /// Einblendung „Rückgängig“ des zuletzt Geschlossenen; eine neue ersetzt sie
         pub undo_toast: std::cell::RefCell<Option<adw::Toast>>,
-        pub split_buttons: OnceCell<(gtk::Button, gtk::Button)>,
+        pub new_button: OnceCell<adw::SplitButton>,
     }
 
     #[glib::object_subclass]
@@ -182,9 +182,15 @@ impl Window {
                 }
             }
         });
-        let dim = std::cell::RefCell::new(Some(dim));
+        let weak = self.downgrade();
+        let labels = settings.connect_changed(Some("short-tab-labels"), move |_, _| {
+            if let Some(w) = weak.upgrade() {
+                w.update_labels();
+            }
+        });
+        let handlers = std::cell::RefCell::new(vec![dim, labels]);
         self.connect_destroy(move |_| {
-            if let Some(id) = dim.borrow_mut().take() {
+            for id in handlers.borrow_mut().drain(..) {
                 crate::settings::settings().disconnect(id);
             }
         });
@@ -207,7 +213,6 @@ impl Window {
         });
         let new_button = adw::SplitButton::builder()
             .icon_name("tab-new-symbolic")
-            .tooltip_text("Neuer Reiter (Strg+Umschalt+T)")
             .action_name("win.new-tab")
             .menu_model(&new_menu)
             .dropdown_tooltip("Weitere Möglichkeiten")
@@ -244,12 +249,18 @@ impl Window {
             self.refocus_after(&popover);
         }
 
-        let find_button = gtk::Button::builder()
-            .icon_name("edit-find-symbolic")
-            .tooltip_text("Suchen (Strg+Umschalt+F)")
-            .action_name("win.find")
-            .build();
+        let find_button = gtk::Button::builder().icon_name("edit-find-symbolic").action_name("win.find").build();
+        crate::shortcuts::live_tooltip(&find_button, "Suchen", "win.find", &[]);
         let overview_button = adw::TabButton::builder().view(&tab_view).action_name("win.overview").build();
+        crate::shortcuts::live_tooltip(&overview_button, "Reiter-Übersicht", "win.overview", &[]);
+        // Name mit Anzahl statt nur der Zahl, die der Knopf zeigt (QA-18)
+        let button = overview_button.clone();
+        let name_overview = move |view: &adw::TabView| {
+            let label = format!("Reiter-Übersicht, {} Reiter", view.n_pages());
+            button.upcast_ref::<gtk::Widget>().update_property(&[gtk::accessible::Property::Label(&label)]);
+        };
+        name_overview(&tab_view);
+        tab_view.connect_n_pages_notify(name_overview);
 
         // Klick auf den Titel öffnet die Befehlspalette (Vorschlag 2)
         // Erst nach der Doppelklick-Zeit öffnen: Doppelklick auf die Kopfleiste maximiert nur
@@ -275,7 +286,7 @@ impl Window {
             *pending.borrow_mut() = Some(id);
         });
         title.add_controller(title_click);
-        title.set_tooltip_text(Some("Befehlspalette (Strg+Umschalt+P)"));
+        crate::shortcuts::tooltip_only(&title, "Befehlspalette", "win.palette", &[]);
 
         let header = adw::HeaderBar::builder().title_widget(&title).build();
         // AdwSplitButton gibt beiden Teilen den Tooltip des Pfeils als Namen (QA: Orca läse
@@ -284,18 +295,17 @@ impl Window {
         if let Some(main) = new_button.first_child() {
             main.update_property(&[gtk::accessible::Property::Label("Neuer Reiter")]);
         }
-        find_button.update_property(&[gtk::accessible::Property::Label("Suchen")]);
         header.pack_start(&new_button);
         // Teilen-Knöpfe wie bei Tilix (Wunsch Christoph nach dem ersten eigenen Test)
         let split_right =
             gtk::Button::builder().icon_name("parkett-split-right-symbolic").action_name("win.split-right").build();
         let split_down =
             gtk::Button::builder().icon_name("parkett-split-down-symbolic").action_name("win.split-down").build();
-        split_right.update_property(&[gtk::accessible::Property::Label("Rechts teilen")]);
-        split_down.update_property(&[gtk::accessible::Property::Label("Unten teilen")]);
+        crate::shortcuts::live_tooltip(&split_right, "Rechts teilen", "win.split-right", &[]);
+        crate::shortcuts::live_tooltip(&split_down, "Unten teilen", "win.split-down", &[]);
         header.pack_start(&split_right);
         header.pack_start(&split_down);
-        imp.split_buttons.set((split_right, split_down)).ok();
+        imp.new_button.set(new_button.clone()).ok();
         header.pack_end(&menu_button);
         header.pack_end(&overview_button);
         header.pack_end(&find_button);
@@ -364,14 +374,21 @@ impl Window {
             glib::Propagation::Stop
         });
 
-        // letzter Tab weg → Fenster zu
+        // letzter Tab weg → Fenster zu; sonst stimmen die Nummern im Label nicht mehr
         let weak = self.downgrade();
         tab_view.connect_n_pages_notify(move |view| {
+            let Some(w) = weak.upgrade() else { return };
             if view.n_pages() == 0 {
-                if let Some(w) = weak.upgrade() {
-                    w.imp().force_close.set(true);
-                    w.close();
-                }
+                w.imp().force_close.set(true);
+                w.close();
+            } else {
+                w.update_labels();
+            }
+        });
+        let weak = self.downgrade();
+        tab_view.connect_page_reordered(move |_, _, _| {
+            if let Some(w) = weak.upgrade() {
+                w.update_labels();
             }
         });
 
@@ -537,8 +554,11 @@ impl Window {
         self.update_translucency();
         let view = self.tab_view();
         let Some(page) = self.page_of(tab) else { return };
-        page.set_title(&tab.title());
-        page.set_tooltip(&glib::markup_escape_text(&tab.cwd().map(|c| tilde(&c)).unwrap_or_default()));
+        page.set_title(&self.page_label(tab, &page));
+        // voller Titel der Shell und Verzeichnis, wenn das Label kurz ist
+        let cwd = tab.cwd().map(|c| tilde(&c)).unwrap_or_default();
+        let tooltip = if crate::settings::short_tab_labels() { format!("{}\n{cwd}", tab.title()) } else { cwd };
+        page.set_tooltip(&glib::markup_escape_text(tooltip.trim()));
         page.set_keyword(&tab.cwd().unwrap_or_default());
         if tab.take_attention() && view.selected_page().as_ref() != Some(&page) {
             page.set_needs_attention(true);
@@ -554,6 +574,24 @@ impl Window {
         }
         if view.selected_page().as_ref() == Some(&page) {
             self.update_title();
+        }
+    }
+
+    /// Label in der Reiterleiste: kurz „1 htop · parkett“ (QA-17) oder der Titel der Shell.
+    fn page_label(&self, tab: &Tab, page: &adw::TabPage) -> String {
+        if crate::settings::short_tab_labels() {
+            tab.short_label(Some(self.tab_view().page_position(page) as usize + 1))
+        } else {
+            tab.title()
+        }
+    }
+
+    /// Alle Labels neu (Reihenfolge oder Einstellung geändert).
+    fn update_labels(&self) {
+        for tab in self.tabs() {
+            if let Some(page) = self.page_of(&tab) {
+                page.set_title(&self.page_label(&tab, &page));
+            }
         }
     }
 
@@ -1054,18 +1092,10 @@ impl Window {
         let c = crate::shortcuts::controller("win.");
         self.add_controller(c.clone());
         *imp.shortcuts.borrow_mut() = Some(c);
-        // Tooltips mit dem aktuellen Kürzel
-        if let Some((right, down)) = imp.split_buttons.get() {
-            let tip = |label: &str, action: &str| {
-                let accels = crate::shortcuts::effective(action);
-                if accels.is_empty() {
-                    label.to_string()
-                } else {
-                    format!("{label} ({})", crate::shortcuts::label(&accels))
-                }
-            };
-            right.set_tooltip_text(Some(&tip("Rechts teilen", "win.split-right")));
-            down.set_tooltip_text(Some(&tip("Unten teilen", "win.split-down")));
+        // AdwSplitButton reicht seinen Tooltip an den inneren Knopf weiter; daher hier setzen
+        // statt beim Zeigen (die übrigen Knöpfe: `shortcuts::live_tooltip`)
+        if let Some(button) = imp.new_button.get() {
+            button.set_tooltip_text(Some(&crate::shortcuts::tooltip("Neuer Reiter", "win.new-tab", &[])));
         }
     }
 }

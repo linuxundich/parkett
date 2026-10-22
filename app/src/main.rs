@@ -26,6 +26,7 @@ vte-terminal { padding: 6px 8px; }
   background: color-mix(in srgb, var(--destructive-bg-color) 14%, var(--view-bg-color));
   box-shadow: inset 0 1px var(--border-color);
 }
+.parkett-exit-bar.neutral { background: color-mix(in srgb, var(--window-fg-color) 5%, var(--view-bg-color)); }
 .parkett-focus-line { background: var(--accent-bg-color); }
 .parkett-pill {
   padding: 2px 2px 2px 9px;
@@ -106,6 +107,12 @@ parkett-pane.focused .parkett-badge { background: var(--accent-bg-color); color:
 ";
 
 fn main() -> glib::ExitCode {
+    // Gesetzt von GIO beim Start aus dem Menü; gilt für Parkett, nicht für die Shells darin
+    // (würde sonst an jedes daraus gestartete Programm vererbt, wie gnome-terminal es vermeidet).
+    // Hier ganz am Anfang, solange nur ein Thread läuft (R-06)
+    for var in ["GIO_LAUNCHED_DESKTOP_FILE", "GIO_LAUNCHED_DESKTOP_FILE_PID"] {
+        std::env::remove_var(var);
+    }
     settings::init();
     let app =
         adw::Application::builder().application_id(APP_ID).flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE).build();
@@ -129,7 +136,7 @@ fn main() -> glib::ExitCode {
     // Befehlszeile; kommt bei einer zweiten Instanz von deren Aufruf (Argumente, Verzeichnis)
     app.connect_command_line(|app, cmdline| {
         let args: Vec<String> = cmdline.arguments().iter().skip(1).map(|a| a.to_string_lossy().into_owned()).collect();
-        let cli = match parkett_core::cli::parse(&args) {
+        let mut cli = match parkett_core::cli::parse(&args) {
             Ok(cli) => cli,
             Err(e) => {
                 cmdline.printerr_literal(&format!("parkett: {e}\n"));
@@ -143,6 +150,15 @@ fn main() -> glib::ExitCode {
         if cli.version {
             cmdline.print_literal(&format!("Parkett {}\n", env!("CARGO_PKG_VERSION")));
             return glib::ExitCode::SUCCESS;
+        }
+        if let Some(line) = cli.command.as_ref().filter(|_| cli.command_needs_split).map(|c| c[0].clone()) {
+            match glib::shell_parse_argv(&line) {
+                Ok(v) => cli.command = Some(v.into_iter().map(|s| s.to_string_lossy().into_owned()).collect()),
+                Err(e) => {
+                    cmdline.printerr_literal(&format!("parkett: -e „{line}“: {}\n", e.message()));
+                    return glib::ExitCode::FAILURE;
+                }
+            }
         }
         open(app, cmdline, cli)
     });

@@ -15,9 +15,10 @@ use crate::palette::DEFAULT_PALETTE;
 #[serde(rename_all = "kebab-case")]
 pub enum ExitAction {
     /// Leiste „Prozess beendet“ mit Neu starten / Schließen
-    #[default]
     Hold,
-    /// Bereich schließen, wenn der Prozess ohne Fehler endet; bei Fehler Leiste
+    /// Bereich schließen, wenn der Prozess ohne Fehler endet; bei Fehler Leiste. Standard wie
+    /// in GNOME Console, Ptyxis und Tilix: `exit` schließt (QA-11)
+    #[default]
     Close,
     /// Sofort neu starten
     Restart,
@@ -94,7 +95,7 @@ impl Default for Profile {
             login_shell: false,
             directory: String::new(),
             environment: Vec::new(),
-            exit_action: ExitAction::Hold,
+            exit_action: ExitAction::Close,
             font: String::new(),
             cursor_shape: CursorShape::Block,
             cursor_blink: CursorBlink::System,
@@ -202,8 +203,7 @@ impl ProfileStore {
         std::fs::create_dir_all(&self.dir)?;
         let target = self.dir.join(format!("{}.toml", p.id));
         let tmp = self.dir.join(format!(".{}.toml.tmp", p.id));
-        std::fs::write(&tmp, p.to_toml())?;
-        std::fs::rename(tmp, target)
+        crate::paths::write_private(&tmp, &target, &p.to_toml())
     }
 
     pub fn delete(&self, id: &str) -> io::Result<()> {
@@ -259,16 +259,16 @@ mod tests {
             palette: "nord".into(),
             command: "ssh bender".into(),
             environment: vec!["LANG=de_DE.UTF-8".into()],
-            exit_action: ExitAction::Close,
+            exit_action: ExitAction::Restart,
             ..Profile::default()
         };
         let text = p.to_toml();
-        assert!(text.contains("exit_action = \"close\""), "{text}");
+        assert!(text.contains("exit_action = \"restart\""), "{text}");
         assert_eq!(Profile::from_toml("server", &text).unwrap(), p);
         // fehlende Felder bekommen Standardwerte, unbekannte stören nicht
         let minimal = Profile::from_toml("x", "name = \"Nur Name\"\nzukunft = 1\n").unwrap();
         assert_eq!(minimal.palette, DEFAULT_PALETTE);
-        assert_eq!(minimal.exit_action, ExitAction::Hold);
+        assert_eq!(minimal.exit_action, ExitAction::Close, "QA-11");
     }
 
     #[test]

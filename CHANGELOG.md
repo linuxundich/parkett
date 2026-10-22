@@ -4,10 +4,46 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Short tab labels: number, running program and folder (`1 zsh · parkett`, `3 ssh bender`)
+  instead of the shell title, which looked the same in every tab; the full title stays in the
+  window title and the tooltip. Can be turned off (*Einstellungen › Allgemein › Kurze
+  Reiter-Namen*).
+
 ### Changed
+- Blinking text (SGR 5) only blinks in the focused pane, like GNOME Terminal; idle CPU in the VM
+  was 7.8 % with blinking text in several panes.
+- Panes in background tabs and inactive windows check their foreground process every 5 s instead
+  of every second (context color, tab label), and immediately when they come into view.
+- Tooltips show the current shortcut, also after changing it and in panes that are already open;
+  screen readers get the name without the shortcut, the tab overview button says how many tabs
+  are open.
+- Opening an existing profile no longer selects its name, so a key press does not overwrite it.
+- New profiles close the pane when its process ends with exit code 0 (`exit`, Ctrl+D), like GNOME
+  Console, Ptyxis and Tilix. The bar „Prozess beendet“ only uses the warning icon and red tint for
+  errors. Existing profiles keep their setting (*Wenn der Prozess endet*).
 - Published on GitHub: README as a product page with screenshots, documentation translated to
   English (`docs/USAGE.md`, `ARCHITECTURE.md`, `PACKAGING.md`, `LICENSES.md`, design and QA
   documents), build instructions in `docs/BUILDING.md`.
+- Profiles, templates and the session are written with mode 0600, regardless of the umask
+  (environment variables in profiles may hold tokens).
+- `build-aux/ci.sh` runs `cargo audit` when it is installed; unit tests keep the default shortcuts
+  away from keys that programs in the terminal need (QA-01).
+- The session is saved after dragging a divider, and no longer waits until a program stops
+  changing its title.
+
+### Fixed
+- `file:` links are not opened while a remote connection runs in the pane, even without a host
+  name (`file:///…`); before, an OSC 8 link from an SSH session opened a local file with the same
+  path.
+- `GIO_LAUNCHED_DESKTOP_FILE` and `GIO_LAUNCHED_DESKTOP_FILE_PID` no longer reach the shells.
+- A template with `ratio = nan` (or `inf`) gets an even split instead of breaking the saved
+  session.
+- Undo after a pane closed itself on exit (profile *Bereich schließen*) brings it back with the
+  exit bar (*Neu starten*, *Schließen*) instead of a dead terminal without a hint.
+- `parkett -e "htop -d 5"`: a single argument after `-e` is split like a shell would (as in GNOME
+  Terminal); flags given a value (`--tab=x`) are refused instead of silently accepted.
+- Context chip for grouped ssh options: `ssh -vp 22 host` shows „host“ instead of „22“.
 
 ## [0.2.0] - 2026-10-19
 
