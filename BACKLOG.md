@@ -53,6 +53,16 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 
 - [ ] Still open from the VM run (2026-10-22/23): context color right after switching tabs;
       renaming a tab through the dialog (custom title via `-t` passed); Orca with speech output
+- [x] Host run 2026-10-23 (Arch, GNOME 51.1, GTK 4.24.1, libadwaita 1.10.0, VTE 0.84.1) in a
+      private headless session (own D-Bus, `mutter --headless`, XDG dirs and GSettings keyfile in
+      a temp dir – the desktop instance and `~/.config/parkett` untouched), build from `main`:
+      session restore (2 tabs, split, directory `/tmp` kept), command line (`-d` twice = window
+      with two tabs, `--tab -t Logs --`, unknown profile falls back with a message, `--tab=x`
+      refused, `--help`), notification after `sleep 11` in a hidden tab and its click target,
+      profile fields (login shell `bash -l`, directory, environment with an invalid entry
+      filtered), Nautilus 51: nautilus-python loads, the extension (unchanged since 0.2)
+      returns *In Parkett öffnen* for folders, nothing for a file, *Parkett hier öffnen* in the
+      background, and opens one window with a tab per folder
 - [x] VM run 2026-10-22/23 (Fedora 44, GNOME 50), all passed or fixed:
       R-04 (`file:///` OSC 8 link inside `ssh localhost` refused with dialog, locally it opens
       Nautilus), R-05 (Undo after `exit` brings the pane back with the exit bar, *Neu starten*
@@ -65,12 +75,11 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
       reordering, custom title, switch off/on), QA-18 names via AT-SPI, import through the
       dialog (sorted), selection in light mode with blue/orange/green accent, match count with
       300 000 lines. The lost first key in an earlier run was the test's own Esc (Meta+e in bash)
-- [ ] New features of 0.2 on the host (Arch, GNOME 51): session, command line, notification,
-      transparency; Nautilus 51 with the extension
+- [ ] On the host by hand: transparency (needs a look at the screen), the Nautilus context menu
+      itself (right click on a folder), deleting a profile in the preferences
 - [ ] Sixel output with a VTE that has Sixel (Arch and Fedora 44 build without it)
 - [ ] Launch through `xdg-terminal-exec` (installed neither in the VM nor on the host)
 - [ ] Bell with sound
-- [ ] Profile fields environment, directory, login shell and deleting a profile
 - [ ] Dragging dividers with the mouse and dragging a tab into a new window
 - [ ] Orca with speech output, by hand
 - [ ] CPU under continuous output on the host with a real GPU
