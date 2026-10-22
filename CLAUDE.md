@@ -50,7 +50,7 @@ Run `build-aux/ci.sh` before every commit. App unit tests must not call GTK func
   `BACKLOG.md`, fixes go onto `qa-fixes-0.3`, then merge.
 - QA-16 is the least certain change (whether AdwPreferencesDialog re-selects the name).
 - Christoph's own profile still has `exit_action = "hold"`; QA-11 only changes the default.
-- Branch `small-features-0.3` (on top of `qa-fixes-0.3`, not pushed): high contrast scheme,
+- Branch `small-features-0.3` (on top of `qa-fixes-0.3`, pushed, no PR yet): high contrast scheme,
   accent selection color, sorted imports, match count; tested in the Fedora VM. Merge after PR #1.
 - After the merge, remaining 0.3 work (see `BACKLOG.md`): QA-15, QA-20, contrast of
   *Hoher Kontrast*, L1/L2, rest of D2, D3, D6, small features; larger: QA-08 (environment of a
