@@ -4,6 +4,7 @@
 
 pub mod cli;
 pub mod context;
+pub mod environment;
 pub mod fuzzy;
 pub mod label;
 pub mod layout;
@@ -12,5 +13,6 @@ pub mod paste;
 pub mod paths;
 pub mod profile;
 pub mod session;
+pub mod startup;
 pub mod template;
 pub mod uri;

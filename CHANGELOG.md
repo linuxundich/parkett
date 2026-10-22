@@ -5,6 +5,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- A call that reaches a running Parkett (`FOO=1 parkett --tab`, `xdg-terminal-exec`, the
+  Nautilus menu) passes its environment to the new shell: a Python venv, `SSH_AUTH_SOCK` or an
+  own `PATH` arrive, like in GNOME Terminal and Ptyxis (QA-08). Variables of the caller's own
+  terminal and launch (`TERM`, `WINDOWID`, `GIO_LAUNCHED_*`, `INVOCATION_ID` …) are left out;
+  display and session (`WAYLAND_DISPLAY`, `DBUS_SESSION_BUS_ADDRESS` …) always come from
+  Parkett, whose window the shell runs in.
 - The search bar shows the number of matches in the whole scrollback (QA-19).
 - While GNOME's high contrast is on, all panes use the color scheme *Hoher Kontrast*; can be
   turned off under *Einstellungen › Allgemein* (*Hohen Kontrast des Systems übernehmen*).
@@ -38,6 +44,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   changing its title.
 
 ### Fixed
+- Start commands of a template are typed when the shell is ready: at the first prompt with
+  shell integration, otherwise once the output is quiet – and never while the terminal waits
+  for a password. Before, they were typed at once and could end up in the password prompt of
+  an ssh profile (R-09).
 - A link whose default application fails to start (Ctrl+click) shows a notice; before, nothing
   happened.
 - Screen readers no longer read „Weitere Möglichkeiten“ (More options) as the description of the

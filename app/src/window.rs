@@ -8,6 +8,7 @@ use parkett_core::layout::{Direction, Orientation};
 
 use crate::profiles::ProfileManager;
 use crate::tab::Tab;
+use crate::terminal::Launch;
 
 mod imp {
     use std::cell::{Cell, OnceCell};
@@ -121,14 +122,8 @@ impl Window {
     }
 
     /// Reiter nach Vorgaben der Befehlszeile: Profil, Befehl statt Shell, Titel.
-    pub fn add_tab_with(
-        &self,
-        cwd: Option<String>,
-        profile: &str,
-        command: Option<Vec<String>>,
-        title: Option<String>,
-    ) -> Tab {
-        let tab = Tab::with_command(cwd, profile, command);
+    pub fn add_tab_with(&self, cwd: Option<String>, profile: &str, launch: Launch, title: Option<String>) -> Tab {
+        let tab = Tab::with_launch(cwd, profile, launch);
         tab.set_custom_title(title);
         self.attach_tab(tab)
     }

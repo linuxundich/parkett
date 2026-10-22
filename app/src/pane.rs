@@ -7,7 +7,7 @@ use gtk::glib;
 use vte::prelude::*;
 
 use crate::shortcuts::live_tooltip;
-use crate::terminal::Terminal;
+use crate::terminal::{Launch, Terminal};
 
 mod imp {
     use std::cell::{Cell, OnceCell, RefCell};
@@ -69,12 +69,12 @@ glib::wrapper! {
 }
 
 impl Pane {
-    pub fn new(id: u32, cwd: Option<String>, profile_id: &str, command: Option<Vec<String>>) -> Self {
+    pub fn new(id: u32, cwd: Option<String>, profile_id: &str, launch: Launch) -> Self {
         let pane: Pane = glib::Object::new();
         let imp = pane.imp();
         imp.id.set(id);
 
-        let terminal = Terminal::new(cwd, profile_id, command);
+        let terminal = Terminal::new(cwd, profile_id, launch);
         let overlay = gtk::Overlay::new();
         overlay.set_child(Some(terminal.widget()));
 

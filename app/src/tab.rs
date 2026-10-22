@@ -14,7 +14,7 @@ use parkett_core::layout::{Direction, Layout, Node, Orientation, PaneId, Side};
 use vte::prelude::*;
 
 use crate::pane::Pane;
-use crate::terminal::{MIN_COLUMNS, MIN_ROWS};
+use crate::terminal::{Launch, MIN_COLUMNS, MIN_ROWS};
 
 /// Ausgabe nur mit PARKETT_DEBUG_LAYOUT=1 (Fehlersuche beim Abgleich Trenner ⇄ Modell).
 /// Als Makro, damit ohne die Variable kein Text formatiert wird (D6).
@@ -85,14 +85,14 @@ glib::wrapper! {
 
 impl Tab {
     pub fn new(cwd: Option<String>, profile_id: &str) -> Self {
-        Tab::with_command(cwd, profile_id, None)
+        Tab::with_launch(cwd, profile_id, Launch::default())
     }
 
-    /// Reiter mit einem Bereich, der `command` statt der Shell ausführt.
-    pub fn with_command(cwd: Option<String>, profile_id: &str, command: Option<Vec<String>>) -> Self {
+    /// Reiter mit einem Bereich nach `launch` (Befehl, Umgebung des Aufrufers).
+    pub fn with_launch(cwd: Option<String>, profile_id: &str, launch: Launch) -> Self {
         let tab = Tab::empty();
         let first = tab.imp().layout.borrow().focus();
-        tab.add_pane_with(first, cwd, profile_id, command);
+        tab.add_pane_with(first, cwd, profile_id, launch);
         tab.rebuild();
         tab
     }
@@ -272,11 +272,11 @@ impl Tab {
     }
 
     fn add_pane(&self, id: PaneId, cwd: Option<String>, profile_id: &str) -> Pane {
-        self.add_pane_with(id, cwd, profile_id, None)
+        self.add_pane_with(id, cwd, profile_id, Launch::default())
     }
 
-    fn add_pane_with(&self, id: PaneId, cwd: Option<String>, profile_id: &str, command: Option<Vec<String>>) -> Pane {
-        let pane = Pane::new(id, cwd, profile_id, command);
+    fn add_pane_with(&self, id: PaneId, cwd: Option<String>, profile_id: &str, launch: Launch) -> Pane {
+        let pane = Pane::new(id, cwd, profile_id, launch);
         let weak = self.downgrade();
         pane.terminal().connect_state_changed(move || {
             if let Some(tab) = weak.upgrade() {
