@@ -38,6 +38,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   changing its title.
 
 ### Fixed
+- A link whose default application fails to start (Ctrl+click) shows a notice; before, nothing
+  happened.
+- Screen readers no longer read „Weitere Möglichkeiten“ (More options) as the description of the
+  *Neuer Reiter* (New tab) button.
+- The match count in the search reads the scrollback from the bottom and stops at 999 matches,
+  so a common search term in a long scrollback no longer slows down typing.
 - `parkett -- htop` (a command after `--` with no argument starting with „-“) failed with
   „Unbekannte Option“ when Parkett was not running yet: GLib's option parser removed the `--`.
   This also affected calls from `xdg-terminal-exec`. A running instance was not affected.
