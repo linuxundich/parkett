@@ -84,8 +84,8 @@ impl Pane {
         {
             let t = terminal.clone();
             dim.set_draw_func(move |_, cr, w, h| {
-                let bg = t.background();
-                cr.set_source_rgba(bg.r as f64 / 255.0, bg.g as f64 / 255.0, bg.b as f64 / 255.0, 0.38);
+                let (r, g, b) = t.background().to_f64();
+                cr.set_source_rgba(r, g, b, 0.38);
                 cr.rectangle(0.0, 0.0, w as f64, h as f64);
                 let _ = cr.fill();
             });
@@ -119,7 +119,8 @@ impl Pane {
             let t = terminal.clone();
             context_line.set_draw_func(move |_, cr, w, h| {
                 if let Some((line, _)) = t.context_accent() {
-                    cr.set_source_rgb(line.r as f64 / 255.0, line.g as f64 / 255.0, line.b as f64 / 255.0);
+                    let (r, g, b) = line.to_f64();
+                    cr.set_source_rgb(r, g, b);
                     cr.rectangle(0.0, 0.0, w as f64, h as f64);
                     let _ = cr.fill();
                 }

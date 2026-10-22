@@ -180,7 +180,7 @@ impl TemplateStore {
                 .and_then(|t| Template::from_toml(&id, &t).map_err(|e| e.to_string()))
             {
                 Ok(t) => out.push(t),
-                Err(e) => errors.push(format!("{}: {e}", path.display())),
+                Err(e) => errors.push(format!("{}:\n{e}", path.display())),
             }
         }
         out.sort_by_key(|t| t.name.to_lowercase());

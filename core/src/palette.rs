@@ -33,6 +33,17 @@ impl Rgb {
         }
     }
 
+    /// Anteile 0.0–1.0 für Cairo und GdkRGBA – die eine Umrechnung für die ganze App (D3).
+    pub fn to_f64(&self) -> (f64, f64, f64) {
+        (self.r as f64 / 255.0, self.g as f64 / 255.0, self.b as f64 / 255.0)
+    }
+
+    /// Gegenstück zu `to_f64`; Werte außerhalb 0.0–1.0 werden begrenzt.
+    pub fn from_f64(r: f64, g: f64, b: f64) -> Rgb {
+        let v = |x: f64| (x * 255.0).round().clamp(0.0, 255.0) as u8;
+        Rgb { r: v(r), g: v(g), b: v(b) }
+    }
+
     pub fn hex(&self) -> String {
         format!("#{:02x}{:02x}{:02x}", self.r, self.g, self.b)
     }
@@ -220,6 +231,11 @@ impl Palette {
                 let f = Face::from_section(d, "Dark")?;
                 (f.clone(), f)
             }
+            // Ohne Farben im Abschnitt [Palette] fehlen eigentlich [Light]/[Dark]; sonst hieße
+            // die Meldung „Color0 in [Palette] fehlt“ und zeigte auf den falschen Abschnitt (QA-15)
+            (None, None) if !info.contains_key("Foreground") && !info.contains_key("Color0") => {
+                return Err(PaletteError::Missing("Abschnitt [Light] oder [Dark]".into()));
+            }
             (None, None) => {
                 let f = Face::from_section(info, "Palette")?;
                 (f.clone(), f)
@@ -378,6 +394,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn float_roundtrip() {
+        let c = Rgb::parse("#3584e4").unwrap();
+        let (r, g, b) = c.to_f64();
+        assert_eq!(Rgb::from_f64(r, g, b), c);
+        assert_eq!(Rgb::from_f64(-0.5, 1.5, 0.0), Rgb { r: 0, g: 255, b: 0 });
+    }
+
+    #[test]
     fn colors_parse_and_print() {
         assert_eq!(Rgb::parse("#1d1d20"), Some(Rgb { r: 0x1d, g: 0x1d, b: 0x20 }));
         assert_eq!(Rgb::parse("#FFF"), Some(Rgb { r: 255, g: 255, b: 255 }));
@@ -445,6 +469,10 @@ mod tests {
         assert_eq!(p.light, p.dark);
         assert!(!p.has_variants());
         assert_eq!(Palette::parse_ptyxis("x", "[Light]\n"), Err(PaletteError::Missing("[Palette]".into())));
+        assert_eq!(
+            Palette::parse_ptyxis("x", "[Palette]\nName=Leer\n"),
+            Err(PaletteError::Missing("Abschnitt [Light] oder [Dark]".into()))
+        );
         let broken = text.replace("Color3=#1e0f03", "Color3=blau");
         assert!(matches!(Palette::parse_ptyxis("x", &broken), Err(PaletteError::BadColor(k, _)) if k == "Color3"));
     }
@@ -527,5 +555,21 @@ mod tests {
         let n = BUILTIN.len();
         assert_eq!(ids[..n], BUILTIN.iter().map(|(id, _)| *id).collect::<Vec<_>>()[..]);
         assert_eq!(ids[n..], ["ayu", "monokai", "zenburn"]);
+    }
+
+    /// Hoher Kontrast: farbige ANSI-Töne gut lesbar, normale und helle unterscheidbar (QA-10).
+    #[test]
+    fn high_contrast_colors_reach_targets() {
+        let p = builtin().into_iter().find(|p| p.id == HIGH_CONTRAST_PALETTE).unwrap();
+        for (name, face, normal, bright) in [("hell", &p.light, 7.0, 4.5), ("dunkel", &p.dark, 4.5, 7.0)] {
+            for i in (1..=6).chain(9..=14) {
+                let need = if i < 8 { normal } else { bright };
+                let r = face.colors[i].contrast(&face.background);
+                assert!(r >= need, "{name}: Color{i} nur {r:.2}:1, nötig {need}:1");
+            }
+            for i in 1..=6 {
+                assert_ne!(face.colors[i], face.colors[i + 8], "{name}: Color{i} und Color{} gleich", i + 8);
+            }
+        }
     }
 }

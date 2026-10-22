@@ -94,6 +94,28 @@ pub fn parse<S: AsRef<str>>(args: &[S]) -> Result<Cli, String> {
     Ok(cli)
 }
 
+/// Schützt das Trennzeichen `--` vor GLib: `g_option_context_parse` (GApplication) entfernt
+/// ein `--`, wenn kein Argument danach mit „-“ beginnt. `parkett -- htop` kam dann als
+/// `parkett htop` an und scheiterte mit „Unbekannte Option“ – aber nur beim ersten Start,
+/// nicht bei einer laufenden Instanz. Das erste echte `--` (nicht der Wert von `-d`/`-p`/`-t`)
+/// wird darum zum gleichbedeutenden `--command`, das GLib stehen lässt. `args[0]` ist das
+/// Programm.
+pub fn protect_separator(mut args: Vec<String>) -> Vec<String> {
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--" => {
+                args[i] = "--command".into();
+                break;
+            }
+            "-e" | "-x" | "--command" => break,
+            "-d" | "--working-directory" | "-p" | "--profile" | "-t" | "--title" => i += 2,
+            _ => i += 1,
+        }
+    }
+    args
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -133,6 +155,23 @@ mod tests {
         assert_eq!(cli.title.as_deref(), Some("Logs"));
         assert!(cli.tab);
         assert!(!cli.is_plain());
+    }
+
+    #[test]
+    fn separator_survives_glib() {
+        let v = |a: &[&str]| a.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(protect_separator(v(&["parkett", "--", "htop"])), v(&["parkett", "--command", "htop"]));
+        // nur das erste, danach gehört alles zum Befehl
+        assert_eq!(
+            protect_separator(v(&["parkett", "-d", "/tmp", "--", "sh", "--", "x"])),
+            v(&["parkett", "-d", "/tmp", "--command", "sh", "--", "x"])
+        );
+        // „--“ als Wert einer Option bleibt, ebenso alles nach -e
+        assert_eq!(protect_separator(v(&["parkett", "-t", "--"])), v(&["parkett", "-t", "--"]));
+        assert_eq!(protect_separator(v(&["parkett", "-e", "a", "--"])), v(&["parkett", "-e", "a", "--"]));
+        // was herauskommt, versteht parse wie vorher „--“
+        let cli = parse(&protect_separator(v(&["parkett", "--", "htop"]))[1..]).unwrap();
+        assert_eq!(cli.command, Some(vec!["htop".into()]));
     }
 
     #[test]

@@ -38,6 +38,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   changing its title.
 
 ### Fixed
+- `parkett -- htop` (a command after `--` with no argument starting with „-“) failed with
+  „Unbekannte Option“ when Parkett was not running yet: GLib's option parser removed the `--`.
+  This also affected calls from `xdg-terminal-exec`. A running instance was not affected.
+- *Hoher Kontrast* (High Contrast): the ANSI colors reach at least 7:1 (normal on light, bright
+  on dark) or 4.5:1 against the background; on white, five colors were below 3:1 (QA-10).
+- The notice about unreadable files stays until it is closed; the details show each path on its
+  own line and the error in a monospace font, so the `^` of a TOML error points at the right
+  place, with a *Kopieren* (Copy) button (QA-15). A palette without `[Light]`/`[Dark]` now says
+  so instead of „Color0 in [Palette] fehlt“.
 - Imported color schemes appear in alphabetical order right after the import, not only after a
   restart.
 - `file:` links are not opened while a remote connection runs in the pane, even without a host

@@ -182,7 +182,7 @@ impl ProfileStore {
                 .and_then(|t| Profile::from_toml(&id, &t).map_err(|e| e.to_string()))
             {
                 Ok(p) => profiles.push(p),
-                Err(e) => errors.push(format!("{}: {e}", path.display())),
+                Err(e) => errors.push(format!("{}:\n{e}", path.display())),
             }
         }
         if profiles.is_empty() && errors.is_empty() {

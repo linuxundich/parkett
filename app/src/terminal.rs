@@ -1113,12 +1113,12 @@ pub fn sixel_supported() -> bool {
 }
 
 fn rgba(c: &Rgb) -> gtk::gdk::RGBA {
-    gtk::gdk::RGBA::new(c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0, 1.0)
+    let (r, g, b) = c.to_f64();
+    gtk::gdk::RGBA::new(r as f32, g as f32, b as f32, 1.0)
 }
 
 fn from_rgba(c: &gtk::gdk::RGBA) -> Rgb {
-    let v = |x: f32| (x * 255.0).round().clamp(0.0, 255.0) as u8;
-    Rgb { r: v(c.red()), g: v(c.green()), b: v(c.blue()) }
+    Rgb::from_f64(c.red().into(), c.green().into(), c.blue().into())
 }
 
 /// `~` und `~/…` zum Persönlichen Ordner auflösen; leer = keine Vorgabe.

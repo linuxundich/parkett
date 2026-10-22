@@ -99,7 +99,7 @@ impl ProfileManager {
                     {
                         Ok(pal) => Some(pal),
                         Err(e) => {
-                            errors.push(format!("{}: {e}", p.display()));
+                            errors.push(format!("{}:\n{e}", p.display()));
                             None
                         }
                     }

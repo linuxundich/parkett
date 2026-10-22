@@ -11,10 +11,7 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
       running instance without `FOO`); needs rework in the spawn path
 - [ ] R-09 A startup command is typed immediately; with an ssh profile it lands in the password
       prompt. Wait for the first prompt (vte.sh `precmd`) where available
-- [ ] QA-15 Error dialog for unreadable files in a monospace font; toast without timeout
 - [ ] QA-20 Cursor in the wrong place after line wrap: investigate, compare with Ptyxis
-- [ ] Contrast test: sharpen the light variant of *Hoher Kontrast* (High Contrast) below 3:1;
-      more visible now that GNOME's high contrast switches to it automatically
 - [ ] Regression tests for QA-02 (pane title), QA-07 (markup) and QA-09 (focus after menus) in the
       VM smoke test; QA-01 and QA-03 to QA-06 are covered by unit tests and the smoke test
 
@@ -22,8 +19,6 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [ ] L1/L2 Weak references in the preferences and in the drawing functions of the pane
 - [ ] D2 Merge the foreground process queries in `terminal.rs` (notification and label share one
       read since L3; `detect_context` still reads `/proc` on its own)
-- [ ] D3 One `Rgb` to Cairo/RGBA conversion in `core`
-- [ ] D6 Debug output without `format!` on every divider move
 
 ### Small features
 - [ ] Change the split layout of a template in the editor
@@ -168,6 +163,14 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [x] QA-18 screen reader names without shortcut; overview button „Reiter-Übersicht, 4 Reiter“
 - [x] `cargo audit` in `build-aux/ci.sh` (no findings on 2026-10-21)
 - [x] Unit tests for the default shortcuts (QA-01: nothing without Ctrl/Alt/Super, no duplicates)
+
+### 0.3 fixes, second round (2026-10-22)
+- [x] QA-15 error dialog: monospace, path on its own line, *Kopieren*, toast without timeout;
+      palette message names the missing `[Light]`/`[Dark]`
+- [x] *Hoher Kontrast* sharpened: colors 1–6 / 9–14 at 7:1 or 4.5:1 (unit test)
+- [x] D3 one `Rgb` ⇄ float conversion in `core` (`Rgb::to_f64`, `Rgb::from_f64`)
+- [x] D6 layout debug output as a macro, environment read once
+- [x] `parkett -- cmd` on first start: GLib removed the `--` (found in the VM; `cli::protect_separator`)
 
 ### 0.3 small features
 - [x] *Hoher Kontrast* scheme automatically while GNOME's high contrast is on (switch in the

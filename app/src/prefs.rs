@@ -625,8 +625,10 @@ fn scheme_tile(pal: &Palette) -> gtk::Box {
 
 /// Zeichnet eine Fassung: Hintergrund, eine „Textzeile“ in Vordergrundfarbe und Farbfelder.
 fn draw_face(cr: &gtk::cairo::Context, face: &Face, x: f64, w: f64, h: f64) {
-    let set =
-        |c: &parkett_core::palette::Rgb| cr.set_source_rgb(c.r as f64 / 255.0, c.g as f64 / 255.0, c.b as f64 / 255.0);
+    let set = |c: &parkett_core::palette::Rgb| {
+        let (r, g, b) = c.to_f64();
+        cr.set_source_rgb(r, g, b);
+    };
     set(&face.background);
     cr.rectangle(x, 0.0, w, h);
     let _ = cr.fill();

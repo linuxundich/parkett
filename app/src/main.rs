@@ -163,7 +163,8 @@ fn main() -> glib::ExitCode {
         open(app, cmdline, cli)
     });
 
-    app.run()
+    let args: Vec<String> = std::env::args_os().map(|a| a.to_string_lossy().into_owned()).collect();
+    app.run_with_args(&parkett_core::cli::protect_separator(args))
 }
 
 /// Fenster oder Reiter nach der Befehlszeile; ohne Vorgaben beim ersten Fenster die letzte

@@ -16,6 +16,16 @@ use vte::prelude::*;
 use crate::pane::Pane;
 use crate::terminal::{MIN_COLUMNS, MIN_ROWS};
 
+/// Ausgabe nur mit PARKETT_DEBUG_LAYOUT=1 (Fehlersuche beim Abgleich Trenner ⇄ Modell).
+/// Als Makro, damit ohne die Variable kein Text formatiert wird (D6).
+macro_rules! debug {
+    ($($arg:tt)*) => {
+        if debug_enabled() {
+            eprintln!("[layout] {}", format_args!($($arg)*));
+        }
+    };
+}
+
 /// Schrittweite beim Verschieben eines Trenners per Tastatur (Anteil der Fläche).
 const RESIZE_STEP: f32 = 0.03;
 
@@ -671,7 +681,7 @@ impl Tab {
                 }
                 last_max.set(max);
                 let ratio = tab.imp().layout.borrow().ratio_at(&path);
-                debug(&format!("apply {path:?} total={total} max={max} ratio={ratio:?}"));
+                debug!("apply {path:?} total={total} max={max} ratio={ratio:?}");
                 if let Some(ratio) = ratio {
                     applying.set(true);
                     // GTK begrenzt selbst auf [min-position, max-position]
@@ -687,12 +697,12 @@ impl Tab {
         paned.connect_position_notify(move |p| {
             let max = p.max_position();
             // nur Änderungen bei unveränderter Größe stammen vom Nutzer
-            debug(&format!(
+            debug!(
                 "position {path:?} pos={} max={max} last={} applying={}",
                 p.position(),
                 last_max.get(),
                 applying.get()
-            ));
+            );
             if applying.get() || max <= 0 || max != last_max.get() {
                 return;
             }
@@ -702,7 +712,7 @@ impl Tab {
                 return;
             }
             let ratio = p.position() as f32 / total as f32;
-            debug(&format!("user {path:?} pos={} total={total} ratio={ratio}", p.position()));
+            debug!("user {path:?} pos={} total={total} ratio={ratio}", p.position());
             let next = tab.imp().layout.borrow().set_ratio(&path, ratio);
             if let Some(next) = next {
                 *tab.imp().layout.borrow_mut() = next;
@@ -757,9 +767,8 @@ fn detach(w: &gtk::Widget) {
     }
 }
 
-/// Ausgabe nur mit PARKETT_DEBUG_LAYOUT=1 (Fehlersuche beim Abgleich Trenner ⇄ Modell).
-fn debug(msg: &str) {
-    if std::env::var_os("PARKETT_DEBUG_LAYOUT").is_some() {
-        eprintln!("[layout] {msg}");
-    }
+/// PARKETT_DEBUG_LAYOUT gesetzt? Einmal gelesen statt bei jeder Trennerbewegung (D6).
+fn debug_enabled() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var_os("PARKETT_DEBUG_LAYOUT").is_some())
 }

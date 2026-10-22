@@ -1,3 +1,6 @@
+# Farben auf Kontrast gezogen (QA-10): auf Weiß erreichen die normalen Farben 1–6 mindestens
+# 7:1 und die hellen 9–14 mindestens 4,5:1, auf Schwarz umgekehrt. So bleiben normal und hell
+# unterscheidbar. 0, 7, 8 und 15 sind Grau-/Hintergrundtöne und bleiben, wie sie sind.
 [Palette]
 Name=Hoher Kontrast
 Primary=true
@@ -10,20 +13,20 @@ TitlebarBackground=#ffffff
 TitlebarForeground=#333333
 Cursor=#1e1e1e
 Color0=#1e1e1e
-Color1=#c01c28
-Color2=#26a269
-Color3=#a2734c
+Color1=#af1924
+Color2=#186441
+Color3=#735236
 Color4=#12488b
-Color5=#a347ba
-Color6=#2aa1b3
+Color5=#823995
+Color6=#19616b
 Color7=#cfcfcf
 Color8=#5d5d5d
-Color9=#f66151
-Color10=#33d17a
-Color11=#e9ad0c
-Color12=#2a7bde
-Color13=#c061cb
-Color14=#33c7de
+Color9=#c74f42
+Color10=#21864e
+Color11=#977008
+Color12=#2876d5
+Color13=#a955b3
+Color14=#218190
 Color15=#ffffff
 
 [Dark]
@@ -33,18 +36,18 @@ TitlebarBackground=#303030
 TitlebarForeground=#f2f2f2
 Cursor=#cfcfcf
 Color0=#1e1e1e
-Color1=#c01c28
+Color1=#cb454f
 Color2=#26a269
 Color3=#a2734c
-Color4=#12488b
-Color5=#a347ba
+Color4=#5078a9
+Color5=#a850bd
 Color6=#2aa1b3
 Color7=#cfcfcf
 Color8=#5d5d5d
-Color9=#f66151
+Color9=#f6695a
 Color10=#33d17a
 Color11=#e9ad0c
-Color12=#2a7bde
-Color13=#c061cb
+Color12=#5998e5
+Color13=#c977d2
 Color14=#33c7de
 Color15=#ffffff
