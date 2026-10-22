@@ -114,8 +114,10 @@ fn main() -> glib::ExitCode {
         std::env::remove_var(var);
     }
     settings::init();
-    let app =
-        adw::Application::builder().application_id(APP_ID).flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE).build();
+    let app = adw::Application::builder()
+        .application_id(APP_ID)
+        .flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE | gio::ApplicationFlags::SEND_ENVIRONMENT)
+        .build();
 
     app.connect_startup(|app| {
         let provider = gtk::CssProvider::new();
@@ -201,12 +203,21 @@ fn open(app: &adw::Application, cmdline: &gio::ApplicationCommandLine, cli: park
         }
         None => manager.default_id(),
     };
+    // Aufruf an eine laufende Instanz: Umgebung des Aufrufers mitnehmen (QA-08). Beim ersten
+    // Start ist sie die von Parkett selbst.
+    // GApplication schickt sie nur mit SEND_ENVIRONMENT; leer hieße die Shell ohne PATH
+    // zu starten, dann lieber die Umgebung von Parkett.
+    let environment = cmdline
+        .is_remote()
+        .then(|| cmdline.environ().into_iter().map(|e| e.to_string_lossy().into_owned()).collect::<Vec<_>>())
+        .filter(|env| env.iter().any(|e| e.starts_with("PATH=")));
+    let launch = terminal::Launch { command: cli.command.clone(), environment };
     let target = if cli.tab { app.active_window().and_downcast::<window::Window>() } else { None };
     let win = target.unwrap_or_else(|| window::Window::empty(app));
     // ein Reiter je Verzeichnis (Nautilus: mehrere Ordner markiert), der erste bleibt gewählt
     let mut first_tab = None;
     for cwd in dirs {
-        let tab = win.add_tab_with(cwd, &profile, cli.command.clone(), cli.title.clone());
+        let tab = win.add_tab_with(cwd, &profile, launch.clone(), cli.title.clone());
         first_tab.get_or_insert(tab);
     }
     if let Some(tab) = first_tab {

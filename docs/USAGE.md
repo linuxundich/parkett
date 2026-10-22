@@ -92,7 +92,9 @@ a new window.
 
 Examples: `parkett -d ~/src --tab` opens a tab in `~/src`, `parkett -t Logs --
 journalctl -f` a window with `journalctl` running. If Parkett is already running, the
-running instance handles the call. The `.desktop` file declares the options for
+running instance handles the call; the new shell then gets the caller's environment (for
+example an activated Python venv), except variables of the caller's own terminal, and display
+and session variables from Parkett. The `.desktop` file declares the options for
 `xdg-terminal-exec` (`X-TerminalArgExec`, `X-TerminalArgDir`, `X-TerminalArgTitle`).
 
 ## Nautilus
@@ -177,7 +179,9 @@ picks up the running commands; *Einstellungen › Vorlagen* (Preferences › Tem
 the same menu or the command palette (`#`). Without a fixed directory, Parkett asks when opening.
 
 Start commands are **typed** into the shell, not launched instead of the shell: after Ctrl+C
-the pane remains usable as a shell.
+the pane remains usable as a shell. They are typed once the shell is ready: at the first prompt with VTE's
+shell integration, otherwise when the output has been quiet for a moment. While the terminal
+waits for a password (ssh, sudo), Parkett waits too.
 
 `~/.config/parkett/templates/<id>.toml`:
 

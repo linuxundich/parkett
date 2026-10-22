@@ -55,6 +55,6 @@ Run `build-aux/ci.sh` before every commit. App unit tests must not call GTK func
   app to start (TUXEDO Editor for text/plain fails in the VM, use a folder link).
 - QA-16 is the least certain change (whether AdwPreferencesDialog re-selects the name).
 - Christoph's own profile still has `exit_action = "hold"`; QA-11 only changes the default.
-- Remaining 0.3 work (see `BACKLOG.md`): QA-20, L1/L2, rest of D2, small features; larger:
-  QA-08 (environment of a second invocation) and R-09 (startup command after the first
-  prompt) – both touch the spawn path.
+- Remaining 0.3 work (see `BACKLOG.md`): QA-20, L1/L2, rest of D2, small features. QA-08 and
+  R-09 are done on branch `spawn-0.3` (2026-10-23): `Launch` (command + caller environment)
+  goes Window → Tab → Pane → Terminal; `core::environment`, `core::startup`.

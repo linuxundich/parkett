@@ -7,10 +7,6 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 ## Next release (0.3): fixes and small improvements
 
 ### From the QA audit
-- [ ] QA-08 Take over the environment of a second invocation (`FOO=1 parkett --tab` reaches the
-      running instance without `FOO`); needs rework in the spawn path
-- [ ] R-09 A startup command is typed immediately; with an ssh profile it lands in the password
-      prompt. Wait for the first prompt (vte.sh `precmd`) where available
 - [ ] QA-20 Cursor in the wrong place after line wrap: investigate, compare with Ptyxis
 - [ ] Regression tests for QA-02 (pane title), QA-07 (markup) and QA-09 (focus after menus) in the
       VM smoke test; QA-01 and QA-03 to QA-06 are covered by unit tests and the smoke test
@@ -172,6 +168,12 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [x] D3 one `Rgb` ⇄ float conversion in `core` (`Rgb::to_f64`, `Rgb::from_f64`)
 - [x] D6 layout debug output as a macro, environment read once
 - [x] `parkett -- cmd` on first start: GLib removed the `--` (found in the VM; `cli::protect_separator`)
+
+### Spawn path (2026-10-23)
+- [x] QA-08 environment of a call to a running instance (`SEND_ENVIRONMENT`,
+      `VTE_SPAWN_NO_PARENT_ENVV`, filter in `core::environment`; session variables from Parkett)
+- [x] R-09 start commands wait for the first prompt or quiet output, never into a password
+      prompt (`core::startup`; VM: ssh with password waits, local and ssh with key typed)
 
 ### VM test run 2026-10-22/23: fixes
 - [x] A link whose default app fails to start shows a toast instead of doing nothing

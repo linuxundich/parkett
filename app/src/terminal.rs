@@ -34,6 +34,7 @@ struct Inner {
     exit_label: gtk::Label,
     cwd_at_start: Option<String>,
     command: Option<Vec<String>>,
+    environment: Option<Vec<String>>,
     profile_id: RefCell<String>,
     started_at: Cell<Option<Instant>>,
     background: Cell<Rgb>,
@@ -44,6 +45,8 @@ struct Inner {
     shortcut_controller: RefCell<Option<gtk::ShortcutController>>,
     /// Text, der nach dem Start in die Shell getippt wird (Startbefehl einer Vorlage)
     pending_input: RefCell<Option<String>>,
+    /// letzte Ausgabe im Terminal (Startbefehl erst, wenn sie ruht, R-09)
+    last_output: Cell<Instant>,
     /// root/SSH im Vordergrund (Kontextfarbe)
     context: RefCell<Context>,
     /// Akzentfarbe des Kontexts für Linie und Chip
@@ -78,9 +81,18 @@ static NEXT_UID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::ne
 #[derive(Clone)]
 pub struct Terminal(Rc<Inner>);
 
+/// Was ein Bereich abweichend vom Profil startet (Befehlszeile).
+#[derive(Clone, Default)]
+pub struct Launch {
+    /// statt Shell bzw. Profilbefehl ausführen (`parkett -- …`)
+    pub command: Option<Vec<String>>,
+    /// Umgebung des Aufrufers, wenn eine laufende Instanz den Aufruf bekommt (QA-08);
+    /// `None` = die Umgebung von Parkett
+    pub environment: Option<Vec<String>>,
+}
+
 impl Terminal {
-    /// `command`: statt Shell bzw. Profilbefehl ausführen (Befehlszeile `parkett -- …`).
-    pub fn new(cwd: Option<String>, profile_id: &str, command: Option<Vec<String>>) -> Self {
+    pub fn new(cwd: Option<String>, profile_id: &str, launch: Launch) -> Self {
         let vte = vte::Terminal::builder()
             .hexpand(true)
             .vexpand(true)
@@ -121,7 +133,8 @@ impl Terminal {
             exit_icon,
             exit_label,
             cwd_at_start: cwd,
-            command: command.filter(|c| !c.is_empty()),
+            command: launch.command.filter(|c| !c.is_empty()),
+            environment: launch.environment,
             profile_id: RefCell::new(profile_id.to_string()),
             started_at: Cell::new(None),
             background: Cell::new(Rgb { r: 255, g: 255, b: 255 }),
@@ -130,6 +143,7 @@ impl Terminal {
             actions: gio::SimpleActionGroup::new(),
             shortcut_controller: RefCell::new(None),
             pending_input: RefCell::new(None),
+            last_output: Cell::new(Instant::now()),
             context: RefCell::new(Context::Local),
             accent: Cell::new(None),
             child_pid: Cell::new(None),
@@ -515,7 +529,14 @@ impl Terminal {
         let dir = expand_home(profile.directory.trim())
             .or_else(|| self.0.cwd_at_start.clone())
             .or_else(|| glib::home_dir().to_str().map(String::from));
-        let env = profile.valid_environment();
+        // Aufruf an eine laufende Instanz: dessen Umgebung statt der von Parkett (QA-08)
+        let (env, flags) = match &self.0.environment {
+            Some(caller) => (
+                parkett_core::environment::for_caller(caller, &own_environment(), &profile.valid_environment()),
+                glib::SpawnFlags::SEARCH_PATH | glib::SpawnFlags::from_bits_retain(VTE_SPAWN_NO_PARENT_ENVV),
+            ),
+            None => (profile.valid_environment(), glib::SpawnFlags::SEARCH_PATH),
+        };
         let argv_ref: Vec<&str> = argv.iter().map(String::as_str).collect();
         let env_ref: Vec<&str> = env.iter().map(String::as_str).collect();
         let weak = Rc::downgrade(&self.0);
@@ -525,7 +546,7 @@ impl Terminal {
             dir.as_deref(),
             &argv_ref,
             &env_ref,
-            glib::SpawnFlags::SEARCH_PATH,
+            flags,
             || {},
             -1,
             gio::Cancellable::NONE,
@@ -534,9 +555,8 @@ impl Terminal {
                 match result {
                     Ok(pid) => {
                         inner.child_pid.set(Some(pid));
-                        // Startbefehl erst jetzt tippen; die PTY puffert, bis die Shell liest
-                        if let Some(text) = inner.pending_input.borrow_mut().take() {
-                            inner.vte.feed_child(text.as_bytes());
+                        if inner.pending_input.borrow().is_some() {
+                            Terminal(inner).wait_to_type();
                         }
                     }
                     Err(err) => Terminal(inner).fail(&program, err.message()),
@@ -546,6 +566,51 @@ impl Terminal {
         if focus {
             self.0.vte.grab_focus();
         }
+    }
+
+    /// Startbefehl tippen, sobald die Shell bereit ist (R-09): mit Shell-Integration beim
+    /// ersten Prompt (siehe `vte.shell.precmd`), sonst wenn die Ausgabe ruht und die PTY nicht
+    /// auf ein Passwort wartet – sofort getippt landete er in der Passwortabfrage von ssh.
+    fn wait_to_type(&self) {
+        use parkett_core::startup;
+        let weak = Rc::downgrade(&self.0);
+        glib::timeout_add_local(Duration::from_millis(250), move || {
+            let Some(inner) = weak.upgrade() else { return glib::ControlFlow::Break };
+            if inner.pending_input.borrow().is_none() {
+                return glib::ControlFlow::Break;
+            }
+            let since_spawn = inner.started_at.get().map_or(Duration::ZERO, |s| s.elapsed());
+            if inner.exit.get().is_some() || since_spawn > startup::GIVE_UP {
+                inner.pending_input.borrow_mut().take();
+                return glib::ControlFlow::Break;
+            }
+            let t = Terminal(inner);
+            if startup::may_type(since_spawn, t.0.last_output.get().elapsed(), t.tty_mode()) {
+                t.feed_pending();
+                return glib::ControlFlow::Break;
+            }
+            glib::ControlFlow::Continue
+        });
+    }
+
+    fn feed_pending(&self) {
+        if let Some(text) = self.0.pending_input.borrow_mut().take() {
+            self.0.vte.feed_child(text.as_bytes());
+        }
+    }
+
+    /// termios der PTY: zeilenweise Eingabe und Echo (Passwortabfrage erkennen).
+    fn tty_mode(&self) -> Option<parkett_core::startup::TtyMode> {
+        let pty = self.0.vte.pty()?;
+        let mut t: libc::termios = unsafe { std::mem::zeroed() };
+        // SAFETY: gültiger Deskriptor der PTY, `t` ist ein vollständiges termios
+        if unsafe { libc::tcgetattr(pty.fd().as_raw_fd(), &mut t) } != 0 {
+            return None;
+        }
+        Some(parkett_core::startup::TtyMode {
+            canonical: t.c_lflag & libc::ICANON != 0,
+            echo: t.c_lflag & libc::ECHO != 0,
+        })
     }
 
     fn fail(&self, program: &str, message: &str) {
@@ -639,6 +704,14 @@ impl Terminal {
             }
         });
 
+        // Zeitpunkt der letzten Ausgabe für den Startbefehl (R-09)
+        let weak = Rc::downgrade(&self.0);
+        self.0.vte.connect_contents_changed(move |_| {
+            if let Some(inner) = weak.upgrade() {
+                inner.last_output.set(Instant::now());
+            }
+        });
+
         let weak = Rc::downgrade(&self.0);
         self.0.vte.connect_termprop_changed(None, move |_, name| {
             let Some(inner) = weak.upgrade() else { return };
@@ -650,6 +723,8 @@ impl Terminal {
                     inner.command_name.borrow_mut().take();
                 }
                 "vte.shell.precmd" => {
+                    // erster Prompt: wartender Startbefehl kann jetzt kommen (R-09)
+                    Terminal(inner.clone()).feed_pending();
                     if let Some(start) = inner.command_started.take() {
                         Terminal(inner).command_finished(start.elapsed());
                     }
@@ -1066,6 +1141,10 @@ const URL_PATTERNS: &[&str] = &[
 ];
 
 /// PCRE2-Flags wie bei Ptyxis: UTF, NO_UTF_CHECK, UCP und MULTILINE (verlangt VTE).
+/// `VTE_SPAWN_NO_PARENT_ENVV` (vtepty.h): nur `envv` statt der Umgebung von Parkett; TERM,
+/// COLORTERM und VTE_VERSION setzt VTE trotzdem. Fehlt in vte4-rs.
+const VTE_SPAWN_NO_PARENT_ENVV: u32 = 1 << 25;
+
 /// Darüber zeigt die Suche „999+“: Zählen kostet bei langem Verlauf sonst spürbar Zeit.
 pub const SEARCH_COUNT_MAX: usize = 999;
 /// Zeilen je Block beim Zählen (von unten nach oben)
@@ -1147,6 +1226,11 @@ fn expand_home(dir: &str) -> Option<String> {
 }
 
 /// Login-Shell des Benutzers laut VTE (passwd), sonst $SHELL, sonst /bin/sh.
+/// Umgebung von Parkett als `NAME=wert`.
+fn own_environment() -> Vec<String> {
+    std::env::vars_os().map(|(k, v)| format!("{}={}", k.to_string_lossy(), v.to_string_lossy())).collect()
+}
+
 fn user_shell() -> String {
     let from_vte: Option<String> =
         unsafe { from_glib_full::<_, Option<glib::GString>>(vte::ffi::vte_get_user_shell()) }.map(String::from);
