@@ -64,6 +64,11 @@
       <summary>Kontextfarbe für root und SSH</summary>
       <description>Bereiche, in denen ein Programm mit Root-Rechten oder eine SSH-Verbindung läuft, mit Linie, Chip und getöntem Hintergrund kennzeichnen. Die Farben kommen aus dem Farbschema.</description>
     </key>
+    <key name="follow-high-contrast" type="b">
+      <default>true</default>
+      <summary>Hohen Kontrast des Systems übernehmen</summary>
+      <description>Ist in GNOME „Hoher Kontrast“ eingeschaltet, zeigen alle Bereiche das Farbschema „Hoher Kontrast“ statt des Schemas aus dem Profil.</description>
+    </key>
     <key name="short-tab-labels" type="b">
       <default>true</default>
       <summary>Kurze Reiter-Namen</summary>

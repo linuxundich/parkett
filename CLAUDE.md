@@ -44,12 +44,17 @@ Run `build-aux/ci.sh` before every commit. App unit tests must not call GTK func
 
 - PR #1 (`qa-fixes-0.3` → `main`): 17 items for 0.3 (R-04…R-13, QA-11, QA-12, QA-14, QA-16,
   QA-17, QA-18, L3, cargo audit, shortcut tests). Built and tested without a display only
-  (container with Ubuntu 24.04 libraries); the app has not been started with these changes.
+  (container with Ubuntu 24.04 libraries); on 2026-10-22 the VM smoke test (Fedora, 14 checks)
+  passed with these changes plus `small-features-0.3`; the manual checks are still open.
 - Next step: Christoph tests on the host (Arch, GNOME 51) along *Testing gaps* in
   `BACKLOG.md`, fixes go onto `qa-fixes-0.3`, then merge.
 - QA-16 is the least certain change (whether AdwPreferencesDialog re-selects the name).
 - Christoph's own profile still has `exit_action = "hold"`; QA-11 only changes the default.
-- After the merge, remaining 0.3 work (see `BACKLOG.md`): QA-15, QA-20, contrast of
-  *Hoher Kontrast*, L1/L2, rest of D2, D3, D6, small features; larger: QA-08 (environment of a
+- Branch `small-features-0.3` (on top of `qa-fixes-0.3`, pushed, no PR yet): high contrast scheme,
+  accent selection color, sorted imports, match count; second round QA-15, *Hoher Kontrast*
+  colors, D3, D6 and the `--` fix (GLib strips `--` on first start, see `cli::protect_separator`);
+  tested in the Fedora VM. Merge after PR #1.
+- After the merge, remaining 0.3 work (see `BACKLOG.md`): QA-20, L1/L2, rest of D2, small
+  features; larger: QA-08 (environment of a
   second invocation) and R-09 (startup command after the first prompt) – both touch the spawn
   path, do them on a tested base.

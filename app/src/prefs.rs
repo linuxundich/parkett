@@ -44,6 +44,11 @@ fn general_page() -> adw::PreferencesPage {
         .subtitle("Linie, Chip und getönter Hintergrund, Farben aus dem Farbschema")
         .build();
     settings.bind("context-colors", &context, "active").build();
+    let contrast = adw::SwitchRow::builder()
+        .title("Hohen Kontrast des Systems übernehmen")
+        .subtitle("Farbschema „Hoher Kontrast“ in allen Bereichen, solange er in GNOME an ist")
+        .build();
+    settings.bind("follow-high-contrast", &contrast, "active").build();
     let style = adw::ComboRow::builder()
         .title("Stil")
         .model(&gtk::StringList::new(&["Systemstil folgen", "Hell", "Dunkel"]))
@@ -58,6 +63,7 @@ fn general_page() -> adw::PreferencesPage {
         let _ = crate::settings::settings().set_string("style", v);
     });
     look.add(&style);
+    look.add(&contrast);
     let title = adw::ComboRow::builder()
         .title("Bereichstitel bei geteilten Reitern")
         .model(&gtk::StringList::new(&["Schwebend", "Als Zeile"]))
@@ -619,8 +625,10 @@ fn scheme_tile(pal: &Palette) -> gtk::Box {
 
 /// Zeichnet eine Fassung: Hintergrund, eine „Textzeile“ in Vordergrundfarbe und Farbfelder.
 fn draw_face(cr: &gtk::cairo::Context, face: &Face, x: f64, w: f64, h: f64) {
-    let set =
-        |c: &parkett_core::palette::Rgb| cr.set_source_rgb(c.r as f64 / 255.0, c.g as f64 / 255.0, c.b as f64 / 255.0);
+    let set = |c: &parkett_core::palette::Rgb| {
+        let (r, g, b) = c.to_f64();
+        cr.set_source_rgb(r, g, b);
+    };
     set(&face.background);
     cr.rectangle(x, 0.0, w, h);
     let _ = cr.fill();

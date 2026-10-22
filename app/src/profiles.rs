@@ -87,7 +87,7 @@ impl ProfileManager {
         }
         let mut palettes = palette::builtin();
         if let Ok(entries) = std::fs::read_dir(user_palette_dir()) {
-            let mut user: Vec<Palette> = entries
+            let user: Vec<Palette> = entries
                 .flatten()
                 .map(|e| e.path())
                 .filter(|p| p.extension().is_some_and(|e| e == "palette"))
@@ -99,16 +99,16 @@ impl ProfileManager {
                     {
                         Ok(pal) => Some(pal),
                         Err(e) => {
-                            errors.push(format!("{}: {e}", p.display()));
+                            errors.push(format!("{}:\n{e}", p.display()));
                             None
                         }
                     }
                 })
                 .filter(|p| !palettes.iter().any(|b| b.id == p.id))
                 .collect();
-            user.sort_by_key(|p| p.name.to_lowercase());
             palettes.extend(user);
         }
+        palette::sort(&mut palettes);
         *imp.palettes.borrow_mut() = palettes;
         match imp.template_store.get().unwrap().load_all() {
             Ok((t, errs)) => {
@@ -288,7 +288,11 @@ impl ProfileManager {
         }
         pal.id = id.clone();
         std::fs::write(dir.join(format!("{id}.palette")), pal.to_ptyxis()).map_err(|e| e.to_string())?;
-        self.imp().palettes.borrow_mut().push(pal.clone());
+        {
+            let mut list = self.imp().palettes.borrow_mut();
+            list.push(pal.clone());
+            palette::sort(&mut list);
+        }
         self.emit_changed();
         Ok(pal)
     }

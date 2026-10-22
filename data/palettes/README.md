@@ -8,7 +8,10 @@ Origin: [Ptyxis](https://gitlab.gnome.org/chergert/ptyxis) `src/palettes/`, as o
 `ecc97d39` (2026-10-11), GPL-3.0-or-later. Many of them originally come from
 [Gogh](https://github.com/Gogh-Co/Gogh) (MIT, notice at the end of the file). File names were
 normalized, three display names were translated into German or shortened (*Hoher Kontrast*
-(High Contrast), Catppuccin, GitHub); the colors are unchanged.
+(High Contrast), Catppuccin, GitHub); the colors are unchanged, except in *Hoher Kontrast*:
+there the ANSI colors 1–6 and 9–14 were darkened (light) or lightened (dark) toward black or
+white until they reach 7:1 or 4.5:1 against the background (QA audit 2026-10-19, QA-10; rule in
+the file header, checked by a unit test).
 
 | File | Ptyxis file |
 |---|---|

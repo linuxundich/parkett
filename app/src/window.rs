@@ -139,16 +139,47 @@ impl Window {
         if errors.is_empty() {
             return;
         }
+        // Ohne Zeitlimit: Der Hinweis lässt sich sonst später nicht mehr aufrufen (QA-15)
         let toast = adw::Toast::builder()
             .title(format!("{} Datei(en) nicht lesbar, siehe Details", errors.len()))
             .button_label("Details")
-            .timeout(10)
+            .timeout(0)
             .build();
         let weak = self.downgrade();
         toast.connect_button_clicked(move |_| {
             let Some(w) = weak.upgrade() else { return };
-            let d = adw::AlertDialog::new(Some("Nicht lesbare Dateien"), Some(&errors.join("\n\n")));
+            let d = adw::AlertDialog::new(
+                Some("Nicht lesbare Dateien"),
+                Some("Parkett hat diese Dateien übersprungen und nicht verändert."),
+            );
+            // Festbreitenschrift und linksbündig: TOML-Fehler zeigen mit „^“ auf die Stelle (QA-15).
+            // Nicht wählbar: Ein wählbares Label bekäme den Fokus, wäre ganz markiert und nach
+            // rechts gescrollt; zum Weitergeben gibt es „Kopieren“.
+            let home = glib::home_dir();
+            let text = errors
+                .iter()
+                .map(|e| match e.trim_end().split_once('\n') {
+                    Some((path, rest)) => format!("{}\n{rest}", parkett_core::paths::tilde(path, &home)),
+                    None => e.trim_end().to_string(),
+                })
+                .collect::<Vec<_>>()
+                .join("\n\n");
+            let label = gtk::Label::builder().label(&text).xalign(0.0).css_classes(["monospace"]).build();
+            label.set_margin_start(12);
+            label.set_margin_end(12);
+            label.set_margin_top(12);
+            label.set_margin_bottom(12);
+            let scroll = gtk::ScrolledWindow::builder()
+                .child(&label)
+                .propagate_natural_height(true)
+                .max_content_height(360)
+                .css_classes(["card"])
+                .build();
+            d.set_extra_child(Some(&scroll));
+            d.add_response("copy", "Kopieren");
             d.add_response("ok", "OK");
+            d.set_default_response(Some("ok"));
+            d.connect_response(Some("copy"), move |d, _| d.clipboard().set_text(&text));
             d.present(Some(&w));
         });
         self.imp().toasts.get().unwrap().add_toast(toast);

@@ -120,7 +120,8 @@ core; not measured on the host with GPU.
 
 ## Open items from QA
 
-- High contrast: use the color scheme „Hoher Kontrast“ automatically (proposal G3).
+- ~~High contrast: use the color scheme „Hoher Kontrast“ automatically (proposal G3).~~ Done
+  2026-10-22 (setting *Hohen Kontrast des Systems übernehmen*).
 - Middle-click (primary selection) without paste warning (VTE-internal); Shift+Insert warns since
   the QA audit of 2026-10-19.
 - Emoji sequences: VTE limitation, cannot be solved in Parkett.

@@ -33,6 +33,17 @@ impl Rgb {
         }
     }
 
+    /// Anteile 0.0–1.0 für Cairo und GdkRGBA – die eine Umrechnung für die ganze App (D3).
+    pub fn to_f64(&self) -> (f64, f64, f64) {
+        (self.r as f64 / 255.0, self.g as f64 / 255.0, self.b as f64 / 255.0)
+    }
+
+    /// Gegenstück zu `to_f64`; Werte außerhalb 0.0–1.0 werden begrenzt.
+    pub fn from_f64(r: f64, g: f64, b: f64) -> Rgb {
+        let v = |x: f64| (x * 255.0).round().clamp(0.0, 255.0) as u8;
+        Rgb { r: v(r), g: v(g), b: v(b) }
+    }
+
     pub fn hex(&self) -> String {
         format!("#{:02x}{:02x}{:02x}", self.r, self.g, self.b)
     }
@@ -52,6 +63,12 @@ impl Rgb {
 
     pub fn is_dark(&self) -> bool {
         self.luminance() < 0.18
+    }
+
+    /// Kontrastverhältnis nach WCAG (1 bis 21).
+    pub fn contrast(&self, other: &Rgb) -> f64 {
+        let (a, b) = (self.luminance(), other.luminance());
+        (a.max(b) + 0.05) / (a.min(b) + 0.05)
     }
 
     /// `alpha` Anteil von `fg` über `self`.
@@ -136,6 +153,13 @@ fn required(sec: &Section, key: &str, scope: &str) -> Result<Rgb, PaletteError> 
 }
 
 impl Face {
+    /// Hintergrund markierter Zeichen: Akzentfarbe des Systems über dem Hintergrund, wie
+    /// die Textauswahl in GTK. Ohne eigene Farbe zeichnet VTE die Auswahl invertiert – im
+    /// dunklen Stil ein greller heller Block. Die Schrift behält ihre Farbe.
+    pub fn selection(&self, accent: &Rgb) -> Rgb {
+        self.background.mix(accent, if self.background.is_dark() { 0.3 } else { 0.25 })
+    }
+
     /// Baut eine Fassung und leitet fehlende Kontextfarben ab (Ptyxis-Regeln).
     pub fn new(foreground: Rgb, background: Rgb, colors: [Rgb; 16], cursor: Option<Rgb>) -> Face {
         let dark = background.is_dark();
@@ -206,6 +230,11 @@ impl Palette {
             (None, Some(d)) => {
                 let f = Face::from_section(d, "Dark")?;
                 (f.clone(), f)
+            }
+            // Ohne Farben im Abschnitt [Palette] fehlen eigentlich [Light]/[Dark]; sonst hieße
+            // die Meldung „Color0 in [Palette] fehlt“ und zeigte auf den falschen Abschnitt (QA-15)
+            (None, None) if !info.contains_key("Foreground") && !info.contains_key("Color0") => {
+                return Err(PaletteError::Missing("Abschnitt [Light] oder [Dark]".into()));
             }
             (None, None) => {
                 let f = Face::from_section(info, "Palette")?;
@@ -302,30 +331,34 @@ pub fn slug(name: &str) -> String {
     }
 }
 
-/// Die mitgelieferten Schemata (Dateien in data/palettes, ins Programm eingebettet).
+macro_rules! p {
+    ($id:literal) => {
+        ($id, include_str!(concat!("../../data/palettes/", $id, ".palette")))
+    };
+}
+
+/// Die mitgelieferten Schemata (Dateien in data/palettes, ins Programm eingebettet), in der
+/// Reihenfolge der Auswahl.
+const BUILTIN: &[(&str, &str)] = &[
+    p!("gnome"),
+    p!("gnome-high-contrast"),
+    p!("tango"),
+    p!("solarized"),
+    p!("selenized"),
+    p!("nord"),
+    p!("dracula"),
+    p!("catppuccin"),
+    p!("gruvbox"),
+    p!("everforest"),
+    p!("one"),
+    p!("github"),
+    p!("papercolor"),
+    p!("vs-code"),
+];
+
+/// Die mitgelieferten Schemata, geparst.
 pub fn builtin() -> Vec<Palette> {
-    macro_rules! p {
-        ($id:literal) => {
-            ($id, include_str!(concat!("../../data/palettes/", $id, ".palette")))
-        };
-    }
-    let files = [
-        p!("gnome"),
-        p!("gnome-high-contrast"),
-        p!("tango"),
-        p!("solarized"),
-        p!("selenized"),
-        p!("nord"),
-        p!("dracula"),
-        p!("catppuccin"),
-        p!("gruvbox"),
-        p!("everforest"),
-        p!("one"),
-        p!("github"),
-        p!("papercolor"),
-        p!("vs-code"),
-    ];
-    files
+    BUILTIN
         .iter()
         .map(|(id, text)| Palette::parse_ptyxis(id, text).unwrap_or_else(|e| panic!("eingebaute Palette {id}: {e}")))
         .collect()
@@ -333,9 +366,40 @@ pub fn builtin() -> Vec<Palette> {
 
 pub const DEFAULT_PALETTE: &str = "gnome";
 
+/// Schema für GNOMEs hohen Kontrast (*Barrierefreiheit › Hoher Kontrast*).
+pub const HIGH_CONTRAST_PALETTE: &str = "gnome-high-contrast";
+
+/// Palette, die ein Bereich tatsächlich zeigt: bei hohem Kontrast des Systems das
+/// Hochkontrast-Schema statt des Schemas aus dem Profil.
+pub fn effective_id(chosen: &str, high_contrast: bool) -> &str {
+    if high_contrast {
+        HIGH_CONTRAST_PALETTE
+    } else {
+        chosen
+    }
+}
+
+/// Mitgelieferte Schemata vorn in fester Reihenfolge, danach die eigenen alphabetisch –
+/// auch gleich nach einem Import, nicht erst beim nächsten Start.
+pub fn sort(list: &mut [Palette]) {
+    let rank = |p: &Palette| match BUILTIN.iter().position(|(id, _)| *id == p.id) {
+        Some(i) => (0, i, String::new()),
+        None => (1, 0, p.name.to_lowercase()),
+    };
+    list.sort_by_cached_key(rank);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn float_roundtrip() {
+        let c = Rgb::parse("#3584e4").unwrap();
+        let (r, g, b) = c.to_f64();
+        assert_eq!(Rgb::from_f64(r, g, b), c);
+        assert_eq!(Rgb::from_f64(-0.5, 1.5, 0.0), Rgb { r: 0, g: 255, b: 0 });
+    }
 
     #[test]
     fn colors_parse_and_print() {
@@ -405,6 +469,10 @@ mod tests {
         assert_eq!(p.light, p.dark);
         assert!(!p.has_variants());
         assert_eq!(Palette::parse_ptyxis("x", "[Light]\n"), Err(PaletteError::Missing("[Palette]".into())));
+        assert_eq!(
+            Palette::parse_ptyxis("x", "[Palette]\nName=Leer\n"),
+            Err(PaletteError::Missing("Abschnitt [Light] oder [Dark]".into()))
+        );
         let broken = text.replace("Color3=#1e0f03", "Color3=blau");
         assert!(matches!(Palette::parse_ptyxis("x", &broken), Err(PaletteError::BadColor(k, _)) if k == "Color3"));
     }
@@ -442,5 +510,66 @@ mod tests {
     fn non_ascii_colour_is_rejected() {
         assert_eq!(Rgb::parse("#aäbcd"), None);
         assert_eq!(Rgb::parse("#äää"), None);
+    }
+
+    /// GNOME-Akzentfarben (libadwaita 1.6+): Blau, Türkis, Grün, Gelb, Orange, Rot, Pink,
+    /// Lila, Schiefer.
+    const ACCENTS: [&str; 9] =
+        ["#3584e4", "#2190a4", "#3a944a", "#c88800", "#ed5b00", "#e62d42", "#d56199", "#9141ac", "#6f8396"];
+
+    #[test]
+    fn selection_stays_readable() {
+        for p in builtin() {
+            for (name, face) in [("hell", &p.light), ("dunkel", &p.dark)] {
+                for accent in ACCENTS {
+                    let sel = face.selection(&Rgb::parse(accent).unwrap());
+                    // Schrift auf der Auswahl: 4,5:1, bei Schemata mit wenig Kontrast (Solarized
+                    // hat selbst nur 4,1:1) höchstens 40 % weniger als ohne Auswahl
+                    let text = face.foreground.contrast(&sel);
+                    let need = 4.5f64.min(0.6 * face.foreground.contrast(&face.background));
+                    assert!(text >= need, "{} {name}, Akzent {accent}: Schrift auf Auswahl {text:.2}:1", p.id);
+                    // Auswahl hebt sich vom Grund ab (nur Helligkeit; der Farbton kommt dazu)
+                    let edge = face.background.contrast(&sel);
+                    assert!(edge >= 1.1, "{} {name}, Akzent {accent}: Auswahl kaum sichtbar ({edge:.2}:1)", p.id);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn high_contrast_overrides_profile() {
+        assert_eq!(effective_id("nord", false), "nord");
+        assert_eq!(effective_id("nord", true), HIGH_CONTRAST_PALETTE);
+        assert!(builtin().iter().any(|p| p.id == HIGH_CONTRAST_PALETTE));
+    }
+
+    #[test]
+    fn imported_palettes_sorted_after_builtin() {
+        let user = |id: &str, name: &str| Palette { id: id.into(), name: name.into(), ..builtin()[0].clone() };
+        let mut list = builtin();
+        list.push(user("zenburn", "Zenburn"));
+        list.push(user("ayu", "ayu"));
+        list.push(user("monokai", "Monokai"));
+        sort(&mut list);
+        let ids: Vec<&str> = list.iter().map(|p| p.id.as_str()).collect();
+        let n = BUILTIN.len();
+        assert_eq!(ids[..n], BUILTIN.iter().map(|(id, _)| *id).collect::<Vec<_>>()[..]);
+        assert_eq!(ids[n..], ["ayu", "monokai", "zenburn"]);
+    }
+
+    /// Hoher Kontrast: farbige ANSI-Töne gut lesbar, normale und helle unterscheidbar (QA-10).
+    #[test]
+    fn high_contrast_colors_reach_targets() {
+        let p = builtin().into_iter().find(|p| p.id == HIGH_CONTRAST_PALETTE).unwrap();
+        for (name, face, normal, bright) in [("hell", &p.light, 7.0, 4.5), ("dunkel", &p.dark, 4.5, 7.0)] {
+            for i in (1..=6).chain(9..=14) {
+                let need = if i < 8 { normal } else { bright };
+                let r = face.colors[i].contrast(&face.background);
+                assert!(r >= need, "{name}: Color{i} nur {r:.2}:1, nötig {need}:1");
+            }
+            for i in 1..=6 {
+                assert_ne!(face.colors[i], face.colors[i + 8], "{name}: Color{i} und Color{} gleich", i + 8);
+            }
+        }
     }
 }
