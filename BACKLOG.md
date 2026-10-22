@@ -55,19 +55,20 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 
 ## Testing gaps
 
-- [ ] Small features 0.3 (tested in the Fedora VM on 2026-10-22: selection dark with blue and
-      orange accent, high contrast on/off and the switch, match count 40/11/0 with *Aa*): still
-      open are the selection in light mode, importing a scheme through the dialog and checking
-      its place in the list, and the count with a long scrollback (time per keystroke)
-- [ ] By hand, only built and checked with Clippy so far (no window): R-04 OSC 8 `file:///` link
-      inside `ssh`; R-05 profile *Bereich schließen*, `exit`, Undo; R-06 `env | grep GIO_LAUNCHED`
-      after starting from the menu; R-07 drag a divider and restart; R-10 `parkett -e "htop -d 5"`;
-      QA-11 `exit` in the only pane closes the window, `false` shows the red bar; QA-17 labels
-      while running `htop`/`ssh`, after `cd`, reordering tabs, renaming, switch in the preferences;
-      QA-14/L3 measure idle CPU again (blinking text, 7 terminals), label of a background tab
-      after its command ends (≤ 5 s), context color right after switching tabs; QA-12 change a
-      shortcut, hover the pane buttons of an open pane; QA-16 open a profile, type a letter;
-      QA-18 Orca on header bar and pane buttons
+- [ ] Still open from the VM run (2026-10-22/23): context color right after switching tabs;
+      renaming a tab through the dialog (custom title via `-t` passed); Orca with speech output
+- [x] VM run 2026-10-22/23 (Fedora 44, GNOME 50), all passed or fixed:
+      R-04 (`file:///` OSC 8 link inside `ssh localhost` refused with dialog, locally it opens
+      Nautilus), R-05 (Undo after `exit` brings the pane back with the exit bar, *Neu starten*
+      works), R-06 (no `GIO_LAUNCHED_*` in the shell after `gtk-launch`), R-07 (divider at 27 %
+      survives a restart), R-10 (`-e "htop -d 5"`), QA-11 (`-- false` red bar with exit code 1,
+      `-- true` neutral bar with `hold`, profile without `exit_action` closes the window),
+      QA-12 (changed shortcut in header and pane button tooltips), QA-14 (idle CPU 0.8 % with
+      blinking text in 7 tabs, was 7.8 %), L3 (background tab label updates after ≈ 5 s),
+      QA-16 (existing profile: name not selected), QA-17 (labels with `htop`, after `cd`,
+      reordering, custom title, switch off/on), QA-18 names via AT-SPI, import through the
+      dialog (sorted), selection in light mode with blue/orange/green accent, match count with
+      300 000 lines. The lost first key in an earlier run was the test's own Esc (Meta+e in bash)
 - [ ] New features of 0.2 on the host (Arch, GNOME 51): session, command line, notification,
       transparency; Nautilus 51 with the extension
 - [ ] Sixel output with a VTE that has Sixel (Arch and Fedora 44 build without it)
@@ -171,6 +172,13 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [x] D3 one `Rgb` ⇄ float conversion in `core` (`Rgb::to_f64`, `Rgb::from_f64`)
 - [x] D6 layout debug output as a macro, environment read once
 - [x] `parkett -- cmd` on first start: GLib removed the `--` (found in the VM; `cli::protect_separator`)
+
+### VM test run 2026-10-22/23: fixes
+- [x] A link whose default app fails to start shows a toast instead of doing nothing
+- [x] QA-18: main part of *Neuer Reiter* had the description „Weitere Möglichkeiten“ (libadwaita
+      `described-by`); now „Neuen Reiter öffnen“
+- [x] Match count reads the scrollback from the bottom in blocks and stops at 999: with 300 000
+      lines a common term cost 82 CPU ticks for three keys, now about 22
 
 ### 0.3 small features
 - [x] *Hoher Kontrast* scheme automatically while GNOME's high contrast is on (switch in the

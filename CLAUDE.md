@@ -47,8 +47,12 @@ Run `build-aux/ci.sh` before every commit. App unit tests must not call GTK func
   scheme, accent selection color, sorted imports, match count, QA-15, *Hoher Kontrast* colors,
   D3, D6, the `--` fix – GLib strips `--` on first start, see `cli::protect_separator`). Both
   merged with merge commits on 2026-10-22; not released yet (`[Unreleased]` in the changelog).
-- Tested in the Fedora VM (smoke test 14/14 plus the checks named in PR #2); the manual checks
-  under *Testing gaps* in `BACKLOG.md` are still open, mainly on the host (Arch, GNOME 51).
+- Tested in the Fedora VM (smoke test 14/14, PR #2 checks, and on 2026-10-22/23 the VM part of
+  *Testing gaps* on branch `vm-tests-0.3`); left for the host (Arch, GNOME 51): see
+  *Testing gaps* in `BACKLOG.md`.
+- VM test tips: QMP key codes follow the US layout on the German VM (`z`→y, `/` = `shift+7`);
+  an Esc right before typing becomes Meta+key in bash; Ctrl+click on links needs the default
+  app to start (TUXEDO Editor for text/plain fails in the VM, use a folder link).
 - QA-16 is the least certain change (whether AdwPreferencesDialog re-selects the name).
 - Christoph's own profile still has `exit_action = "hold"`; QA-11 only changes the default.
 - Remaining 0.3 work (see `BACKLOG.md`): QA-20, L1/L2, rest of D2, small features; larger:

@@ -826,9 +826,16 @@ impl Terminal {
             return;
         }
         let window = self.0.vte.root().and_downcast::<gtk::Window>();
-        gtk::UriLauncher::new(uri).launch(window.as_ref(), gio::Cancellable::NONE, |res| {
-            if let Err(e) = res {
-                glib::g_warning!("parkett", "Link nicht geöffnet: {e}");
+        let weak = window.as_ref().map(|w| w.downgrade());
+        gtk::UriLauncher::new(uri).launch(window.as_ref(), gio::Cancellable::NONE, move |res| {
+            let Err(e) = res else { return };
+            glib::g_warning!("parkett", "Link nicht geöffnet: {e}");
+            // Sonst geschieht nach Strg+Klick einfach nichts (VM 2026-10-22: Standard-App fehlte)
+            if e.matches(gtk::DialogError::Dismissed) || e.matches(gtk::DialogError::Cancelled) {
+                return;
+            }
+            if let Some(w) = weak.and_then(|w| w.upgrade()).and_downcast::<crate::window::Window>() {
+                w.toast(&format!("Link nicht geöffnet: {}", e.message()));
             }
         });
     }
@@ -865,15 +872,26 @@ impl Terminal {
         let vte = &self.0.vte;
         let adj = vte.vadjustment()?;
         let (first, last) = (adj.lower() as libc::c_long, adj.upper() as libc::c_long);
-        let (content, _) = vte.text_range_format(vte::Format::Text, first, 0, last, vte.column_count());
-        let content = content?;
-        let info = re.match_(content.as_gstr(), glib::RegexMatchFlags::empty()).ok()?;
+        // Von unten in Blöcken lesen und bei SEARCH_COUNT_MAX aufhören: Den ganzen Verlauf als
+        // Text zu holen kostete bei 300 000 Zeilen etwa 0,27 s je Taste (VM). Ein Treffer über
+        // eine Blockgrenze (umbrochene Zeile genau dort) kann fehlen – die Zahl ist ein Überblick.
         let mut n = 0;
-        while info.matches() && n < SEARCH_COUNT_MAX {
-            n += 1;
-            if !info.next().unwrap_or(false) {
-                break;
+        let mut end = last;
+        while end > first && n < SEARCH_COUNT_MAX {
+            // Zeilen start..end, ohne end (die gehört zum Block darunter)
+            let start = (end - SEARCH_COUNT_ROWS).max(first);
+            let (content, _) = vte.text_range_format(vte::Format::Text, start, 0, end - 1, vte.column_count());
+            if let Some(content) = content {
+                if let Ok(info) = re.match_(content.as_gstr(), glib::RegexMatchFlags::empty()) {
+                    while info.matches() && n < SEARCH_COUNT_MAX {
+                        n += 1;
+                        if !info.next().unwrap_or(false) {
+                            break;
+                        }
+                    }
+                }
             }
+            end = start;
         }
         Some(n)
     }
@@ -1050,6 +1068,8 @@ const URL_PATTERNS: &[&str] = &[
 /// PCRE2-Flags wie bei Ptyxis: UTF, NO_UTF_CHECK, UCP und MULTILINE (verlangt VTE).
 /// Darüber zeigt die Suche „999+“: Zählen kostet bei langem Verlauf sonst spürbar Zeit.
 pub const SEARCH_COUNT_MAX: usize = 999;
+/// Zeilen je Block beim Zählen (von unten nach oben)
+const SEARCH_COUNT_ROWS: libc::c_long = 20_000;
 
 pub const PCRE2_FLAGS: u32 = 0x0008_0000 | 0x4000_0000 | 0x0002_0000 | 0x0000_0400;
 pub const PCRE2_CASELESS: u32 = 0x0000_0008;

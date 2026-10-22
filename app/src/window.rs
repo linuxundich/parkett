@@ -323,9 +323,26 @@ impl Window {
         // AdwSplitButton gibt beiden Teilen den Tooltip des Pfeils als Namen (QA: Orca läse
         // „Weitere Möglichkeiten“ für den Neu-Knopf); daher ausdrücklich benennen.
         new_button.upcast_ref::<gtk::Widget>().update_property(&[gtk::accessible::Property::Label("Neuer Reiter")]);
-        if let Some(main) = new_button.first_child() {
-            main.update_property(&[gtk::accessible::Property::Label("Neuer Reiter")]);
-        }
+        // Beschreibung ebenso: Sie kommt sonst auch vom Pfeil, Orca läse „Neuer Reiter,
+        // Weitere Möglichkeiten“ (QA-18, AT-SPI in der VM 2026-10-22)
+        // libadwaita setzt sie bei jeder Tooltip-Änderung neu, darum danach wiederholen.
+        let name_main = |b: &adw::SplitButton| {
+            if let Some(main) = b.first_child() {
+                // libadwaita verweist per described-by auf den ganzen Knopf; daraus wird sonst
+                // die Beschreibung berechnet, nicht aus der Eigenschaft
+                main.reset_relation(gtk::AccessibleRelation::DescribedBy);
+                main.update_property(&[
+                    gtk::accessible::Property::Label("Neuer Reiter"),
+                    gtk::accessible::Property::Description("Neuen Reiter öffnen"),
+                ]);
+            }
+        };
+        name_main(&new_button);
+        new_button.connect_notify_local(None, move |b, pspec| {
+            if pspec.name().starts_with("tooltip") || pspec.name() == "dropdown-tooltip" {
+                name_main(b);
+            }
+        });
         header.pack_start(&new_button);
         // Teilen-Knöpfe wie bei Tilix (Wunsch Christoph nach dem ersten eigenen Test)
         let split_right =
@@ -655,7 +672,7 @@ impl Window {
         }
     }
 
-    fn toast(&self, text: &str) {
+    pub fn toast(&self, text: &str) {
         self.imp().toasts.get().unwrap().add_toast(plain_toast(text));
     }
 
