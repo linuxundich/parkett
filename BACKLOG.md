@@ -55,6 +55,13 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 
 ## Testing gaps
 
+- [ ] VM run 2026-10-22 (Fedora 44), partly done. Passed: R-10 (`-e "htop -d 5"` runs
+      `htop -d 5`), R-06 (shell has no `GIO_LAUNCHED_*` after `gtk-launch`), QA-11 (`-- false`
+      red bar with exit code 1, `-- true` neutral bar with `hold`, profile without `exit_action`
+      closes the window). Open finding: after start, typing `exit` via QMP arrived as `xit`
+      twice – first key lost; unclear whether test harness or Parkett, check by hand. Still open:
+      R-04, R-05, R-07, QA-17, L3, QA-12, QA-16, QA-18 (AT-SPI: main button of *Neuer Reiter*
+      has description „Weitere Möglichkeiten“), import, CPU, selection light, long count
 - [ ] Small features 0.3 (tested in the Fedora VM on 2026-10-22: selection dark with blue and
       orange accent, high contrast on/off and the switch, match count 40/11/0 with *Aa*): still
       open are the selection in light mode, importing a scheme through the dialog and checking
