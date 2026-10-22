@@ -663,7 +663,9 @@ impl Terminal {
     fn apply_colors(&self) {
         let sm = adw::StyleManager::default();
         let manager = ProfileManager::get();
-        let palette = manager.palette(&manager.profile(&self.profile_id()).palette);
+        let chosen = manager.profile(&self.profile_id()).palette;
+        let high_contrast = sm.is_high_contrast() && crate::settings::follow_high_contrast();
+        let palette = manager.palette(parkett_core::palette::effective_id(&chosen, high_contrast));
         let face = palette.face(sm.is_dark());
         let colors: Vec<gtk::gdk::RGBA> = face.colors.iter().map(rgba).collect();
         let refs: Vec<&gtk::gdk::RGBA> = colors.iter().collect();
@@ -690,6 +692,8 @@ impl Terminal {
         self.0.opacity.set(opacity);
         vte.set_color_cursor(face.cursor.as_ref().map(rgba).as_ref());
         vte.set_color_cursor_foreground(face.cursor_foreground.as_ref().map(rgba).as_ref());
+        // Auswahl in der Akzentfarbe statt invertiert
+        vte.set_color_highlight(Some(&rgba(&face.selection(&from_rgba(&sm.accent_color_rgba())))));
         // Schrift, Cursor und Glocke aus dem Profil
         let profile = manager.profile(&self.profile_id());
         let font = if profile.font.trim().is_empty() { sm.monospace_font_name() } else { profile.font.trim().into() };
@@ -845,6 +849,35 @@ impl Terminal {
         Ok(())
     }
 
+    /// Treffer im ganzen Verlauf (QA-19), höchstens `SEARCH_COUNT_MAX`. VTE zählt selbst
+    /// nicht; gezählt wird mit GRegex, das wie VTE auf PCRE2 baut. Umbrochene Zeilen liefert
+    /// VTE zusammenhängend, ein Treffer über den Umbruch zählt also mit.
+    pub fn search_count(&self, text: &str, regex: bool, case_sensitive: bool) -> Option<usize> {
+        if text.is_empty() {
+            return None;
+        }
+        let pattern = if regex { text.to_string() } else { glib::Regex::escape_string(text).to_string() };
+        let mut flags = glib::RegexCompileFlags::MULTILINE | glib::RegexCompileFlags::OPTIMIZE;
+        if !case_sensitive {
+            flags |= glib::RegexCompileFlags::CASELESS;
+        }
+        let re = glib::Regex::new(&pattern, flags, glib::RegexMatchFlags::empty()).ok()??;
+        let vte = &self.0.vte;
+        let adj = vte.vadjustment()?;
+        let (first, last) = (adj.lower() as libc::c_long, adj.upper() as libc::c_long);
+        let (content, _) = vte.text_range_format(vte::Format::Text, first, 0, last, vte.column_count());
+        let content = content?;
+        let info = re.match_(content.as_gstr(), glib::RegexMatchFlags::empty()).ok()?;
+        let mut n = 0;
+        while info.matches() && n < SEARCH_COUNT_MAX {
+            n += 1;
+            if !info.next().unwrap_or(false) {
+                break;
+            }
+        }
+        Some(n)
+    }
+
     /// Nächster Treffer nach oben (ältere Ausgabe) oder unten. `false` = nichts gefunden.
     pub fn search_step(&self, up: bool) -> bool {
         if up {
@@ -866,10 +899,14 @@ impl Terminal {
                 Terminal(inner).apply_colors();
             }
         };
-        let (r1, r2) = (reapply.clone(), reapply.clone());
+        let (r1, r2, r3, r4) = (reapply.clone(), reapply.clone(), reapply.clone(), reapply.clone());
         let handlers = RefCell::new(Some((
-            style.connect_dark_notify(move |_| r1()),
-            style.connect_monospace_font_name_notify(move |_| r2()),
+            [
+                style.connect_dark_notify(move |_| r1()),
+                style.connect_monospace_font_name_notify(move |_| r2()),
+                style.connect_high_contrast_notify(move |_| r3()),
+                style.connect_accent_color_rgba_notify(move |_| r4()),
+            ],
             ProfileManager::get().connect_changed(reapply),
         )));
         // Verlaufslänge folgt der Einstellung
@@ -882,7 +919,7 @@ impl Terminal {
         // Kontextfarbe und Sixel ein/aus sofort übernehmen
         let weak = Rc::downgrade(&self.0);
         let ctx = crate::settings::settings().connect_changed(None, move |_, key| {
-            if key != "context-colors" && key != "enable-sixel" {
+            if !matches!(key, "context-colors" | "enable-sixel" | "follow-high-contrast") {
                 return;
             }
             if let Some(inner) = weak.upgrade() {
@@ -893,10 +930,11 @@ impl Terminal {
         });
         let scrollback = RefCell::new(Some((scrollback, ctx)));
         self.0.vte.connect_destroy(move |_| {
-            if let Some((a, b, c)) = handlers.borrow_mut().take() {
+            if let Some((style_ids, c)) = handlers.borrow_mut().take() {
                 let style = adw::StyleManager::default();
-                style.disconnect(a);
-                style.disconnect(b);
+                for id in style_ids {
+                    style.disconnect(id);
+                }
                 ProfileManager::get().disconnect(c);
             }
             if let Some((a, b)) = scrollback.borrow_mut().take() {
@@ -1010,6 +1048,9 @@ const URL_PATTERNS: &[&str] = &[
 ];
 
 /// PCRE2-Flags wie bei Ptyxis: UTF, NO_UTF_CHECK, UCP und MULTILINE (verlangt VTE).
+/// Darüber zeigt die Suche „999+“: Zählen kostet bei langem Verlauf sonst spürbar Zeit.
+pub const SEARCH_COUNT_MAX: usize = 999;
+
 pub const PCRE2_FLAGS: u32 = 0x0008_0000 | 0x4000_0000 | 0x0002_0000 | 0x0000_0400;
 pub const PCRE2_CASELESS: u32 = 0x0000_0008;
 
@@ -1073,6 +1114,11 @@ pub fn sixel_supported() -> bool {
 
 fn rgba(c: &Rgb) -> gtk::gdk::RGBA {
     gtk::gdk::RGBA::new(c.r as f32 / 255.0, c.g as f32 / 255.0, c.b as f32 / 255.0, 1.0)
+}
+
+fn from_rgba(c: &gtk::gdk::RGBA) -> Rgb {
+    let v = |x: f32| (x * 255.0).round().clamp(0.0, 255.0) as u8;
+    Rgb { r: v(c.red()), g: v(c.green()), b: v(c.blue()) }
 }
 
 /// `~` und `~/…` zum Persönlichen Ordner auflösen; leer = keine Vorgabe.

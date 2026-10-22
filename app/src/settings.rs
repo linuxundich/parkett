@@ -39,6 +39,11 @@ pub fn short_tab_labels() -> bool {
     settings().boolean("short-tab-labels")
 }
 
+/// Bei GNOMEs hohem Kontrast das Schema *Hoher Kontrast* statt des Profilschemas.
+pub fn follow_high_contrast() -> bool {
+    settings().boolean("follow-high-contrast")
+}
+
 pub fn context_colors() -> bool {
     settings().boolean("context-colors")
 }

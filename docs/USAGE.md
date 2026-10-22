@@ -46,6 +46,9 @@ fuzzy search. Prefixes narrow it down: `>` actions only, `@` tabs and panes only
 | Font larger/smaller/normal | Ctrl++, Ctrl+-, Ctrl+0 |
 | Open link | Ctrl+click; right-clicking a link offers *Öffnen* (Open) and *Kopieren* (Copy) |
 
+The search bar shows how many matches the whole scrollback holds (up to „999+ Treffer“). The
+count is taken when the search text or its options change, not while new output arrives.
+
 Text containing a line break (even a single line with a break at the end) first shows a preview
 when pasted via Ctrl+Shift+V, Shift+Insert or the context menu, because a shell without
 "bracketed paste" would run it immediately (can be turned off under *Einstellungen › Allgemein*
@@ -116,6 +119,15 @@ ends the session, and the next start begins fresh. With options on the command l
 At the top of the main menu: *Systemstil folgen* (Follow system style), *Hell* (Light), *Dunkel* (Dark) (also under *Einstellungen ›
 Allgemein › Stil* (Preferences › General › Style)). Every color scheme has a light and a dark variant; the terminals
 switch along.
+
+Selected text keeps its color and gets a background in the GNOME accent color (*Einstellungen ›
+Darstellung* in GNOME), like text selection in other GTK apps; before, VTE drew the selection
+with swapped colors, a bright block in dark mode.
+
+**High contrast:** while *Hoher Kontrast* (High Contrast) is on in GNOME's accessibility settings,
+all panes use the color scheme *Hoher Kontrast* instead of the scheme of their profile. The
+profile keeps its scheme. Can be turned off under *Einstellungen › Allgemein* (*Hohen Kontrast des
+Systems übernehmen*).
 
 ## Profiles
 

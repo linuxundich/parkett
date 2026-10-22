@@ -54,6 +54,12 @@ impl Rgb {
         self.luminance() < 0.18
     }
 
+    /// Kontrastverhältnis nach WCAG (1 bis 21).
+    pub fn contrast(&self, other: &Rgb) -> f64 {
+        let (a, b) = (self.luminance(), other.luminance());
+        (a.max(b) + 0.05) / (a.min(b) + 0.05)
+    }
+
     /// `alpha` Anteil von `fg` über `self`.
     pub fn mix(&self, fg: &Rgb, alpha: f64) -> Rgb {
         let m = |b: u8, f: u8| ((1.0 - alpha) * b as f64 + alpha * f as f64).round().clamp(0.0, 255.0) as u8;
@@ -136,6 +142,13 @@ fn required(sec: &Section, key: &str, scope: &str) -> Result<Rgb, PaletteError> 
 }
 
 impl Face {
+    /// Hintergrund markierter Zeichen: Akzentfarbe des Systems über dem Hintergrund, wie
+    /// die Textauswahl in GTK. Ohne eigene Farbe zeichnet VTE die Auswahl invertiert – im
+    /// dunklen Stil ein greller heller Block. Die Schrift behält ihre Farbe.
+    pub fn selection(&self, accent: &Rgb) -> Rgb {
+        self.background.mix(accent, if self.background.is_dark() { 0.3 } else { 0.25 })
+    }
+
     /// Baut eine Fassung und leitet fehlende Kontextfarben ab (Ptyxis-Regeln).
     pub fn new(foreground: Rgb, background: Rgb, colors: [Rgb; 16], cursor: Option<Rgb>) -> Face {
         let dark = background.is_dark();
@@ -302,36 +315,63 @@ pub fn slug(name: &str) -> String {
     }
 }
 
-/// Die mitgelieferten Schemata (Dateien in data/palettes, ins Programm eingebettet).
+macro_rules! p {
+    ($id:literal) => {
+        ($id, include_str!(concat!("../../data/palettes/", $id, ".palette")))
+    };
+}
+
+/// Die mitgelieferten Schemata (Dateien in data/palettes, ins Programm eingebettet), in der
+/// Reihenfolge der Auswahl.
+const BUILTIN: &[(&str, &str)] = &[
+    p!("gnome"),
+    p!("gnome-high-contrast"),
+    p!("tango"),
+    p!("solarized"),
+    p!("selenized"),
+    p!("nord"),
+    p!("dracula"),
+    p!("catppuccin"),
+    p!("gruvbox"),
+    p!("everforest"),
+    p!("one"),
+    p!("github"),
+    p!("papercolor"),
+    p!("vs-code"),
+];
+
+/// Die mitgelieferten Schemata, geparst.
 pub fn builtin() -> Vec<Palette> {
-    macro_rules! p {
-        ($id:literal) => {
-            ($id, include_str!(concat!("../../data/palettes/", $id, ".palette")))
-        };
-    }
-    let files = [
-        p!("gnome"),
-        p!("gnome-high-contrast"),
-        p!("tango"),
-        p!("solarized"),
-        p!("selenized"),
-        p!("nord"),
-        p!("dracula"),
-        p!("catppuccin"),
-        p!("gruvbox"),
-        p!("everforest"),
-        p!("one"),
-        p!("github"),
-        p!("papercolor"),
-        p!("vs-code"),
-    ];
-    files
+    BUILTIN
         .iter()
         .map(|(id, text)| Palette::parse_ptyxis(id, text).unwrap_or_else(|e| panic!("eingebaute Palette {id}: {e}")))
         .collect()
 }
 
 pub const DEFAULT_PALETTE: &str = "gnome";
+
+/// Schema für GNOMEs hohen Kontrast (*Barrierefreiheit › Hoher Kontrast*).
+pub const HIGH_CONTRAST_PALETTE: &str = "gnome-high-contrast";
+
+/// Palette, die ein Bereich tatsächlich zeigt: bei hohem Kontrast des Systems das
+/// Hochkontrast-Schema statt des Schemas aus dem Profil.
+pub fn effective_id(chosen: &str, high_contrast: bool) -> &str {
+    if high_contrast {
+        HIGH_CONTRAST_PALETTE
+    } else {
+        chosen
+    }
+}
+
+/// Mitgelieferte Schemata vorn in fester Reihenfolge, danach die eigenen alphabetisch –
+/// auch gleich nach einem Import, nicht erst beim nächsten Start.
+pub fn sort(list: &mut [Palette]) {
+    let rank = |p: &Palette| match BUILTIN.iter().position(|(id, _)| *id == p.id) {
+        Some(i) => (0, i, String::new()),
+        None => (1, 0, p.name.to_lowercase()),
+    };
+    list.sort_by_cached_key(rank);
+}
 
 #[cfg(test)]
 mod tests {
@@ -442,5 +482,50 @@ mod tests {
     fn non_ascii_colour_is_rejected() {
         assert_eq!(Rgb::parse("#aäbcd"), None);
         assert_eq!(Rgb::parse("#äää"), None);
+    }
+
+    /// GNOME-Akzentfarben (libadwaita 1.6+): Blau, Türkis, Grün, Gelb, Orange, Rot, Pink,
+    /// Lila, Schiefer.
+    const ACCENTS: [&str; 9] =
+        ["#3584e4", "#2190a4", "#3a944a", "#c88800", "#ed5b00", "#e62d42", "#d56199", "#9141ac", "#6f8396"];
+
+    #[test]
+    fn selection_stays_readable() {
+        for p in builtin() {
+            for (name, face) in [("hell", &p.light), ("dunkel", &p.dark)] {
+                for accent in ACCENTS {
+                    let sel = face.selection(&Rgb::parse(accent).unwrap());
+                    // Schrift auf der Auswahl: 4,5:1, bei Schemata mit wenig Kontrast (Solarized
+                    // hat selbst nur 4,1:1) höchstens 40 % weniger als ohne Auswahl
+                    let text = face.foreground.contrast(&sel);
+                    let need = 4.5f64.min(0.6 * face.foreground.contrast(&face.background));
+                    assert!(text >= need, "{} {name}, Akzent {accent}: Schrift auf Auswahl {text:.2}:1", p.id);
+                    // Auswahl hebt sich vom Grund ab (nur Helligkeit; der Farbton kommt dazu)
+                    let edge = face.background.contrast(&sel);
+                    assert!(edge >= 1.1, "{} {name}, Akzent {accent}: Auswahl kaum sichtbar ({edge:.2}:1)", p.id);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn high_contrast_overrides_profile() {
+        assert_eq!(effective_id("nord", false), "nord");
+        assert_eq!(effective_id("nord", true), HIGH_CONTRAST_PALETTE);
+        assert!(builtin().iter().any(|p| p.id == HIGH_CONTRAST_PALETTE));
+    }
+
+    #[test]
+    fn imported_palettes_sorted_after_builtin() {
+        let user = |id: &str, name: &str| Palette { id: id.into(), name: name.into(), ..builtin()[0].clone() };
+        let mut list = builtin();
+        list.push(user("zenburn", "Zenburn"));
+        list.push(user("ayu", "ayu"));
+        list.push(user("monokai", "Monokai"));
+        sort(&mut list);
+        let ids: Vec<&str> = list.iter().map(|p| p.id.as_str()).collect();
+        let n = BUILTIN.len();
+        assert_eq!(ids[..n], BUILTIN.iter().map(|(id, _)| *id).collect::<Vec<_>>()[..]);
+        assert_eq!(ids[n..], ["ayu", "monokai", "zenburn"]);
     }
 }

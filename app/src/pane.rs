@@ -31,6 +31,7 @@ mod imp {
         pub search: OnceCell<gtk::Revealer>,
         pub badge: OnceCell<gtk::Label>,
         pub search_entry: OnceCell<gtk::SearchEntry>,
+        pub search_count: OnceCell<gtk::Label>,
         pub search_case: OnceCell<gtk::ToggleButton>,
         pub search_regex: OnceCell<gtk::ToggleButton>,
         /// Zeiger im oberen Streifen (Design V2: Titel nur dann sichtbar)
@@ -199,6 +200,14 @@ impl Pane {
 
         // Suchleiste oben rechts (ersetzt dort den schwebenden Titel, solange sie offen ist)
         let entry = gtk::SearchEntry::builder().placeholder_text("Im Terminal suchen").width_chars(22).build();
+        // feste Breite: sonst springt das Suchfeld bei jeder neuen Zahl
+        let count = gtk::Label::builder()
+            .css_classes(["dim-label", "numeric"])
+            .width_chars(10)
+            .xalign(1.0)
+            .margin_start(4)
+            .margin_end(2)
+            .build();
         let case = gtk::ToggleButton::builder()
             .label("Aa")
             .tooltip_text("Groß-/Kleinschreibung beachten")
@@ -219,6 +228,7 @@ impl Pane {
         let bar = gtk::Box::builder().spacing(2).css_classes(["parkett-search"]).build();
         for w in [
             entry.upcast_ref::<gtk::Widget>(),
+            count.upcast_ref(),
             case.upcast_ref(),
             regex.upcast_ref(),
             up.upcast_ref(),
@@ -334,6 +344,7 @@ impl Pane {
         imp.search.set(search).ok();
         imp.badge.set(badge).ok();
         imp.search_entry.set(entry.clone()).ok();
+        imp.search_count.set(count).ok();
         imp.search_case.set(case.clone()).ok();
         imp.search_regex.set(regex.clone()).ok();
 
@@ -516,19 +527,19 @@ impl Pane {
         let imp = self.imp();
         let entry = imp.search_entry.get().unwrap();
         let text = entry.text().to_string();
-        match self.terminal().set_search(
-            Some(&text),
-            imp.search_regex.get().unwrap().is_active(),
-            imp.search_case.get().unwrap().is_active(),
-        ) {
+        let (regex, case) = (imp.search_regex.get().unwrap().is_active(), imp.search_case.get().unwrap().is_active());
+        let count = imp.search_count.get().unwrap();
+        match self.terminal().set_search(Some(&text), regex, case) {
             Ok(()) => {
                 entry.set_tooltip_text(None);
                 let found = text.is_empty() || self.terminal().search_step(true);
                 set_error(entry, !found);
+                set_count(count, self.terminal().search_count(&text, regex, case));
             }
             Err(e) => {
                 entry.set_tooltip_text(Some(&format!("Ungültiger Ausdruck: {e}")));
                 set_error(entry, true);
+                set_count(count, None);
             }
         }
     }
@@ -592,6 +603,18 @@ impl Pane {
             old.remove();
         }
     }
+}
+
+/// Trefferzahl neben dem Suchfeld (QA-19); gezählt beim Ändern der Suche, nicht live bei
+/// neuer Ausgabe.
+fn set_count(label: &gtk::Label, n: Option<usize>) {
+    let text = match n {
+        None => String::new(),
+        Some(n) if n >= crate::terminal::SEARCH_COUNT_MAX => format!("{}+ Treffer", crate::terminal::SEARCH_COUNT_MAX),
+        Some(n) => format!("{n} Treffer"),
+    };
+    label.set_visible(!text.is_empty());
+    label.set_label(&text);
 }
 
 fn set_error(entry: &gtk::SearchEntry, error: bool) {

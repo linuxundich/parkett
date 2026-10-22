@@ -13,7 +13,8 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
       prompt. Wait for the first prompt (vte.sh `precmd`) where available
 - [ ] QA-15 Error dialog for unreadable files in a monospace font; toast without timeout
 - [ ] QA-20 Cursor in the wrong place after line wrap: investigate, compare with Ptyxis
-- [ ] Contrast test: sharpen the light variant of *Hoher Kontrast* (High Contrast) below 3:1
+- [ ] Contrast test: sharpen the light variant of *Hoher Kontrast* (High Contrast) below 3:1;
+      more visible now that GNOME's high contrast switches to it automatically
 - [ ] Regression tests for QA-02 (pane title), QA-07 (markup) and QA-09 (focus after menus) in the
       VM smoke test; QA-01 and QA-03 to QA-06 are covered by unit tests and the smoke test
 
@@ -25,14 +26,9 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [ ] D6 Debug output without `format!` on every divider move
 
 ### Small features
-- [ ] High contrast: use the *Hoher Kontrast* color scheme automatically when GNOME's high
-      contrast is on
-- [ ] Selection color in dark mode (`set_color_highlight`), currently the VTE default
-- [ ] Sort imported color schemes alphabetically right away
 - [ ] Change the split layout of a template in the editor
 - [ ] Ctrl+Enter in the command palette: open the target in a new pane
 - [ ] Palette, layout mode and templates in the main menu (audit proposal 25)
-- [ ] Match count in the search (QA-19)
 
 ## Decisions needed
 
@@ -64,6 +60,10 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 
 ## Testing gaps
 
+- [ ] Small features 0.3 (tested in the Fedora VM on 2026-10-22: selection dark with blue and
+      orange accent, high contrast on/off and the switch, match count 40/11/0 with *Aa*): still
+      open are the selection in light mode, importing a scheme through the dialog and checking
+      its place in the list, and the count with a long scrollback (time per keystroke)
 - [ ] By hand, only built and checked with Clippy so far (no window): R-04 OSC 8 `file:///` link
       inside `ssh`; R-05 profile *Bereich schließen*, `exit`, Undo; R-06 `env | grep GIO_LAUNCHED`
       after starting from the menu; R-07 drag a divider and restart; R-10 `parkett -e "htop -d 5"`;
@@ -168,6 +168,13 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [x] QA-18 screen reader names without shortcut; overview button „Reiter-Übersicht, 4 Reiter“
 - [x] `cargo audit` in `build-aux/ci.sh` (no findings on 2026-10-21)
 - [x] Unit tests for the default shortcuts (QA-01: nothing without Ctrl/Alt/Super, no duplicates)
+
+### 0.3 small features
+- [x] *Hoher Kontrast* scheme automatically while GNOME's high contrast is on (switch in the
+      preferences)
+- [x] Selection in the accent color (`set_color_highlight`), light and dark
+- [x] Imported color schemes sorted right away
+- [x] Match count in the search (QA-19), counted with GRegex over the whole scrollback
 
 ### 0.2: Everyday features
 - [x] Command line: `parkett -- command`, `--working-directory` (several times = tabs), `--tab`,

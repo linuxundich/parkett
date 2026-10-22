@@ -5,6 +5,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- The search bar shows the number of matches in the whole scrollback (QA-19).
+- While GNOME's high contrast is on, all panes use the color scheme *Hoher Kontrast*; can be
+  turned off under *Einstellungen › Allgemein* (*Hohen Kontrast des Systems übernehmen*).
+- Selected text gets a background in the GNOME accent color instead of VTE's swapped colors,
+  which showed as a bright block in dark mode; it follows a change of the accent color at once.
 - Short tab labels: number, running program and folder (`1 zsh · parkett`, `3 ssh bender`)
   instead of the shell title, which looked the same in every tab; the full title stays in the
   window title and the tooltip. Can be turned off (*Einstellungen › Allgemein › Kurze
@@ -33,6 +38,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   changing its title.
 
 ### Fixed
+- Imported color schemes appear in alphabetical order right after the import, not only after a
+  restart.
 - `file:` links are not opened while a remote connection runs in the pane, even without a host
   name (`file:///…`); before, an OSC 8 link from an SSH session opened a local file with the same
   path.
