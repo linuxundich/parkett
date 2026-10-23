@@ -18,6 +18,7 @@ pub fn show(parent: Option<&gtk::Window>) {
     dialog.add(&general_page());
     dialog.add(&profiles_page(&dialog));
     dialog.add(&templates_page(&dialog));
+    dialog.add(&bookmarks_page(&dialog));
     dialog.add(&shortcuts_page(&dialog));
     dialog.present(parent);
 }
@@ -843,6 +844,138 @@ fn capture_shortcut(prefs: &adw::PreferencesDialog, action: &'static str) {
     });
     dialog.add_controller(keys);
     dialog.present(Some(prefs));
+}
+
+/// Funktion, die eine Liste neu aufbaut; von ihren eigenen Knöpfen aus aufrufbar.
+type Refill = Rc<RefCell<Option<Rc<dyn Fn()>>>>;
+
+/// Lesezeichen umbenennen, sortieren, löschen und Ordner hinzufügen. Jede Änderung wird
+/// sofort gespeichert; die Liste wird danach neu aufgebaut.
+fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
+    let page = adw::PreferencesPage::builder().title("Lesezeichen").icon_name("user-bookmarks-symbolic").build();
+    let add =
+        gtk::Button::builder().label("Ordner hinzufügen …").css_classes(["flat"]).valign(gtk::Align::Center).build();
+    let group = adw::PreferencesGroup::builder()
+        .title("Lesezeichen")
+        .description("Ordner für die Befehlspalette (~) und das Hauptmenü: Eingabe öffnet einen neuen Reiter, Strg+Eingabe einen neuen Bereich, Alt+Eingabe wechselt im aktiven Bereich dorthin.")
+        .header_suffix(&add)
+        .build();
+    page.add(&group);
+    let rows: Rc<RefCell<Vec<gtk::Widget>>> = Rc::default();
+    // Fehler beim Speichern als Einblendung im Dialog
+    let store = {
+        let dialog = dialog.downgrade();
+        move |list: &[parkett_core::bookmark::Bookmark]| {
+            if let Err(e) = crate::bookmarks::save(list) {
+                if let Some(d) = dialog.upgrade() {
+                    d.add_toast(crate::window::plain_toast(&format!("Lesezeichen nicht gespeichert: {e}")));
+                }
+            }
+        }
+    };
+    let fill: Refill = Rc::default();
+    let f = {
+        let group = group.downgrade();
+        let rows = rows.clone();
+        let fill = fill.clone();
+        let store = store.clone();
+        move || {
+            let Some(group) = group.upgrade() else { return };
+            for r in rows.borrow_mut().drain(..) {
+                group.remove(&r);
+            }
+            let list = crate::bookmarks::load();
+            if list.is_empty() {
+                let empty = adw::ActionRow::builder()
+                    .title("Noch keine Lesezeichen")
+                    .subtitle("Im Terminal: Befehlspalette oder Hauptmenü › „Aktuellen Ordner als Lesezeichen“")
+                    .sensitive(false)
+                    .build();
+                group.add(&empty);
+                rows.borrow_mut().push(empty.upcast());
+                return;
+            }
+            let n = list.len();
+            for (i, b) in list.iter().enumerate() {
+                // Name bearbeitbar, Pfad als Überschrift
+                let row = adw::EntryRow::builder().title(b.path.as_str()).text(b.name.as_str()).build();
+                let store_name = store.clone();
+                row.connect_changed(move |e| {
+                    let mut list = crate::bookmarks::load();
+                    if let Some(entry) = list.get_mut(i) {
+                        entry.name = e.text().trim().to_string();
+                        store_name(&list);
+                    }
+                });
+                for (icon, tip, delta) in [
+                    ("go-up-symbolic", "Nach oben", -1i32),
+                    ("go-down-symbolic", "Nach unten", 1),
+                    ("user-trash-symbolic", "Löschen", 0),
+                ] {
+                    let button = gtk::Button::builder()
+                        .icon_name(icon)
+                        .tooltip_text(tip)
+                        .valign(gtk::Align::Center)
+                        .css_classes(["flat"])
+                        .build();
+                    button.set_sensitive(match delta {
+                        -1 => i > 0,
+                        1 => i + 1 < n,
+                        _ => true,
+                    });
+                    let store = store.clone();
+                    let fill = fill.clone();
+                    button.connect_clicked(move |_| {
+                        let mut list = crate::bookmarks::load();
+                        if i >= list.len() {
+                            return;
+                        }
+                        match delta {
+                            0 => {
+                                list.remove(i);
+                            }
+                            d => list.swap(i, (i as i32 + d) as usize),
+                        }
+                        store(&list);
+                        // nach dem Klick neu aufbauen, nicht mitten im Signal des Knopfs
+                        let fill = fill.clone();
+                        glib::idle_add_local_once(move || {
+                            if let Some(f) = fill.borrow().clone() {
+                                f();
+                            }
+                        });
+                    });
+                    row.add_suffix(&button);
+                }
+                group.add(&row);
+                rows.borrow_mut().push(row.upcast());
+            }
+        }
+    };
+    let f: Rc<dyn Fn()> = Rc::new(f);
+    *fill.borrow_mut() = Some(f.clone());
+    f();
+    // fill hält sich über die Knöpfe selbst fest; mit der Seite auflösen
+    page.connect_destroy(move |_| {
+        fill.borrow_mut().take();
+    });
+    let d = dialog.downgrade();
+    add.connect_clicked(move |button| {
+        let Some(d) = d.upgrade() else { return };
+        let chooser = gtk::FileDialog::builder().title("Ordner als Lesezeichen").modal(true).build();
+        let window = button.root().and_downcast::<gtk::Window>();
+        let f = f.clone();
+        chooser.select_folder(window.as_ref(), gio::Cancellable::NONE, move |res| {
+            let Ok(folder) = res else { return };
+            let Some(path) = folder.path().and_then(|p| p.to_str().map(String::from)) else { return };
+            match crate::bookmarks::add(&path) {
+                Ok(true) => f(),
+                Ok(false) => d.add_toast(crate::window::plain_toast("Dieser Ordner ist schon ein Lesezeichen")),
+                Err(e) => d.add_toast(crate::window::plain_toast(&format!("Lesezeichen nicht gespeichert: {e}"))),
+            }
+        });
+    });
+    page
 }
 
 fn templates_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {

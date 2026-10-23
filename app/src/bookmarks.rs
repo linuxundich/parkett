@@ -23,12 +23,17 @@ pub fn add(path: &str) -> Result<bool, String> {
     if !bookmark::add(&mut list, path, &glib::home_dir()) {
         return Ok(false);
     }
+    save(&list)?;
+    Ok(true)
+}
+
+/// Ganze Liste schreiben (Einstellungen: umbenennen, sortieren, löschen).
+pub fn save(list: &[Bookmark]) -> Result<(), String> {
     let f = file();
     if let Some(dir) = f.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
-    std::fs::write(&f, bookmark::to_toml(&list)).map_err(|e| format!("{}: {e}", f.display()))?;
-    Ok(true)
+    std::fs::write(&f, bookmark::to_toml(list)).map_err(|e| format!("{}: {e}", f.display()))
 }
 
 /// Absoluter Pfad eines Lesezeichens (`~` aufgelöst).
