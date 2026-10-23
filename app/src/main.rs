@@ -2,8 +2,8 @@
 //! Parkett – Terminalemulator für GNOME mit Splits.
 
 mod bookmarks;
-mod i18n;
 mod commands;
+mod i18n;
 mod pane;
 mod prefs;
 mod profiles;
@@ -156,7 +156,7 @@ fn main() -> glib::ExitCode {
             }
         };
         if cli.help {
-            cmdline.print_literal(parkett_core::cli::HELP);
+            cmdline.print_literal(&parkett_core::cli::help());
             return glib::ExitCode::SUCCESS;
         }
         if cli.version {
@@ -167,7 +167,10 @@ fn main() -> glib::ExitCode {
             match glib::shell_parse_argv(&line) {
                 Ok(v) => cli.command = Some(v.into_iter().map(|s| s.to_string_lossy().into_owned()).collect()),
                 Err(e) => {
-                    cmdline.printerr_literal(&format!("parkett: -e „{line}“: {}\n", e.message()));
+                    cmdline.printerr_literal(&format!(
+                        "parkett: {}\n",
+                        i18n::trf("-e “{command}”: {error}", &[("command", &line), ("error", e.message())])
+                    ));
                     return glib::ExitCode::FAILURE;
                 }
             }
@@ -196,7 +199,10 @@ fn open(app: &adw::Application, cmdline: &gio::ApplicationCommandLine, cli: park
             _ => p,
         };
         if !p.is_dir() {
-            cmdline.printerr_literal(&format!("parkett: Verzeichnis „{}“ gibt es nicht\n", p.display()));
+            cmdline.printerr_literal(&format!(
+                "parkett: {}\n",
+                i18n::trf("Directory “{path}” does not exist", &[("path", &p.display().to_string())])
+            ));
             return glib::ExitCode::FAILURE;
         }
         dirs.push(p.to_str().map(String::from));
@@ -208,7 +214,10 @@ fn open(app: &adw::Application, cmdline: &gio::ApplicationCommandLine, cli: park
     let profile = match &cli.profile {
         Some(id) if manager.ensure_profile(id) => id.clone(),
         Some(id) => {
-            cmdline.printerr_literal(&format!("parkett: Profil „{id}“ gibt es nicht, nehme das Standardprofil\n"));
+            cmdline.printerr_literal(&format!(
+                "parkett: {}\n",
+                i18n::trf("Profile “{id}” does not exist, using the default profile", &[("id", id)])
+            ));
             manager.default_id()
         }
         None => manager.default_id(),
@@ -274,7 +283,9 @@ fn setup_actions(app: &adw::Application) {
                 .application_icon(APP_ID)
                 .developer_name("Christoph Langner")
                 .version(VERSION)
-                .comments("Terminal mit geteilten Bereichen für GNOME")
+                .comments(i18n::gettext("Terminal with split panes for GNOME"))
+                // Translators: your name(s) for the About dialog
+                .translator_credits(i18n::gettext("translator-credits"))
                 .license_type(gtk::License::Gpl30)
                 .build();
             dialog.present(app.active_window().as_ref());
@@ -317,16 +328,17 @@ fn setup_actions(app: &adw::Application) {
 fn shortcuts_dialog() -> adw::ShortcutsDialog {
     let dialog = adw::ShortcutsDialog::new();
     for section in shortcuts::SECTIONS {
-        let sec = adw::ShortcutsSection::new(Some(section));
+        let sec = adw::ShortcutsSection::new(Some(&i18n::gettext(*section)));
         for e in shortcuts::ENTRIES.iter().filter(|e| e.section == *section) {
             let accels = shortcuts::effective(e.action);
             if !accels.is_empty() {
-                sec.add(adw::ShortcutsItem::new(e.label, &accels.join(" ")));
+                sec.add(adw::ShortcutsItem::new(&i18n::gettext(e.label), &accels.join(" ")));
             }
         }
         match *section {
-            "Reiter und Fenster" => sec.add(adw::ShortcutsItem::new("Reiter 1 … 9", "<Control><Alt>1")),
-            "Bereiche" => sec.add(adw::ShortcutsItem::new("Bereich 1 … 9", "<Alt>1")),
+            // Abschnittsnamen wie in shortcuts::SECTIONS
+            "Tabs and windows" => sec.add(adw::ShortcutsItem::new(&i18n::gettext("Tab 1 … 9"), "<Control><Alt>1")),
+            "Panes" => sec.add(adw::ShortcutsItem::new(&i18n::gettext("Pane 1 … 9"), "<Alt>1")),
             _ => {}
         }
         dialog.add(sec);

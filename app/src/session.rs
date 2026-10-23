@@ -56,7 +56,7 @@ fn write(app: &gtk::Application, skip: Option<&Window>) {
         return;
     }
     if let Err(e) = (Session { version: VERSION, windows: list }).save(&path()) {
-        glib::g_warning!("parkett", "Sitzung nicht gespeichert: {e}");
+        glib::g_warning!("parkett", "session not saved: {e}");
     }
 }
 

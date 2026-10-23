@@ -8,6 +8,8 @@
 use std::collections::HashMap;
 use std::fmt;
 
+use crate::i18n::{gettext, trf};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Rgb {
     pub r: u8,
@@ -111,9 +113,11 @@ pub enum PaletteError {
 impl fmt::Display for PaletteError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            PaletteError::Missing(what) => write!(f, "{what} fehlt"),
-            PaletteError::BadColor(key, v) => write!(f, "{key}: „{v}“ ist keine Farbe"),
-            PaletteError::Json(e) => write!(f, "kein gültiges Tilix-Schema: {e}"),
+            PaletteError::Missing(what) => f.write_str(&trf("{what} is missing", &[("what", what)])),
+            PaletteError::BadColor(key, v) => {
+                f.write_str(&trf("{key}: “{value}” is not a color", &[("key", key), ("value", v)]))
+            }
+            PaletteError::Json(e) => f.write_str(&trf("not a valid Tilix scheme: {error}", &[("error", e)])),
         }
     }
 }
@@ -234,7 +238,7 @@ impl Palette {
             // Ohne Farben im Abschnitt [Palette] fehlen eigentlich [Light]/[Dark]; sonst hieße
             // die Meldung „Color0 in [Palette] fehlt“ und zeigte auf den falschen Abschnitt (QA-15)
             (None, None) if !info.contains_key("Foreground") && !info.contains_key("Color0") => {
-                return Err(PaletteError::Missing("Abschnitt [Light] oder [Dark]".into()));
+                return Err(PaletteError::Missing(gettext("Section [Light] or [Dark]")));
             }
             (None, None) => {
                 let f = Face::from_section(info, "Palette")?;
@@ -261,7 +265,10 @@ impl Palette {
         let list =
             v.get("palette").and_then(|p| p.as_array()).ok_or_else(|| PaletteError::Missing("palette".into()))?;
         if list.len() < 16 {
-            return Err(PaletteError::Missing(format!("16 Farben in palette (nur {})", list.len())));
+            return Err(PaletteError::Missing(trf(
+                "16 colors in palette (only {count})",
+                &[("count", &list.len().to_string())],
+            )));
         }
         let mut colors = [Rgb { r: 0, g: 0, b: 0 }; 16];
         for (i, slot) in colors.iter_mut().enumerate() {
@@ -471,7 +478,7 @@ mod tests {
         assert_eq!(Palette::parse_ptyxis("x", "[Light]\n"), Err(PaletteError::Missing("[Palette]".into())));
         assert_eq!(
             Palette::parse_ptyxis("x", "[Palette]\nName=Leer\n"),
-            Err(PaletteError::Missing("Abschnitt [Light] oder [Dark]".into()))
+            Err(PaletteError::Missing("Section [Light] or [Dark]".into()))
         );
         let broken = text.replace("Color3=#1e0f03", "Color3=blau");
         assert!(matches!(Palette::parse_ptyxis("x", &broken), Err(PaletteError::BadColor(k, _)) if k == "Color3"));

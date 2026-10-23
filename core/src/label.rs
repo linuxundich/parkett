@@ -101,7 +101,7 @@ pub fn render(template: &str, v: &Vars, home: &Path) -> String {
     }
     let out = out.split_whitespace().collect::<Vec<_>>().join(" ");
     if out.is_empty() {
-        "Shell".into()
+        crate::i18n::gettext("Shell")
     } else {
         out
     }

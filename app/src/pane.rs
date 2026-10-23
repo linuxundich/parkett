@@ -6,6 +6,7 @@ use adw::subclass::prelude::*;
 use gtk::glib;
 use vte::prelude::*;
 
+use crate::i18n::{gettext, ntrf, trf, N_};
 use crate::shortcuts::live_tooltip;
 use crate::terminal::{Launch, Terminal};
 use parkett_core::layout::DropZone;
@@ -121,7 +122,7 @@ impl Pane {
             .height_request(4)
             .can_target(false)
             .visible(false)
-            .tooltip_text("Gemeinsame Eingabe")
+            .tooltip_text(gettext("Shared input"))
             .build();
 
         // Kontextfarbe (root/SSH): 3 px Linie oben in der Farbe des Schemas
@@ -175,9 +176,9 @@ impl Pane {
             .icon_name("parkett-pane-maximize-symbolic")
             .css_classes(["flat", "circular"])
             .build();
-        live_tooltip(&zoom, "Bereich maximieren", "win.toggle-zoom", &[]);
+        live_tooltip(&zoom, N_("Maximize pane"), "win.toggle-zoom", &[]);
         let close = gtk::Button::builder().icon_name("window-close-symbolic").css_classes(["flat", "circular"]).build();
-        live_tooltip(&close, "Bereich schließen", "win.close-pane", &[]);
+        live_tooltip(&close, N_("Close pane"), "win.close-pane", &[]);
         let pill = gtk::Box::builder()
             .css_classes(["parkett-pill"])
             .halign(gtk::Align::End)
@@ -219,7 +220,7 @@ impl Pane {
         overlay.add_overlay(&badge);
 
         // Suchleiste oben rechts (ersetzt dort den schwebenden Titel, solange sie offen ist)
-        let entry = gtk::SearchEntry::builder().placeholder_text("Im Terminal suchen").width_chars(22).build();
+        let entry = gtk::SearchEntry::builder().placeholder_text(gettext("Search in terminal")).width_chars(22).build();
         // feste Breite: sonst springt das Suchfeld bei jeder neuen Zahl
         let count = gtk::Label::builder()
             .css_classes(["dim-label", "numeric"])
@@ -228,23 +229,23 @@ impl Pane {
             .margin_start(4)
             .margin_end(2)
             .build();
-        let case = gtk::ToggleButton::builder()
-            .label("Aa")
-            .tooltip_text("Groß-/Kleinschreibung beachten")
+        let case =
+            gtk::ToggleButton::builder().label("Aa").tooltip_text(gettext("Match case")).css_classes(["flat"]).build();
+        let regex = gtk::ToggleButton::builder()
+            .label(".*")
+            .tooltip_text(gettext("Regular expression"))
             .css_classes(["flat"])
             .build();
-        let regex =
-            gtk::ToggleButton::builder().label(".*").tooltip_text("Regulärer Ausdruck").css_classes(["flat"]).build();
         let up = gtk::Button::builder().icon_name("go-up-symbolic").css_classes(["flat"]).build();
-        live_tooltip(&up, "Treffer darüber", "win.find-up", &["Eingabe"]);
+        live_tooltip(&up, N_("Previous match"), "win.find-up", const { &[N_("Enter")] });
         let down = gtk::Button::builder().icon_name("go-down-symbolic").css_classes(["flat"]).build();
-        live_tooltip(&down, "Treffer darunter", "win.find-down", &["Umschalt+Eingabe"]);
+        live_tooltip(&down, N_("Next match"), "win.find-down", const { &[N_("Shift+Enter")] });
         let close_search = gtk::Button::builder()
             .icon_name("window-close-symbolic")
-            .tooltip_text("Suche schließen (Esc)")
+            .tooltip_text(gettext("Close search (Esc)"))
             .css_classes(["flat"])
             .build();
-        close_search.update_property(&[gtk::accessible::Property::Label("Suche schließen")]);
+        close_search.update_property(&[gtk::accessible::Property::Label(&gettext("Close search"))]);
         let bar = gtk::Box::builder().spacing(2).css_classes(["parkett-search"]).build();
         for w in [
             entry.upcast_ref::<gtk::Widget>(),
@@ -272,9 +273,9 @@ impl Pane {
         let row_label =
             gtk::Label::builder().xalign(0.0).hexpand(true).ellipsize(gtk::pango::EllipsizeMode::End).build();
         let row_zoom = gtk::Button::builder().icon_name("parkett-pane-maximize-symbolic").css_classes(["flat"]).build();
-        live_tooltip(&row_zoom, "Bereich maximieren", "win.toggle-zoom", &[]);
+        live_tooltip(&row_zoom, N_("Maximize pane"), "win.toggle-zoom", &[]);
         let row_close = gtk::Button::builder().icon_name("window-close-symbolic").css_classes(["flat"]).build();
-        live_tooltip(&row_close, "Bereich schließen", "win.close-pane", &[]);
+        live_tooltip(&row_close, N_("Close pane"), "win.close-pane", &[]);
         let row = gtk::Box::builder().css_classes(["parkett-ptitle"]).spacing(4).visible(false).build();
         row.append(&row_label);
         row.append(&row_zoom);
@@ -648,7 +649,7 @@ impl Pane {
                 set_count(count, self.terminal().search_count(&text, regex, case));
             }
             Err(e) => {
-                entry.set_tooltip_text(Some(&format!("Ungültiger Ausdruck: {e}")));
+                entry.set_tooltip_text(Some(&trf("Invalid expression: {error}", &[("error", &e.to_string())])));
                 set_error(entry, true);
                 set_count(count, None);
             }
@@ -721,8 +722,10 @@ impl Pane {
 fn set_count(label: &gtk::Label, n: Option<usize>) {
     let text = match n {
         None => String::new(),
-        Some(n) if n >= crate::terminal::SEARCH_COUNT_MAX => format!("{}+ Treffer", crate::terminal::SEARCH_COUNT_MAX),
-        Some(n) => format!("{n} Treffer"),
+        Some(n) if n >= crate::terminal::SEARCH_COUNT_MAX => {
+            trf("{n}+ matches", &[("n", &crate::terminal::SEARCH_COUNT_MAX.to_string())])
+        }
+        Some(n) => ntrf("{n} match", "{n} matches", n as u32, &[]),
     };
     label.set_visible(!text.is_empty());
     label.set_label(&text);

@@ -4,6 +4,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- English interface; German is a translation now (`po/de.po`), chosen by the system language.
+  The desktop file, the metainfo and the GSettings descriptions are translated too.
+
 ## [0.4.0] - 2026-10-23
 
 Tilix features: input to all panes of a tab, moving panes by drag and drop (also into other

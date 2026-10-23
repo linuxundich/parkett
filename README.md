@@ -25,8 +25,8 @@
 </p>
 
 > [!NOTE]
-> The interface is currently available in German only. An English translation is planned
-> for one of the next versions.
+> The interface is available in English and German and follows the system language.
+> Translations are welcome: see `po/` and [docs/BUILDING.md](docs/BUILDING.md#translations).
 
 ## What it does
 

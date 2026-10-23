@@ -81,7 +81,7 @@ impl ProfileManager {
                 *imp.profiles.borrow_mut() = profiles;
             }
             Err(e) => {
-                errors.push(format!("Profile: {e}"));
+                errors.push(crate::i18n::trf("Profiles: {error}", &[("error", &e.to_string())]));
                 *imp.profiles.borrow_mut() = vec![Profile { id: "standard".into(), ..Profile::default() }];
             }
         }
@@ -115,7 +115,7 @@ impl ProfileManager {
                 errors.extend(errs);
                 *imp.templates.borrow_mut() = t;
             }
-            Err(e) => errors.push(format!("Vorlagen: {e}")),
+            Err(e) => errors.push(crate::i18n::trf("Templates: {error}", &[("error", &e.to_string())])),
         }
         for e in &errors {
             glib::g_warning!("parkett", "{e}");
@@ -212,7 +212,7 @@ impl ProfileManager {
 
     pub fn delete(&self, id: &str) -> Result<(), String> {
         if self.imp().profiles.borrow().len() <= 1 {
-            return Err("Das letzte Profil kann nicht gelöscht werden".into());
+            return Err(crate::i18n::gettext("The last profile cannot be deleted"));
         }
         self.imp().store.get().unwrap().delete(id).map_err(|e| e.to_string())?;
         self.imp().profiles.borrow_mut().retain(|p| p.id != id);

@@ -2,14 +2,14 @@
 
 ## Requirements
 
-Rust (stable), Meson, GTK 4.18 or newer, libadwaita 1.8 or newer and VTE for GTK 4 (0.80 or
-newer).
+Rust (stable), Meson, gettext, GTK 4.18 or newer, libadwaita 1.8 or newer and VTE for GTK 4
+(0.80 or newer).
 
 | Distribution | Packages |
 |---|---|
-| Arch Linux | `rust meson gtk4 libadwaita vte4` |
-| Fedora 44 | `rust cargo meson gtk4-devel libadwaita-devel vte291-gtk4-devel` |
-| Ubuntu 26.04 | `rustc cargo meson pkg-config libgtk-4-dev libadwaita-1-dev libvte-2.91-gtk4-dev` |
+| Arch Linux | `rust meson gettext gtk4 libadwaita vte4` |
+| Fedora 44 | `rust cargo meson gettext gtk4-devel libadwaita-devel vte291-gtk4-devel` |
+| Ubuntu 26.04 | `rustc cargo meson pkg-config gettext libgtk-4-dev libadwaita-1-dev libvte-2.91-gtk4-dev` |
 
 Debian 13 and Ubuntu 24.04 ship libadwaita and VTE versions that are too old. For the optional
 Nautilus menu, install `nautilus-python` (Arch, Fedora) or `python3-nautilus` (Ubuntu).
@@ -20,7 +20,9 @@ Nautilus menu, install `nautilus-python` (Arch, Fedora) or `python3-nautilus` (U
 cargo run -p parkett
 ```
 
-`app/build.rs` compiles the GSettings schema next to the binary, so no installation is needed.
+`app/build.rs` compiles the GSettings schema and the translations next to the binary, so no
+installation is needed. `LANGUAGE=en cargo run -p parkett` starts the English interface on a
+German system.
 
 ## Install with Meson
 
@@ -47,6 +49,16 @@ build-aux/ci.sh
 
 The examples in [USAGE.md](USAGE.md) are parsed by `core/tests/usage.rs`, so the documentation
 cannot drift from the file formats.
+
+## Translations
+
+Source texts in the code are English and marked for gettext (`parkett_core::i18n`: `gettext`,
+`trf` with named placeholders like `{name}`, `ntrf` for plural forms, `N_` in constants). After
+changing texts, run `po/update-pot.sh`: it rebuilds `po/parkett.pot` from the files in
+`po/POTFILES.in` and merges it into every `po/*.po`. Then fill in the new entries (`msgfmt
+--check po/de.po` finds mistakes). A new language: copy `po/parkett.pot` to `po/<lang>.po`, add
+the code to `po/LINGUAS`. The desktop file, the metainfo and the GSettings schema are translated
+from the same files.
 
 ## Tests in a virtual machine
 

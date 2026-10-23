@@ -35,7 +35,7 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [x] Title template per profile (`tab_label`)
 
 ### 0.5: Distribution
-- [ ] English interface (gettext), then translations; AppStream metadata and `.desktop` file in
+- [x] English interface (gettext), then translations; AppStream metadata and `.desktop` file in
       English with German translations
 - [ ] AUR package and Fedora COPR from the public repository
 - [ ] Debian package: Ubuntu 26.04 builds and runs unchanged (QA 2026-10-19); test

@@ -18,6 +18,7 @@ use parkett_core::context::{self, Context};
 use parkett_core::palette::Rgb;
 use parkett_core::profile::{Bell, CursorBlink, CursorShape, ExitAction, Profile};
 
+use crate::i18n::{gettext, ntrf, trf, N_};
 use crate::profiles::ProfileManager;
 
 /// Kleinste sinnvolle Größe eines Bereichs in Zellen (siehe docs/ANALYSIS.md, Funktionsmatrix).
@@ -134,8 +135,8 @@ impl Terminal {
         vte.set_scrollback_lines(crate::settings::scrollback_lines());
 
         let exit_label = gtk::Label::builder().xalign(0.0).hexpand(true).ellipsize(pango::EllipsizeMode::End).build();
-        let restart = gtk::Button::with_label("Neu starten");
-        let close = gtk::Button::with_label("Schließen");
+        let restart = gtk::Button::with_label(&gettext("Restart"));
+        let close = gtk::Button::with_label(&gettext("Close"));
         let bar = gtk::Box::builder().spacing(10).css_classes(["parkett-exit-bar"]).build();
         let exit_icon = gtk::Image::from_icon_name("dialog-warning-symbolic");
         bar.append(&exit_icon);
@@ -354,9 +355,10 @@ impl Terminal {
         let Some(app) = gio::Application::default() else { return };
         let secs = took.as_secs_f64().round() as u64;
         let duration = if secs >= 60 { format!("{} min {} s", secs / 60, secs % 60) } else { format!("{secs} s") };
-        let n = gio::Notification::new("Befehl beendet");
-        let what = self.0.command_name.borrow_mut().take().or_else(|| self.title()).unwrap_or_else(|| "Befehl".into());
-        n.set_body(Some(&format!("{what} · nach {duration}")));
+        let n = gio::Notification::new(&gettext("Command finished"));
+        let what =
+            self.0.command_name.borrow_mut().take().or_else(|| self.title()).unwrap_or_else(|| gettext("Command"));
+        n.set_body(Some(&trf("{command} · after {duration}", &[("command", &what), ("duration", &duration)])));
         n.set_default_action_and_target_value("app.show-terminal", Some(&self.0.uid.to_variant()));
         app.send_notification(Some(&format!("command-{}", self.0.uid)), &n);
     }
@@ -675,10 +677,9 @@ impl Terminal {
     fn fail(&self, program: &str, message: &str) {
         self.0.exit.set(Some(ExitStatus::Code(-1)));
         self.show_exit(
-            &format!(
-                "<b>{}</b> konnte nicht gestartet werden: {}",
-                glib::markup_escape_text(program),
-                glib::markup_escape_text(message)
+            &trf(
+                "<b>{program}</b> could not be started: {error}",
+                &[("program", &glib::markup_escape_text(program)), ("error", &glib::markup_escape_text(message))],
             ),
             true,
         );
@@ -719,7 +720,7 @@ impl Terminal {
                 ExitAction::Close if exit == ExitStatus::Code(0) => {
                     // Leiste schon jetzt füllen: Holt „Rückgängig“ den Bereich zurück, ist er
                     // sonst ein totes Terminal ohne Hinweis und ohne „Neu starten“ (R-05)
-                    t.show_exit("<b>Prozess beendet</b>", false);
+                    t.show_exit(&gettext("<b>Process exited</b>"), false);
                     // nach dem Signal-Handler schließen, nicht mitten im VTE-Callback
                     let weak = Rc::downgrade(&t.0);
                     glib::idle_add_local_once(move || {
@@ -738,12 +739,12 @@ impl Terminal {
                 _ => {}
             }
             let text = match exit {
-                ExitStatus::Code(0) => "<b>Prozess beendet</b>".to_string(),
-                ExitStatus::Code(c) => format!("<b>Prozess beendet</b> · Exit-Code {c}"),
-                ExitStatus::Signal(s) => format!("<b>Prozess beendet</b> · Signal {s}"),
+                ExitStatus::Code(0) => gettext("<b>Process exited</b>"),
+                ExitStatus::Code(c) => trf("<b>Process exited</b> · exit code {code}", &[("code", &c.to_string())]),
+                ExitStatus::Signal(s) => trf("<b>Process exited</b> · signal {signal}", &[("signal", &s.to_string())]),
             };
             let text = if action == ExitAction::Restart {
-                format!("{text} · kein automatischer Neustart, endete sofort")
+                trf("{text} · no automatic restart, exited immediately", &[("text", &text)])
             } else {
                 text
             };
@@ -911,7 +912,7 @@ impl Terminal {
                     let tag = vte.match_add_regex(&re, 0);
                     vte.match_set_cursor_name(tag, "pointer");
                 }
-                Err(e) => glib::g_warning!("parkett", "URL-Muster: {e}"),
+                Err(e) => glib::g_warning!("parkett", "URL pattern: {e}"),
             }
         }
         // Strg+Klick öffnet den Link; ohne Strg bleibt Klicken Markieren
@@ -991,7 +992,7 @@ impl Terminal {
             }
         };
         if matches!(self.detect_context(), Context::Remote(_)) {
-            toast("Der Pfad liegt auf dem anderen Rechner");
+            toast(&gettext("The path is on the other computer"));
             return;
         }
         let cwd = self.working_directory();
@@ -999,13 +1000,13 @@ impl Terminal {
             return;
         };
         if !path.exists() {
-            toast(&format!("„{}“ gibt es nicht", path.display()));
+            toast(&trf("“{path}” does not exist", &[("path", &path.display().to_string())]));
             return;
         }
         let launcher = gtk::FileLauncher::new(Some(&gio::File::for_path(&path)));
         let report = move |res: Result<(), glib::Error>| {
             if let Err(e) = res {
-                glib::g_warning!("parkett", "Pfad nicht geöffnet: {e}");
+                glib::g_warning!("parkett", "Path not opened: {e}");
             }
         };
         if path.is_dir() {
@@ -1024,7 +1025,7 @@ impl Terminal {
         }
         let scheme = uri.split(':').next().unwrap_or("").to_ascii_lowercase();
         if !SAFE_SCHEMES.contains(&scheme.as_str()) {
-            glib::g_warning!("parkett", "Link mit Schema „{scheme}“ nicht geöffnet");
+            glib::g_warning!("parkett", "Link with scheme “{scheme}” not opened");
             return;
         }
         // file:-Links nur auf diesem Rechner: Ein OSC-8-Link aus einer SSH-Sitzung nennt den
@@ -1035,13 +1036,13 @@ impl Terminal {
             && (matches!(self.detect_context(), Context::Remote(_))
                 || !parkett_core::uri::is_local_file(uri, glib::host_name().as_str()))
         {
-            glib::g_warning!("parkett", "file:-Link auf anderen Rechner nicht geöffnet: {uri}");
+            glib::g_warning!("parkett", "file: link to another computer not opened: {uri}");
             if let Some(w) = self.0.vte.root().and_downcast::<gtk::Window>() {
                 let d = adw::AlertDialog::new(
-                    Some("Link nicht geöffnet"),
-                    Some("Der Link zeigt auf eine Datei auf einem anderen Rechner."),
+                    Some(&gettext("Link not opened")),
+                    Some(&gettext("The link points to a file on another computer.")),
                 );
-                d.add_response("ok", "OK");
+                d.add_response("ok", &gettext("OK"));
                 d.present(Some(&w));
             }
             return;
@@ -1050,13 +1051,13 @@ impl Terminal {
         let weak = window.as_ref().map(|w| w.downgrade());
         gtk::UriLauncher::new(uri).launch(window.as_ref(), gio::Cancellable::NONE, move |res| {
             let Err(e) = res else { return };
-            glib::g_warning!("parkett", "Link nicht geöffnet: {e}");
+            glib::g_warning!("parkett", "Link not opened: {e}");
             // Sonst geschieht nach Strg+Klick einfach nichts (VM 2026-10-22: Standard-App fehlte)
             if e.matches(gtk::DialogError::Dismissed) || e.matches(gtk::DialogError::Cancelled) {
                 return;
             }
             if let Some(w) = weak.and_then(|w| w.upgrade()).and_downcast::<crate::window::Window>() {
-                w.toast(&format!("Link nicht geöffnet: {}", e.message()));
+                w.toast(&trf("Link not opened: {error}", &[("error", e.message())]));
             }
         });
     }
@@ -1243,41 +1244,41 @@ impl Terminal {
         let menu = gio::Menu::new();
         // Link-Einträge nur sichtbar, wenn beim Rechtsklick ein Link unter dem Zeiger lag
         let link = gio::Menu::new();
-        for (label, action) in [("Link öffnen", "term.open-link"), ("Link kopieren", "term.copy-link")] {
-            let it = gio::MenuItem::new(Some(label), Some(action));
+        for (label, action) in [(N_("Open link"), "term.open-link"), (N_("Copy link"), "term.copy-link")] {
+            let it = gio::MenuItem::new(Some(&gettext(label)), Some(action));
             it.set_attribute_value("hidden-when", Some(&"action-disabled".to_variant()));
             link.append_item(&it);
         }
         menu.append_section(None, &link);
         let edit = gio::Menu::new();
-        item(&edit, "Kopieren", "term.copy");
-        item(&edit, "Einfügen", "term.paste");
-        item(&edit, "Alles auswählen", "term.select-all");
+        item(&edit, &gettext("Copy"), "term.copy");
+        item(&edit, &gettext("Paste"), "term.paste");
+        item(&edit, &gettext("Select all"), "term.select-all");
         menu.append_section(None, &edit);
         let zoom = gio::Menu::new();
-        item(&zoom, "Vergrößern", "term.zoom-in");
-        item(&zoom, "Verkleinern", "term.zoom-out");
-        item(&zoom, "Normale Größe", "term.zoom-reset");
+        item(&zoom, &gettext("Zoom in"), "term.zoom-in");
+        item(&zoom, &gettext("Zoom out"), "term.zoom-out");
+        item(&zoom, &gettext("Normal size"), "term.zoom-reset");
         menu.append_section(None, &zoom);
         // Bereichsaktionen leben am Fenster (win.*); sie gelten für den fokussierten Bereich,
         // den ein Rechtsklick vorher setzt (siehe pane.rs).
         let search = gio::Menu::new();
-        item(&search, "Suchen …", "win.find");
+        item(&search, &gettext("Search…"), "win.find");
         menu.append_section(None, &search);
         let split = gio::Menu::new();
-        item(&split, "Rechts teilen", "win.split-right");
-        item(&split, "Unten teilen", "win.split-down");
-        item(&split, "Bereich maximieren", "win.toggle-zoom");
-        item(&split, "Größen angleichen", "win.equalize");
+        item(&split, &gettext("Split right"), "win.split-right");
+        item(&split, &gettext("Split down"), "win.split-down");
+        item(&split, &gettext("Maximize pane"), "win.toggle-zoom");
+        item(&split, &gettext("Equalize sizes"), "win.equalize");
         menu.append_section(None, &split);
         let sync = gio::Menu::new();
-        item(&sync, "Eingabe an alle Bereiche", "win.toggle-sync");
-        let it = gio::MenuItem::new(Some("Dieser Bereich empfängt gemeinsame Eingabe"), Some("win.sync-pane"));
+        item(&sync, &gettext("Input to all panes"), "win.toggle-sync");
+        let it = gio::MenuItem::new(Some(&gettext("This pane receives shared input")), Some("win.sync-pane"));
         it.set_attribute_value("hidden-when", Some(&"action-disabled".to_variant()));
         sync.append_item(&it);
         menu.append_section(None, &sync);
         let close = gio::Menu::new();
-        item(&close, "Bereich schließen", "win.close-pane");
+        item(&close, &gettext("Close pane"), "win.close-pane");
         menu.append_section(None, &close);
         self.0.vte.set_context_menu_model(Some(&menu));
     }
@@ -1321,21 +1322,26 @@ fn paste_with_check(vte: &vte::Terminal) {
         }
         let lines = check.lines.len();
         let preview: Vec<&str> = check.lines.iter().take(6).copied().collect();
-        let more = if lines > 6 { format!("\n… ({} weitere Zeilen)", lines - 6) } else { String::new() };
+        let more = if lines > 6 {
+            format!("\n{}", ntrf("… ({n} more line)", "… ({n} more lines)", (lines - 6) as u32, &[]))
+        } else {
+            String::new()
+        };
         let (heading, body) = if lines == 1 {
             (
-                "Text mit Zeilenumbruch einfügen?",
-                "Der Text endet mit einem Zeilenumbruch. Unterstützt die Shell kein „Bracketed Paste“, wird er sofort ausgeführt.".to_string(),
+                gettext("Paste text with line break?"),
+                gettext("The text ends with a line break. If the shell does not support “bracketed paste”, it runs immediately."),
             )
         } else {
             (
-                "Mehrzeiligen Text einfügen?",
-                format!(
-                    "Der Text hat {lines} Zeilen. Unterstützt die Shell kein „Bracketed Paste“, werden sie sofort ausgeführt."
+                gettext("Paste multi-line text?"),
+                trf(
+                    "The text has {lines} lines. If the shell does not support “bracketed paste”, they run immediately.",
+                    &[("lines", &lines.to_string())],
                 ),
             )
         };
-        let dialog = adw::AlertDialog::new(Some(heading), Some(&body));
+        let dialog = adw::AlertDialog::new(Some(&heading), Some(&body));
         let label = gtk::Label::builder()
             .label(format!("{}{more}", preview.join("\n")))
             .xalign(0.0)
@@ -1349,7 +1355,7 @@ fn paste_with_check(vte: &vte::Terminal) {
             .build();
         let frame = gtk::Frame::builder().child(&label).build();
         dialog.set_extra_child(Some(&frame));
-        dialog.add_responses(&[("cancel", "Abbrechen"), ("paste", "Einfügen")]);
+        dialog.add_responses(&[("cancel", &gettext("Cancel")), ("paste", &gettext("Paste"))]);
         dialog.set_response_appearance("paste", adw::ResponseAppearance::Destructive);
         dialog.set_default_response(Some("cancel"));
         dialog.set_close_response("cancel");

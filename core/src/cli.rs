@@ -3,18 +3,15 @@
 //! weil alles nach `-e`/`-x`/`--` unverändert der Befehl ist (wie bei gnome-terminal/Ptyxis)
 //! und die Argumente einer zweiten Instanz an die laufende weitergereicht werden.
 
-pub const HELP: &str = "\
-Aufruf: parkett [OPTIONEN] [-- BEFEHL [ARGUMENTE …]]
+use crate::i18n::{gettext, trf, N_};
 
-  -d, --working-directory=DIR   Startverzeichnis; mehrfach = ein Reiter je Verzeichnis
-  -e, -x, --                    Rest der Zeile statt der Shell ausführen
-                                (-e mit nur einem Argument: wie in einer Shell zerlegt)
-  -p, --profile=ID              Profil (Dateiname ohne .toml)
-  -t, --title=TITEL             Titel des Reiters
-      --tab                     als Reiter im aktiven Fenster statt neuem Fenster
-  -h, --help                    diese Hilfe
-      --version                 Version
-";
+/// Hilfetext für `--help` (englischer msgid, übersetzt mit `help()`).
+pub const HELP: &str = N_("Usage: parkett [OPTIONS] [-- COMMAND [ARGUMENTS …]]\n\n  -d, --working-directory=DIR   Start directory; repeat for one tab per directory\n  -e, -x, --                    Run the rest of the line instead of the shell\n                                (-e with a single argument: split like a shell)\n  -p, --profile=ID              Profile (file name without .toml)\n  -t, --title=TITLE             Tab title\n      --tab                     Open as a tab in the active window instead of a new window\n  -h, --help                    Show this help\n      --version                 Show version\n");
+
+/// Übersetzter Hilfetext.
+pub fn help() -> String {
+    gettext(HELP)
+}
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Cli {
@@ -55,12 +52,14 @@ pub fn parse<S: AsRef<str>>(args: &[S]) -> Result<Cli, String> {
                 return Ok(v.to_string());
             }
             i += 1;
-            args.get(i).map(|v| v.as_ref().to_string()).ok_or(format!("{long} braucht einen Wert"))
+            args.get(i)
+                .map(|v| v.as_ref().to_string())
+                .ok_or_else(|| trf("{option} needs a value", &[("option", long)]))
         };
         // Schalter ohne Wert: „--tab=x“ ist ein Tippfehler, kein --tab (R-10)
         let flag = |set: &mut bool, v: bool| -> Result<(), String> {
             match inline {
-                Some(_) => Err(format!("{name} nimmt keinen Wert („{arg}“)")),
+                Some(_) => Err(trf("{option} takes no value (“{argument}”)", &[("option", name), ("argument", arg)])),
                 None => {
                     *set = v;
                     Ok(())
@@ -70,11 +69,11 @@ pub fn parse<S: AsRef<str>>(args: &[S]) -> Result<Cli, String> {
         match name {
             "-e" | "-x" | "--" | "--command" => {
                 if inline.is_some() {
-                    return Err(format!("Unbekannte Option „{arg}“ (siehe parkett --help)"));
+                    return Err(trf("Unknown option “{argument}” (see parkett --help)", &[("argument", arg)]));
                 }
                 let rest: Vec<String> = args[i + 1..].iter().map(|a| a.as_ref().to_string()).collect();
                 if rest.is_empty() {
-                    return Err(format!("{arg}: kein Befehl angegeben"));
+                    return Err(trf("{argument}: no command given", &[("argument", arg)]));
                 }
                 cli.command_needs_split = name == "-e" && rest.len() == 1;
                 cli.command = Some(rest);
@@ -87,7 +86,7 @@ pub fn parse<S: AsRef<str>>(args: &[S]) -> Result<Cli, String> {
             "--new-window" => flag(&mut cli.tab, false)?,
             "-h" | "--help" => flag(&mut cli.help, true)?,
             "--version" => flag(&mut cli.version, true)?,
-            _ => return Err(format!("Unbekannte Option „{arg}“ (siehe parkett --help)")),
+            _ => return Err(trf("Unknown option “{argument}” (see parkett --help)", &[("argument", arg)])),
         }
         i += 1;
     }
@@ -178,7 +177,7 @@ mod tests {
     fn errors() {
         assert!(parse(&["--"]).is_err());
         assert!(parse(&["-d"]).is_err());
-        assert!(parse(&["--gibtsnicht"]).is_err());
+        assert_eq!(parse(&["--gibtsnicht"]), Err("Unknown option “--gibtsnicht” (see parkett --help)".to_string()));
         assert!(parse(&["--tab=x"]).is_err(), "R-10");
         assert!(parse(&["--help=1"]).is_err());
         assert!(parse(&["-e=htop"]).is_err());

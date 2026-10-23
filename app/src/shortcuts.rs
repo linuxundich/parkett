@@ -9,6 +9,8 @@ use std::collections::HashMap;
 use gtk::gdk;
 use gtk::glib::translate::IntoGlib;
 
+use crate::i18n::{gettext, N_};
+
 pub struct Entry {
     /// Voller Aktionsname, z. B. „win.split-right“
     pub action: &'static str,
@@ -27,49 +29,54 @@ const fn e(
     Entry { action, section, label, defaults }
 }
 
-pub const SECTIONS: &[&str] = &["Reiter und Fenster", "Bereiche", "Terminal"];
+pub const SECTIONS: &[&str] = &[N_("Tabs and windows"), N_("Panes"), N_("Terminal")];
 
 /// Belegung nach Tilix, wo sie nicht mit GNOME kollidiert (CONCEPTS.md).
 pub const ENTRIES: &[Entry] = &[
-    e("win.new-tab", "Reiter und Fenster", "Neuer Reiter", &["<Control><Shift>t"]),
-    e("win.close-tab", "Reiter und Fenster", "Reiter schließen", &["<Control><Shift>q"]),
-    e("win.next-tab", "Reiter und Fenster", "Nächster Reiter", &["<Control>Page_Down"]),
-    e("win.prev-tab", "Reiter und Fenster", "Vorheriger Reiter", &["<Control>Page_Up"]),
+    e("win.new-tab", N_("Tabs and windows"), N_("New tab"), &["<Control><Shift>t"]),
+    e("win.close-tab", N_("Tabs and windows"), N_("Close tab"), &["<Control><Shift>q"]),
+    e("win.next-tab", N_("Tabs and windows"), N_("Next tab"), &["<Control>Page_Down"]),
+    e("win.prev-tab", N_("Tabs and windows"), N_("Previous tab"), &["<Control>Page_Up"]),
     // ohne Standard: F2 brauchen htop, mc und nano selbst (QA-01)
-    e("win.rename-tab", "Reiter und Fenster", "Reiter umbenennen", &[]),
-    e("win.overview", "Reiter und Fenster", "Reiter-Übersicht", &["<Control><Shift>o"]),
-    e("app.new-window", "Reiter und Fenster", "Neues Fenster", &["<Control><Shift>n"]),
-    e("win.palette", "Reiter und Fenster", "Befehlspalette", &["<Control><Shift>p"]),
-    e("win.save-template", "Reiter und Fenster", "Reiter als Vorlage speichern", &[]),
-    e("win.add-bookmark", "Reiter und Fenster", "Aktuellen Ordner als Lesezeichen", &[]),
-    e("app.preferences", "Reiter und Fenster", "Einstellungen", &["<Control>comma"]),
-    e("app.shortcuts", "Reiter und Fenster", "Tastenkürzel-Übersicht", &["<Control>question"]),
-    e("win.layout-mode", "Bereiche", "Layout-Modus", &["<Control><Shift>l"]),
-    e("win.split-right", "Bereiche", "Rechts teilen", &["<Control><Alt>r"]),
-    e("win.split-down", "Bereiche", "Unten teilen", &["<Control><Alt>d"]),
-    e("win.split-auto", "Bereiche", "Automatisch teilen", &["<Control><Alt>a"]),
-    e("win.close-pane", "Bereiche", "Bereich schließen", &["<Control><Shift>w"]),
-    e("win.toggle-sync", "Bereiche", "Eingabe an alle Bereiche", &["<Control><Alt>i"]),
-    e("win.sync-pane", "Bereiche", "Bereich empfängt gemeinsame Eingabe", &[]),
-    e("win.toggle-zoom", "Bereiche", "Bereich maximieren", &["<Control><Shift>x"]),
-    e("win.equalize", "Bereiche", "Größen angleichen", &["<Control><Alt>equal"]),
-    e("win.focus-left", "Bereiche", "Fokus nach links", &["<Alt>Left"]),
-    e("win.focus-right", "Bereiche", "Fokus nach rechts", &["<Alt>Right"]),
-    e("win.focus-up", "Bereiche", "Fokus nach oben", &["<Alt>Up"]),
-    e("win.focus-down", "Bereiche", "Fokus nach unten", &["<Alt>Down"]),
-    e("win.resize-left", "Bereiche", "Trenner nach links", &["<Shift><Alt>Left"]),
-    e("win.resize-right", "Bereiche", "Trenner nach rechts", &["<Shift><Alt>Right"]),
-    e("win.resize-up", "Bereiche", "Trenner nach oben", &["<Shift><Alt>Up"]),
-    e("win.resize-down", "Bereiche", "Trenner nach unten", &["<Shift><Alt>Down"]),
-    e("win.find", "Terminal", "Suchen", &["<Control><Shift>f"]),
-    e("win.find-up", "Terminal", "Treffer darüber", &["<Control><Shift>g"]),
-    e("win.find-down", "Terminal", "Treffer darunter", &["<Control><Shift>h"]),
-    e("term.copy", "Terminal", "Kopieren", &["<Control><Shift>c"]),
-    e("term.paste", "Terminal", "Einfügen", &["<Control><Shift>v", "<Shift>Insert"]),
-    e("term.select-all", "Terminal", "Alles auswählen", &["<Control><Shift>a"]),
-    e("term.zoom-in", "Terminal", "Schrift vergrößern", &["<Control>plus", "<Control>equal", "<Control>KP_Add"]),
-    e("term.zoom-out", "Terminal", "Schrift verkleinern", &["<Control>minus", "<Control>KP_Subtract"]),
-    e("term.zoom-reset", "Terminal", "Normale Schriftgröße", &["<Control>0", "<Control>KP_0"]),
+    e("win.rename-tab", N_("Tabs and windows"), N_("Rename tab"), &[]),
+    e("win.overview", N_("Tabs and windows"), N_("Tab overview"), &["<Control><Shift>o"]),
+    e("app.new-window", N_("Tabs and windows"), N_("New window"), &["<Control><Shift>n"]),
+    e("win.palette", N_("Tabs and windows"), N_("Command palette"), &["<Control><Shift>p"]),
+    e("win.save-template", N_("Tabs and windows"), N_("Save tab as template"), &[]),
+    e("win.add-bookmark", N_("Tabs and windows"), N_("Bookmark current folder"), &[]),
+    e("app.preferences", N_("Tabs and windows"), N_("Preferences"), &["<Control>comma"]),
+    e("app.shortcuts", N_("Tabs and windows"), N_("Keyboard shortcuts overview"), &["<Control>question"]),
+    e("win.layout-mode", N_("Panes"), N_("Layout mode"), &["<Control><Shift>l"]),
+    e("win.split-right", N_("Panes"), N_("Split right"), &["<Control><Alt>r"]),
+    e("win.split-down", N_("Panes"), N_("Split down"), &["<Control><Alt>d"]),
+    e("win.split-auto", N_("Panes"), N_("Split automatically"), &["<Control><Alt>a"]),
+    e("win.close-pane", N_("Panes"), N_("Close pane"), &["<Control><Shift>w"]),
+    e("win.toggle-sync", N_("Panes"), N_("Input to all panes"), &["<Control><Alt>i"]),
+    e("win.sync-pane", N_("Panes"), N_("Pane receives shared input"), &[]),
+    e("win.toggle-zoom", N_("Panes"), N_("Maximize pane"), &["<Control><Shift>x"]),
+    e("win.equalize", N_("Panes"), N_("Equalize sizes"), &["<Control><Alt>equal"]),
+    e("win.focus-left", N_("Panes"), N_("Focus left"), &["<Alt>Left"]),
+    e("win.focus-right", N_("Panes"), N_("Focus right"), &["<Alt>Right"]),
+    e("win.focus-up", N_("Panes"), N_("Focus up"), &["<Alt>Up"]),
+    e("win.focus-down", N_("Panes"), N_("Focus down"), &["<Alt>Down"]),
+    e("win.resize-left", N_("Panes"), N_("Move divider left"), &["<Shift><Alt>Left"]),
+    e("win.resize-right", N_("Panes"), N_("Move divider right"), &["<Shift><Alt>Right"]),
+    e("win.resize-up", N_("Panes"), N_("Move divider up"), &["<Shift><Alt>Up"]),
+    e("win.resize-down", N_("Panes"), N_("Move divider down"), &["<Shift><Alt>Down"]),
+    e("win.find", N_("Terminal"), N_("Search"), &["<Control><Shift>f"]),
+    e("win.find-up", N_("Terminal"), N_("Previous match"), &["<Control><Shift>g"]),
+    e("win.find-down", N_("Terminal"), N_("Next match"), &["<Control><Shift>h"]),
+    e("term.copy", N_("Terminal"), N_("Copy"), &["<Control><Shift>c"]),
+    e("term.paste", N_("Terminal"), N_("Paste"), &["<Control><Shift>v", "<Shift>Insert"]),
+    e("term.select-all", N_("Terminal"), N_("Select all"), &["<Control><Shift>a"]),
+    e(
+        "term.zoom-in",
+        N_("Terminal"),
+        N_("Increase font size"),
+        &["<Control>plus", "<Control>equal", "<Control>KP_Add"],
+    ),
+    e("term.zoom-out", N_("Terminal"), N_("Decrease font size"), &["<Control>minus", "<Control>KP_Subtract"]),
+    e("term.zoom-reset", N_("Terminal"), N_("Normal font size"), &["<Control>0", "<Control>KP_0"]),
 ];
 
 pub fn entry(action: &str) -> Option<&'static Entry> {
@@ -121,15 +128,16 @@ pub fn conflict(action: &str, accel: &str) -> Option<&'static Entry> {
         .find(|e| effective(e.action).iter().any(|a| gtk::accelerator_parse(a).is_some_and(|k| k == wanted)))
 }
 
-/// Fest belegt und nicht änderbar: Alt+1…9 (Bereich), Strg+Alt+1…9 (Reiter).
+/// Fest belegt und nicht änderbar: Alt+1…9 (Bereich), Strg+Alt+1…9 (Reiter). Liefert einen
+/// mit `N_` markierten Text; beim Anzeigen mit `gettext` übersetzen.
 pub fn reserved(accel: &str) -> Option<&'static str> {
     let (key, mods) = gtk::accelerator_parse(accel)?;
     let digit = key.to_unicode().and_then(|c| c.to_digit(10)).is_some_and(|d| (1..=9).contains(&d));
     let alt = gtk::gdk::ModifierType::ALT_MASK;
     let ctrl_alt = alt | gtk::gdk::ModifierType::CONTROL_MASK;
     match mods {
-        m if digit && m == alt => Some("Bereich 1–9 wählen"),
-        m if digit && m == ctrl_alt => Some("Reiter 1–9 wählen"),
+        m if digit && m == alt => Some(N_("Select pane 1–9")),
+        m if digit && m == ctrl_alt => Some(N_("Select tab 1–9")),
         _ => None,
     }
 }
@@ -137,7 +145,7 @@ pub fn reserved(accel: &str) -> Option<&'static str> {
 /// Lesbare Form, z. B. „Strg+Umschalt+F“; leer = „Aus“.
 pub fn label(accels: &[String]) -> String {
     if accels.is_empty() {
-        return "Aus".into();
+        return gettext("Off");
     }
     accels
         .iter()
@@ -147,15 +155,17 @@ pub fn label(accels: &[String]) -> String {
 }
 
 /// Tooltip „Bezeichnung (Kürzel)“ mit der aktuellen Belegung; `fixed`: Tasten, die nicht
-/// änderbar sind (z. B. „Eingabe“ in der Suche), vor den Kürzeln der Aktion.
+/// änderbar sind (z. B. „Eingabe“ in der Suche), vor den Kürzeln der Aktion. `label` und
+/// `fixed` sind englische Quelltexte (`N_`); übersetzt wird hier beim Zeigen.
 pub fn tooltip(label: &str, action: &str, fixed: &[&str]) -> String {
     let accels = effective(action);
-    let mut keys: Vec<String> = fixed.iter().map(|s| s.to_string()).collect();
+    let label = gettext(label);
+    let mut keys: Vec<String> = fixed.iter().map(|s| gettext(*s)).collect();
     if !accels.is_empty() {
         keys.push(self::label(&accels));
     }
     if keys.is_empty() {
-        label.to_string()
+        label
     } else {
         format!("{label} ({})", keys.join(", "))
     }
@@ -164,27 +174,18 @@ pub fn tooltip(label: &str, action: &str, fixed: &[&str]) -> String {
 /// Tooltip, der beim Zeigen aus der aktuellen Belegung entsteht – folgt so geänderten
 /// Kürzeln auch in schon offenen Bereichen (QA-12). Der Name für Screenreader ist nur die
 /// Bezeichnung, ohne Kürzel (QA-18).
-pub fn live_tooltip(
-    widget: &impl IsA<gtk::Widget>,
-    label: &'static str,
-    action: &'static str,
-    fixed: &'static [&'static str],
-) {
-    widget.upcast_ref::<gtk::Widget>().update_property(&[gtk::accessible::Property::Label(label)]);
+pub fn live_tooltip(widget: &impl IsA<gtk::Widget>, label: &str, action: &'static str, fixed: &'static [&'static str]) {
+    widget.upcast_ref::<gtk::Widget>().update_property(&[gtk::accessible::Property::Label(&gettext(label))]);
     tooltip_only(widget, label, action, fixed);
 }
 
 /// Wie `live_tooltip`, aber ohne den Namen für Screenreader zu setzen (Widgets, die ihren
 /// eigenen Namen behalten sollen, z. B. der Fenstertitel).
-pub fn tooltip_only(
-    widget: &impl IsA<gtk::Widget>,
-    label: &'static str,
-    action: &'static str,
-    fixed: &'static [&'static str],
-) {
+pub fn tooltip_only(widget: &impl IsA<gtk::Widget>, label: &str, action: &'static str, fixed: &'static [&'static str]) {
+    let label = label.to_string();
     widget.set_has_tooltip(true);
     widget.connect_query_tooltip(move |_, _, _, _, tip| {
-        tip.set_text(Some(&tooltip(label, action, fixed)));
+        tip.set_text(Some(&tooltip(&label, action, fixed)));
         true
     });
 }
@@ -215,6 +216,7 @@ pub fn apply_app_accels(app: &gtk::Application) {
 
 /// Kürzel aus einem Tastendruck; `None` für reine Modifikatortasten.
 /// Ohne Strg/Alt/Super sind nur F-Tasten erlaubt, sonst ginge Tippen im Terminal verloren.
+/// Der Fehlertext ist mit `N_` markiert; beim Anzeigen mit `gettext` übersetzen.
 pub fn from_key(key: gdk::Key, state: gdk::ModifierType) -> Result<Option<String>, &'static str> {
     use gdk::Key;
     if matches!(
@@ -239,7 +241,7 @@ pub fn from_key(key: gdk::Key, state: gdk::ModifierType) -> Result<Option<String
         mods.intersects(gdk::ModifierType::CONTROL_MASK | gdk::ModifierType::ALT_MASK | gdk::ModifierType::SUPER_MASK);
     let fkey = (Key::F1.into_glib()..=Key::F12.into_glib()).contains(&key.to_lower().into_glib());
     if !strong && !fkey {
-        return Err("Bitte mit Strg, Alt oder Super kombinieren (ohne nur F-Tasten)");
+        return Err(N_("Please combine with Ctrl, Alt or Super (only F keys work alone)"));
     }
     Ok(Some(gtk::accelerator_name(key.to_lower(), mods).to_string()))
 }

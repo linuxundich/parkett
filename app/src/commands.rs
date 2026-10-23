@@ -11,6 +11,7 @@ use adw::prelude::*;
 use gtk::glib;
 use parkett_core::fuzzy::{self, Scope};
 
+use crate::i18n::{gettext, ntrf, trf, N_};
 use crate::profiles::ProfileManager;
 use crate::shortcuts;
 use crate::window::Window;
@@ -26,10 +27,10 @@ enum Group {
 impl Group {
     fn title(self) -> &'static str {
         match self {
-            Group::Places => "Reiter und Bereiche",
-            Group::Bookmarks => "Lesezeichen",
-            Group::Templates => "Vorlagen",
-            Group::Actions => "Aktionen",
+            Group::Places => N_("Tabs and panes"),
+            Group::Bookmarks => N_("Bookmarks"),
+            Group::Templates => N_("Templates"),
+            Group::Actions => N_("Actions"),
         }
     }
 }
@@ -68,7 +69,7 @@ fn collect(win: &Window) -> Vec<Item> {
             here: None,
             group: Group::Places,
             title: tab_title.clone(),
-            subtitle: format!("Reiter {} · {cwd}", ti + 1),
+            subtitle: trf("Tab {number} · {dir}", &[("number", &(ti + 1).to_string()), ("dir", &cwd)]),
             accel: if ti < 9 { shortcuts::label(&[format!("<Control><Alt>{}", ti + 1)]) } else { String::new() },
             icon: "tab-new-symbolic",
             run: Rc::new(move |w: &Window| w.select_tab(ti)),
@@ -84,7 +85,10 @@ fn collect(win: &Window) -> Vec<Item> {
                     here: None,
                     group: Group::Places,
                     title: format!("{tab_title} › {}", pane.terminal().title().unwrap_or_else(|| "Shell".into())),
-                    subtitle: format!("Bereich {} · {}", pi + 1, pane.terminal().cwd().unwrap_or_default()),
+                    subtitle: trf(
+                        "Pane {number} · {dir}",
+                        &[("number", &(pi + 1).to_string()), ("dir", &pane.terminal().cwd().unwrap_or_default())],
+                    ),
                     accel: String::new(),
                     icon: "view-dual-symbolic",
                     run: Rc::new(move |w: &Window| {
@@ -122,8 +126,13 @@ fn collect(win: &Window) -> Vec<Item> {
             alt: None,
             here: None,
             group: Group::Templates,
-            title: format!("{} öffnen", t.name),
-            subtitle: format!("{n} {} · {}", if n == 1 { "Bereich" } else { "Bereiche" }, t.commands().join(", ")),
+            title: trf("Open {name}", &[("name", &t.name)]),
+            subtitle: ntrf(
+                "{n} pane · {commands}",
+                "{n} panes · {commands}",
+                n as u32,
+                &[("commands", &t.commands().join(", "))],
+            ),
             accel: String::new(),
             icon: "view-grid-symbolic",
             run: Rc::new(move |w: &Window| w.open_template(&id)),
@@ -133,7 +142,7 @@ fn collect(win: &Window) -> Vec<Item> {
         let id = p.id.clone();
         items.push(Item {
             group: Group::Actions,
-            title: format!("Neuer Reiter mit Profil „{}“", p.name),
+            title: trf("New tab with profile “{name}”", &[("name", &p.name)]),
             subtitle: ProfileManager::get().palette(&p.palette).name,
             accel: String::new(),
             icon: "tab-new-symbolic",
@@ -155,8 +164,8 @@ fn collect(win: &Window) -> Vec<Item> {
             alt: None,
             here: None,
             group: Group::Actions,
-            title: e.label.to_string(),
-            subtitle: e.section.to_string(),
+            title: gettext(e.label),
+            subtitle: gettext(e.section),
             accel: {
                 let a = shortcuts::effective(action);
                 if a.is_empty() {
@@ -173,8 +182,8 @@ fn collect(win: &Window) -> Vec<Item> {
         alt: None,
         here: None,
         group: Group::Actions,
-        title: "Aktuellen Reiter als Vorlage speichern …".into(),
-        subtitle: "Vorlagen".into(),
+        title: gettext("Save current tab as template…"),
+        subtitle: gettext("Templates"),
         accel: String::new(),
         icon: "document-save-symbolic",
         run: Rc::new(|w: &Window| {
@@ -206,16 +215,14 @@ fn row(item: &Item) -> gtk::ListBoxRow {
         b.append(&gtk::Label::builder().label(item.accel.as_str()).css_classes(["dim-label", "caption"]).build());
     }
     let r = gtk::ListBoxRow::builder().child(&b).build();
-    r.set_widget_name(item.group.title());
+    r.set_widget_name(&gettext(item.group.title()));
     r
 }
 
 pub fn show(win: &Window) {
     let items = Rc::new(collect(win));
     let entry = gtk::SearchEntry::builder()
-        .placeholder_text(
-            "Befehl, Reiter, Lesezeichen oder Vorlage … (> Aktionen, @ Reiter, ~ Lesezeichen, # Vorlagen)",
-        )
+        .placeholder_text(gettext("Command, tab, bookmark or template… (> actions, @ tabs, ~ bookmarks, # templates)"))
         .hexpand(true)
         .build();
     let list =
@@ -249,12 +256,17 @@ pub fn show(win: &Window) {
     content.append(&entry);
     content.append(&scroll);
     let footer = gtk::Label::builder()
-        .label("↑↓ wählen · Eingabe ausführen · Strg+Eingabe in neuem Bereich · Alt+Eingabe Lesezeichen hier · Esc")
+        .label(gettext("↑↓ select · Enter run · Ctrl+Enter in new pane · Alt+Enter bookmark here · Esc"))
         .css_classes(["dim-label", "caption"])
         .margin_bottom(6)
         .build();
     content.append(&footer);
-    let dialog = adw::Dialog::builder().title("Befehle").content_width(640).content_height(480).child(&content).build();
+    let dialog = adw::Dialog::builder()
+        .title(gettext("Commands"))
+        .content_width(640)
+        .content_height(480)
+        .child(&content)
+        .build();
 
     // sichtbare Treffer: Index in `items`
     let shown: Rc<RefCell<Vec<usize>>> = Rc::default();

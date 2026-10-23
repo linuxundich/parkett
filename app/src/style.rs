@@ -27,9 +27,17 @@ pub fn selector() -> gtk::Widget {
     let row =
         gtk::Box::builder().css_classes(["parkett-style-selector"]).halign(gtk::Align::Center).spacing(18).build();
     let mut group: Option<gtk::CheckButton> = None;
-    for (value, label) in [("system", "Systemstil folgen"), ("light", "Hell"), ("dark", "Dunkel")] {
-        let b = gtk::CheckButton::builder().css_classes([value]).tooltip_text(label).active(current == value).build();
-        b.update_property(&[gtk::accessible::Property::Label(label)]);
+    for (value, label) in [
+        ("system", crate::i18n::gettext("Follow system style")),
+        ("light", crate::i18n::gettext("Light")),
+        ("dark", crate::i18n::gettext("Dark")),
+    ] {
+        let b = gtk::CheckButton::builder()
+            .css_classes([value])
+            .tooltip_text(label.as_str())
+            .active(current == value)
+            .build();
+        b.update_property(&[gtk::accessible::Property::Label(&label)]);
         if let Some(g) = &group {
             b.set_group(Some(g));
         } else {

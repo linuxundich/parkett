@@ -21,104 +21,104 @@
   <schema id="de.linuxundich.Parkett" path="/de/linuxundich/Parkett/">
     <key name="style" enum="de.linuxundich.Parkett.Style">
       <default>'system'</default>
-      <summary>Stil</summary>
-      <description>„system“: Hell/Dunkel nach GNOME, „light“/„dark“: von Hand festgelegt.</description>
+      <summary>Style</summary>
+      <description>“system”: light or dark following GNOME, “light”/“dark”: set by hand.</description>
     </key>
     <key name="window-width" type="i">
       <default>960</default>
-      <summary>Fensterbreite</summary>
-      <description>Breite des zuletzt geschlossenen Fensters in Pixeln.</description>
+      <summary>Window width</summary>
+      <description>Width of the last closed window in pixels.</description>
     </key>
     <key name="window-height" type="i">
       <default>640</default>
-      <summary>Fensterhöhe</summary>
-      <description>Höhe des zuletzt geschlossenen Fensters in Pixeln.</description>
+      <summary>Window height</summary>
+      <description>Height of the last closed window in pixels.</description>
     </key>
     <key name="window-maximized" type="b">
       <default>false</default>
-      <summary>Fenster maximiert</summary>
-      <description>Ob das zuletzt geschlossene Fenster maximiert war.</description>
+      <summary>Window maximized</summary>
+      <description>Whether the last closed window was maximized.</description>
     </key>
     <key name="confirm-close" type="b">
       <default>true</default>
-      <summary>Vor dem Schließen nachfragen</summary>
-      <description>Nachfragen, bevor ein Bereich, Reiter oder Fenster geschlossen wird, in dem noch ein Programm läuft.</description>
+      <summary>Confirm before closing</summary>
+      <description>Ask before closing a pane, tab or window in which a program is still running.</description>
     </key>
     <key name="warn-multiline-paste" type="b">
       <default>true</default>
-      <summary>Vor mehrzeiligem Einfügen warnen</summary>
-      <description>Mehrzeiligen Text beim Einfügen (Strg+Umschalt+V, Kontextmenü) erst zeigen und bestätigen lassen.</description>
+      <summary>Warn before multi-line paste</summary>
+      <description>When pasting multi-line text (Ctrl+Shift+V, context menu), show it first and ask for confirmation.</description>
     </key>
     <key name="pane-title" enum="de.linuxundich.Parkett.PaneTitle">
       <default>'floating'</default>
-      <summary>Bereichstitel</summary>
-      <description>„floating“: schwebender Titel oben rechts (Standard), „row“: Titelzeile über jedem Bereich.</description>
+      <summary>Pane title</summary>
+      <description>“floating”: floating title at the top right (default), “row”: title bar above each pane.</description>
     </key>
     <key name="dim-unfocused" type="b">
       <default>true</default>
-      <summary>Inaktive Bereiche abblenden</summary>
-      <description>In geteilten Reitern die Bereiche ohne Fokus leicht abblenden.</description>
+      <summary>Dim inactive panes</summary>
+      <description>In split tabs, slightly dim the panes without focus.</description>
     </key>
     <key name="context-colors" type="b">
       <default>true</default>
-      <summary>Kontextfarbe für root und SSH</summary>
-      <description>Bereiche, in denen ein Programm mit Root-Rechten oder eine SSH-Verbindung läuft, mit Linie, Chip und getöntem Hintergrund kennzeichnen. Die Farben kommen aus dem Farbschema.</description>
+      <summary>Context color for root and SSH</summary>
+      <description>Mark panes running a program with root privileges or an SSH connection with a line, a chip and a tinted background. The colors come from the color scheme.</description>
     </key>
     <key name="follow-high-contrast" type="b">
       <default>true</default>
-      <summary>Hohen Kontrast des Systems übernehmen</summary>
-      <description>Ist in GNOME „Hoher Kontrast“ eingeschaltet, zeigen alle Bereiche das Farbschema „Hoher Kontrast“ statt des Schemas aus dem Profil.</description>
+      <summary>Follow system high contrast</summary>
+      <description>When “High Contrast” is turned on in GNOME, all panes use the “High Contrast” color scheme instead of the scheme from the profile.</description>
     </key>
     <key name="tab-label-template" type="s">
       <default>"{n} {program} · {dir}"</default>
-      <summary>Vorlage für kurze Reiter-Namen</summary>
-      <description>Platzhalter: {n} Nummer, {program} Programm, {dir} Ordner, {path} ganzer Pfad, {host} Rechner bei SSH, {title} Titel der Shell, {profile} Profil. Leere Werte fallen samt Trenner weg.</description>
+      <summary>Template for short tab names</summary>
+      <description>Placeholders: {n} number, {program} program, {dir} folder, {path} full path, {host} host for SSH, {title} shell title, {profile} profile. Empty values are dropped together with their separator.</description>
     </key>
     <key name="short-tab-labels" type="b">
       <default>true</default>
-      <summary>Kurze Reiter-Namen</summary>
-      <description>Reiter zeigen Nummer, laufendes Programm und Ordner („1 htop · parkett“) statt des Titels, den die Shell setzt. Ein selbst vergebener Name hat Vorrang.</description>
+      <summary>Short tab names</summary>
+      <description>Tabs show number, running program and folder (“1 htop · parkett”) instead of the title set by the shell. A name you set yourself takes precedence.</description>
     </key>
     <key name="autohide-tab-bar" type="b">
       <default>true</default>
-      <summary>Reiterleiste bei einem Reiter ausblenden</summary>
-      <description>Die Reiterleiste nur zeigen, wenn mehr als ein Reiter offen ist.</description>
+      <summary>Hide tab bar with a single tab</summary>
+      <description>Show the tab bar only when more than one tab is open.</description>
     </key>
     <key name="new-terminal-directory" enum="de.linuxundich.Parkett.NewTerminalDirectory">
       <default>'current'</default>
-      <summary>Verzeichnis neuer Terminals</summary>
-      <description>„current“: Verzeichnis des aktiven Bereichs übernehmen, „home“: im Persönlichen Ordner starten.</description>
+      <summary>Directory for new terminals</summary>
+      <description>“current”: use the directory of the active pane, “home”: start in the home folder.</description>
     </key>
     <key name="default-profile" type="s">
       <default>'standard'</default>
-      <summary>Standardprofil</summary>
-      <description>Id des Profils für neue Reiter (Dateiname unter ~/.config/parkett/profiles ohne .toml).</description>
+      <summary>Default profile</summary>
+      <description>Id of the profile for new tabs (file name in ~/.config/parkett/profiles without .toml).</description>
     </key>
     <key name="custom-shortcuts" type="a{ss}">
       <default>{}</default>
-      <summary>Eigene Tastenkürzel</summary>
-      <description>Aktion (z. B. „win.split-right“) → Kürzel in GTK-Schreibweise; leer = Kürzel aus. Fehlende Aktionen nutzen die Standardbelegung.</description>
+      <summary>Custom keyboard shortcuts</summary>
+      <description>Action (e.g. “win.split-right”) → shortcut in GTK notation; empty = shortcut off. Actions not listed use the default shortcut.</description>
     </key>
     <key name="restore-session" type="b">
       <default>true</default>
-      <summary>Letzte Sitzung wiederherstellen</summary>
-      <description>Beim Start die Fenster und Reiter der letzten Sitzung öffnen: Aufteilung, Profile, Verzeichnisse und eigene Titel, ohne die Programme darin.</description>
+      <summary>Restore last session</summary>
+      <description>On start, open the windows and tabs of the last session: layout, profiles, directories and custom titles, without the programs running in them.</description>
     </key>
     <key name="notify-command-finished" type="b">
       <default>true</default>
-      <summary>Benachrichtigen, wenn ein Befehl endet</summary>
-      <description>Meldung, wenn ein Befehl, der mindestens 10 Sekunden lief, in einem nicht sichtbaren Bereich endet. Setzt die Shell-Integration von VTE voraus (vte.sh).</description>
+      <summary>Notify when a command finishes</summary>
+      <description>Show a notification when a command that ran for at least 10 seconds finishes in a pane that is not visible. Requires the VTE shell integration (vte.sh).</description>
     </key>
     <key name="enable-sixel" type="b">
       <default>true</default>
-      <summary>Sixel-Grafiken anzeigen</summary>
-      <description>Bilder im Sixel-Format im Terminal darstellen. Wirkt nur, wenn die installierte VTE-Bibliothek mit Sixel gebaut ist.</description>
+      <summary>Show Sixel graphics</summary>
+      <description>Display images in Sixel format in the terminal. Only works if the installed VTE library is built with Sixel support.</description>
     </key>
     <key name="scrollback-lines" type="i">
       <range min="-1" max="1000000"/>
       <default>10000</default>
-      <summary>Zeilen im Verlauf</summary>
-      <description>Wie viele Zeilen jedes Terminal zum Zurückblättern behält; -1 = unbegrenzt.</description>
+      <summary>Scrollback lines</summary>
+      <description>How many lines each terminal keeps for scrolling back; -1 = unlimited.</description>
     </key>
   </schema>
 </schemalist>

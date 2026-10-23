@@ -11,10 +11,11 @@ use gtk::{gio, glib, pango};
 use parkett_core::palette::{Face, Palette};
 use parkett_core::profile::{Bell, CursorBlink, CursorShape, ExitAction, Profile};
 
+use crate::i18n::{gettext, ntrf, trf};
 use crate::profiles::ProfileManager;
 
 pub fn show(parent: Option<&gtk::Window>) {
-    let dialog = adw::PreferencesDialog::builder().title("Einstellungen").search_enabled(true).build();
+    let dialog = adw::PreferencesDialog::builder().title(gettext("Preferences")).search_enabled(true).build();
     dialog.add(&general_page());
     dialog.add(&profiles_page(&dialog));
     dialog.add(&templates_page(&dialog));
@@ -25,40 +26,45 @@ pub fn show(parent: Option<&gtk::Window>) {
 
 fn general_page() -> adw::PreferencesPage {
     let settings = crate::settings::settings();
-    let page = adw::PreferencesPage::builder().title("Allgemein").icon_name("preferences-system-symbolic").build();
+    let page =
+        adw::PreferencesPage::builder().title(gettext("General")).icon_name("preferences-system-symbolic").build();
 
-    let look = adw::PreferencesGroup::builder().title("Darstellung").build();
+    let look = adw::PreferencesGroup::builder().title(gettext("Appearance")).build();
     let dim = adw::SwitchRow::builder()
-        .title("Inaktive Bereiche abblenden")
-        .subtitle("Zeigt in geteilten Reitern, welcher Bereich den Fokus hat")
+        .title(gettext("Dim inactive panes"))
+        .subtitle(gettext("Shows which pane has focus in split tabs"))
         .build();
     settings.bind("dim-unfocused", &dim, "active").build();
     let labels = adw::SwitchRow::builder()
-        .title("Kurze Reiter-Namen")
-        .subtitle("Nummer, Programm und Ordner statt des Titels der Shell")
+        .title(gettext("Short tab names"))
+        .subtitle(gettext("Number, program and folder instead of the shell title"))
         .build();
     settings.bind("short-tab-labels", &labels, "active").build();
     let template = adw::EntryRow::builder()
-        .title("Vorlage für Reiter-Namen")
-        .tooltip_text("{n} Nummer · {program} Programm · {dir} Ordner · {path} ganzer Pfad · {host} Rechner bei SSH · {title} Titel der Shell · {profile} Profil")
+        .title(gettext("Tab name template"))
+        .tooltip_text(gettext("{n} number · {program} program · {dir} folder · {path} full path · {host} host over SSH · {title} shell title · {profile} profile"))
         .build();
     settings.bind("tab-label-template", &template, "text").build();
     settings.bind("short-tab-labels", &template, "sensitive").get_only().build();
-    let tabbar = adw::SwitchRow::builder().title("Reiterleiste bei einem Reiter ausblenden").build();
+    let tabbar = adw::SwitchRow::builder().title(gettext("Hide tab bar with a single tab")).build();
     settings.bind("autohide-tab-bar", &tabbar, "active").build();
     let context = adw::SwitchRow::builder()
-        .title("Kontextfarbe für root und SSH")
-        .subtitle("Linie, Chip und getönter Hintergrund, Farben aus dem Farbschema")
+        .title(gettext("Context color for root and SSH"))
+        .subtitle(gettext("Line, chip and tinted background, colors from the color scheme"))
         .build();
     settings.bind("context-colors", &context, "active").build();
     let contrast = adw::SwitchRow::builder()
-        .title("Hohen Kontrast des Systems übernehmen")
-        .subtitle("Farbschema „Hoher Kontrast“ in allen Bereichen, solange er in GNOME an ist")
+        .title(gettext("Follow system high contrast"))
+        .subtitle(gettext("Color scheme “High Contrast” in all panes while it is on in GNOME"))
         .build();
     settings.bind("follow-high-contrast", &contrast, "active").build();
     let style = adw::ComboRow::builder()
-        .title("Stil")
-        .model(&gtk::StringList::new(&["Systemstil folgen", "Hell", "Dunkel"]))
+        .title(gettext("Style"))
+        .model(&gtk::StringList::new(&[
+            gettext("Follow system style").as_str(),
+            gettext("Light").as_str(),
+            gettext("Dark").as_str(),
+        ]))
         .build();
     style.set_selected(match settings.string("style").as_str() {
         "light" => 1,
@@ -72,8 +78,8 @@ fn general_page() -> adw::PreferencesPage {
     look.add(&style);
     look.add(&contrast);
     let title = adw::ComboRow::builder()
-        .title("Bereichstitel bei geteilten Reitern")
-        .model(&gtk::StringList::new(&["Schwebend", "Als Zeile"]))
+        .title(gettext("Pane titles in split tabs"))
+        .model(&gtk::StringList::new(&[gettext("Floating").as_str(), gettext("As a row").as_str()]))
         .build();
     title.set_selected(if settings.string("pane-title") == "row" { 1 } else { 0 });
     title.connect_selected_notify(|row| {
@@ -88,10 +94,13 @@ fn general_page() -> adw::PreferencesPage {
     look.add(&tabbar);
     page.add(&look);
 
-    let behaviour = adw::PreferencesGroup::builder().title("Verhalten").build();
+    let behaviour = adw::PreferencesGroup::builder().title(gettext("Behavior")).build();
     let dir = adw::ComboRow::builder()
-        .title("Neue Terminals öffnen in")
-        .model(&gtk::StringList::new(&["Verzeichnis des aktiven Bereichs", "Persönlichem Ordner"]))
+        .title(gettext("Open new terminals in"))
+        .model(&gtk::StringList::new(&[
+            gettext("Directory of the active pane").as_str(),
+            gettext("Home folder").as_str(),
+        ]))
         .build();
     dir.set_selected(if settings.string("new-terminal-directory") == "home" { 1 } else { 0 });
     dir.connect_selected_notify(|row| {
@@ -99,42 +108,42 @@ fn general_page() -> adw::PreferencesPage {
             .set_string("new-terminal-directory", if row.selected() == 1 { "home" } else { "current" });
     });
     let confirm = adw::SwitchRow::builder()
-        .title("Vor dem Schließen nachfragen")
-        .subtitle("Wenn in einem Bereich noch ein Programm läuft")
+        .title(gettext("Ask before closing"))
+        .subtitle(gettext("When a program is still running in a pane"))
         .build();
     settings.bind("confirm-close", &confirm, "active").build();
     let scrollback = adw::SpinRow::builder()
-        .title("Zeilen im Verlauf")
-        .subtitle("−1 = unbegrenzt")
+        .title(gettext("Scrollback lines"))
+        .subtitle(gettext("−1 = unlimited"))
         .adjustment(&gtk::Adjustment::new(10000.0, -1.0, 1_000_000.0, 1000.0, 10000.0, 0.0))
         .build();
     settings.bind("scrollback-lines", &scrollback, "value").build();
     behaviour.add(&dir);
     behaviour.add(&confirm);
     let paste = adw::SwitchRow::builder()
-        .title("Vor mehrzeiligem Einfügen warnen")
-        .subtitle("Zeigt Text mit Zeilenumbruch vorher – er würde sonst sofort ausgeführt")
+        .title(gettext("Warn before multi-line paste"))
+        .subtitle(gettext("Shows text with line breaks first – it would run immediately otherwise"))
         .build();
     settings.bind("warn-multiline-paste", &paste, "active").build();
     behaviour.add(&paste);
     let restore = adw::SwitchRow::builder()
-        .title("Letzte Sitzung wiederherstellen")
-        .subtitle("Fenster, Reiter, Aufteilung und Verzeichnisse – ohne die Programme darin")
+        .title(gettext("Restore last session"))
+        .subtitle(gettext("Windows, tabs, splits and directories – without the programs in them"))
         .build();
     settings.bind("restore-session", &restore, "active").build();
     behaviour.add(&restore);
     let notify = adw::SwitchRow::builder()
-        .title("Benachrichtigen, wenn ein Befehl endet")
-        .subtitle("Nach mindestens 10 Sekunden Laufzeit, wenn der Bereich nicht zu sehen ist")
+        .title(gettext("Notify when a command finishes"))
+        .subtitle(gettext("After running for at least 10 seconds, when the pane is not visible"))
         .build();
     settings.bind("notify-command-finished", &notify, "active").build();
     behaviour.add(&notify);
-    let sixel = adw::SwitchRow::builder().title("Sixel-Grafiken anzeigen").build();
+    let sixel = adw::SwitchRow::builder().title(gettext("Show Sixel graphics")).build();
     if crate::terminal::sixel_supported() {
-        sixel.set_subtitle("Bilder im Terminal, z. B. von img2sixel oder chafa");
+        sixel.set_subtitle(&gettext("Images in the terminal, e.g. from img2sixel or chafa"));
         settings.bind("enable-sixel", &sixel, "active").build();
     } else {
-        sixel.set_subtitle("Die installierte VTE-Bibliothek ist ohne Sixel gebaut");
+        sixel.set_subtitle(&gettext("The installed VTE library is built without Sixel"));
         sixel.set_sensitive(false);
     }
     behaviour.add(&sixel);
@@ -144,16 +153,17 @@ fn general_page() -> adw::PreferencesPage {
 }
 
 fn profiles_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
-    let page = adw::PreferencesPage::builder().title("Profile").icon_name("applications-utilities-symbolic").build();
+    let page =
+        adw::PreferencesPage::builder().title(gettext("Profiles")).icon_name("applications-utilities-symbolic").build();
     let add = gtk::Button::builder()
         .icon_name("list-add-symbolic")
-        .tooltip_text("Neues Profil")
+        .tooltip_text(gettext("New profile"))
         .css_classes(["flat"])
         .valign(gtk::Align::Center)
         .build();
     let group = adw::PreferencesGroup::builder()
-        .title("Profile")
-        .description("Ein Profil legt fest, wie ein Terminal startet und welches Farbschema es nutzt.")
+        .title(gettext("Profiles"))
+        .description(gettext("A profile defines how a terminal starts and which color scheme it uses."))
         .header_suffix(&add)
         .build();
     page.add(&group);
@@ -172,8 +182,11 @@ fn profiles_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
             let default = manager.default_id();
             for p in manager.profiles() {
                 let pal = manager.palette(&p.palette);
-                let subtitle =
-                    if p.id == default { format!("{} · Standardprofil", pal.name) } else { pal.name.clone() };
+                let subtitle = if p.id == default {
+                    trf("{scheme} · Default profile", &[("scheme", &pal.name)])
+                } else {
+                    pal.name.clone()
+                };
                 let row = adw::ActionRow::builder()
                     .title(glib::markup_escape_text(&p.name).as_str())
                     .subtitle(glib::markup_escape_text(&subtitle).as_str())
@@ -199,9 +212,12 @@ fn profiles_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
     let weak = dialog.downgrade();
     add.connect_clicked(move |_| {
         let Some(d) = weak.upgrade() else { return };
-        match ProfileManager::get().create("Neues Profil") {
+        match ProfileManager::get().create(&gettext("New profile")) {
             Ok(p) => d.push_subpage(&profile_editor(&d, &p.id, true)),
-            Err(e) => d.add_toast(crate::window::plain_toast(&format!("Profil nicht angelegt: {e}"))),
+            Err(e) => d.add_toast(crate::window::plain_toast(&trf(
+                "Profile not created: {error}",
+                &[("error", &e.to_string())],
+            ))),
         }
     });
     page
@@ -236,7 +252,7 @@ fn update(dialog: &adw::PreferencesDialog, id: &str, f: impl FnOnce(&mut Profile
     }
     f(&mut p);
     if let Err(e) = manager.save(&p) {
-        dialog.add_toast(crate::window::plain_toast(&format!("Nicht gespeichert: {e}")));
+        dialog.add_toast(crate::window::plain_toast(&trf("Not saved: {error}", &[("error", &e.to_string())])));
     }
 }
 
@@ -249,7 +265,7 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
 
     // Allgemein
     let general = adw::PreferencesGroup::new();
-    let name = adw::EntryRow::builder().title("Name").text(&profile.name).build();
+    let name = adw::EntryRow::builder().title(gettext("Name")).text(&profile.name).build();
     let d = dialog.downgrade();
     let i = id.clone();
     name.connect_changed(move |e| {
@@ -260,8 +276,8 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
     });
     let is_default = manager.default_id() == id;
     let default = adw::SwitchRow::builder()
-        .title("Standardprofil")
-        .subtitle("Für neue Reiter")
+        .title(gettext("Default profile"))
+        .subtitle(gettext("For new tabs"))
         .active(is_default)
         .sensitive(!is_default)
         .build();
@@ -278,14 +294,14 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
 
     // Farbschema als Kacheln
     let import = gtk::Button::builder()
-        .label("Importieren …")
+        .label(gettext("Import…"))
         .css_classes(["flat"])
         .valign(gtk::Align::Center)
-        .tooltip_text("Ptyxis-Palette (.palette) oder Tilix-Schema (.json)")
+        .tooltip_text(gettext("Ptyxis palette (.palette) or Tilix scheme (.json)"))
         .build();
     let schemes = adw::PreferencesGroup::builder()
-        .title("Farbschema")
-        .description("Jedes Schema hat eine helle und eine dunkle Fassung (links/rechts); Parkett folgt dem Systemstil. Die Auswahl gilt sofort.")
+        .title(gettext("Color scheme"))
+        .description(gettext("Each scheme has a light and a dark variant (left/right); Parkett follows the system style. The selection applies immediately."))
         .header_suffix(&import)
         .build();
     let flow = gtk::FlowBox::builder()
@@ -371,11 +387,12 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
         let Some(d) = d.upgrade() else { return };
         let filters = gio::ListStore::new::<gtk::FileFilter>();
         let filter = gtk::FileFilter::new();
-        filter.set_name(Some("Farbschemata (.palette, .json)"));
+        filter.set_name(Some(&gettext("Color schemes (.palette, .json)")));
         filter.add_pattern("*.palette");
         filter.add_pattern("*.json");
         filters.append(&filter);
-        let chooser = gtk::FileDialog::builder().title("Farbschema importieren").filters(&filters).modal(true).build();
+        let chooser =
+            gtk::FileDialog::builder().title(gettext("Import color scheme")).filters(&filters).modal(true).build();
         let window = button.root().and_downcast::<gtk::Window>();
         let i = i.clone();
         chooser.open(window.as_ref(), gio::Cancellable::NONE, move |res| {
@@ -384,26 +401,29 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
             match ProfileManager::get().import(&path) {
                 Ok(pal) => {
                     update(&d, &i, |p| p.palette = pal.id.clone());
-                    let note = if pal.has_variants() {
-                        String::new()
+                    let text = if pal.has_variants() {
+                        trf("“{name}” imported", &[("name", &pal.name)])
                     } else {
-                        " (nur eine Fassung, gilt für hell und dunkel)".into()
+                        trf("“{name}” imported (only one variant, applies to light and dark)", &[("name", &pal.name)])
                     };
-                    d.add_toast(crate::window::plain_toast(&format!("„{}“ importiert{note}", pal.name)));
+                    d.add_toast(crate::window::plain_toast(&text));
                 }
-                Err(e) => d.add_toast(crate::window::plain_toast(&format!("Import fehlgeschlagen: {e}"))),
+                Err(e) => d.add_toast(crate::window::plain_toast(&trf(
+                    "Import failed: {error}",
+                    &[("error", &e.to_string())],
+                ))),
             }
         });
     });
 
     // Schrift, Cursor, Glocke
-    let look = adw::PreferencesGroup::builder().title("Schrift und Cursor").build();
+    let look = adw::PreferencesGroup::builder().title(gettext("Font and cursor")).build();
     let system_font = adw::SwitchRow::builder()
-        .title("Systemschrift verwenden")
-        .subtitle("Festbreitenschrift aus den GNOME-Einstellungen")
+        .title(gettext("Use system font"))
+        .subtitle(gettext("Monospace font from the GNOME settings"))
         .active(profile.font.trim().is_empty())
         .build();
-    let font_dialog = gtk::FontDialog::builder().title("Schrift für das Terminal").modal(true).build();
+    let font_dialog = gtk::FontDialog::builder().title(gettext("Terminal font")).modal(true).build();
     // nur Festbreitenschriften anbieten
     font_dialog.set_filter(Some(&gtk::CustomFilter::new(|item| {
         item.downcast_ref::<pango::FontFamily>().is_none_or(|f| f.is_monospace())
@@ -418,7 +438,7 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
         .font_desc(&pango::FontDescription::from_string(&initial))
         .valign(gtk::Align::Center)
         .build();
-    let font_row = adw::ActionRow::builder().title("Schrift").sensitive(!system_font.is_active()).build();
+    let font_row = adw::ActionRow::builder().title(gettext("Font")).sensitive(!system_font.is_active()).build();
     font_row.add_suffix(&font_button);
     font_row.set_activatable_widget(Some(&font_button));
     let d = dialog.downgrade();
@@ -446,8 +466,8 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
     look.add(&system_font);
     look.add(&font_row);
     let opacity = adw::SpinRow::builder()
-        .title("Deckkraft des Hintergrunds")
-        .subtitle("In Prozent; unter 100 scheint der Desktop durch")
+        .title(gettext("Background opacity"))
+        .subtitle(gettext("In percent; below 100 the desktop shows through"))
         .digits(0)
         .adjustment(&gtk::Adjustment::new(
             (profile.opacity() * 100.0).round(),
@@ -471,8 +491,8 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
     look.add(&choice_row(
         dialog,
         &id,
-        "Cursorform",
-        &["Block", "Strich", "Unterstrich"],
+        &gettext("Cursor shape"),
+        &[gettext("Block").as_str(), gettext("I-beam").as_str(), gettext("Underline").as_str()],
         shapes.iter().position(|c| *c == profile.cursor_shape).unwrap_or(0),
         move |p, n| p.cursor_shape = shapes[n],
     ));
@@ -480,8 +500,8 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
     look.add(&choice_row(
         dialog,
         &id,
-        "Cursor blinkt",
-        &["Wie im System", "Immer", "Nie"],
+        &gettext("Cursor blinks"),
+        &[gettext("Like the system").as_str(), gettext("Always").as_str(), gettext("Never").as_str()],
         blinks.iter().position(|c| *c == profile.cursor_blink).unwrap_or(0),
         move |p, n| p.cursor_blink = blinks[n],
     ));
@@ -489,16 +509,16 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
     look.add(&choice_row(
         dialog,
         &id,
-        "Glocke",
-        &["Ton und Reiter markieren", "Nur Reiter markieren", "Aus"],
+        &gettext("Bell"),
+        &[gettext("Sound and mark tab").as_str(), gettext("Mark tab only").as_str(), gettext("Off").as_str()],
         bells.iter().position(|c| *c == profile.bell).unwrap_or(0),
         move |p, n| p.bell = bells[n],
     ));
     page.add(&look);
 
     // Start
-    let start = adw::PreferencesGroup::builder().title("Start").build();
-    let login = adw::SwitchRow::builder().title("Als Login-Shell starten").active(profile.login_shell).build();
+    let start = adw::PreferencesGroup::builder().title(gettext("Startup")).build();
+    let login = adw::SwitchRow::builder().title(gettext("Run as login shell")).active(profile.login_shell).build();
     let d = dialog.downgrade();
     let i = id.clone();
     login.connect_active_notify(move |row| {
@@ -507,12 +527,16 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
             update(&d, &i, |p| p.login_shell = v);
         }
     });
-    let command =
-        adw::EntryRow::builder().title("Befehl statt Shell (z. B. ssh bender)").text(&profile.command).build();
-    let directory =
-        adw::EntryRow::builder().title("Startverzeichnis (leer = Einstellung)").text(&profile.directory).build();
+    let command = adw::EntryRow::builder()
+        .title(gettext("Command instead of shell (e.g. ssh bender)"))
+        .text(&profile.command)
+        .build();
+    let directory = adw::EntryRow::builder()
+        .title(gettext("Start directory (empty = preferences)"))
+        .text(&profile.directory)
+        .build();
     let env = adw::EntryRow::builder()
-        .title("Umgebungsvariablen (NAME=wert, mit Leerzeichen getrennt)")
+        .title(gettext("Environment variables (NAME=value, separated by spaces)"))
         .text(profile.environment_line())
         .build();
     for (row, which) in [(&command, 0u8), (&directory, 1), (&env, 2)] {
@@ -549,15 +573,15 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
 
     // Automatischer Wechsel: Aussehen dieses Profils für bestimmte Rechner und Ordner
     let auto = adw::PreferencesGroup::builder()
-        .title("Automatisch verwenden")
-        .description("Bereiche zeigen Farbschema, Schrift und Deckkraft dieses Profils, solange eine Regel passt – etwa während „ssh bender“ läuft. Mehrere Einträge mit Komma trennen, * als Platzhalter.")
+        .title(gettext("Use automatically"))
+        .description(gettext("Panes show the color scheme, font and opacity of this profile while a rule matches – for example while “ssh bender” is running. Separate several entries with commas, * as wildcard."))
         .build();
     let hosts = adw::EntryRow::builder()
-        .title("Für Rechner (z. B. bender, *.tuxedo.de)")
+        .title(gettext("For hosts (e.g. bender, *.tuxedo.de)"))
         .text(profile.hosts.join(", "))
         .build();
     let dirs = adw::EntryRow::builder()
-        .title("Für Ordner, auch darunter (z. B. ~/kunde)")
+        .title(gettext("For folders, including subfolders (e.g. ~/client)"))
         .text(profile.directories.join(", "))
         .build();
     let list = |text: &str| -> Vec<String> {
@@ -578,9 +602,9 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
 
     // eigene Vorlage für den Reiter-Namen (leer = Einstellung unter Allgemein)
     let tab_label = adw::EntryRow::builder()
-        .title("Vorlage für Reiter-Namen (leer = Einstellung)")
+        .title(gettext("Tab name template (empty = preferences)"))
         .text(profile.tab_label.as_str())
-        .tooltip_text("{n} Nummer · {program} Programm · {dir} Ordner · {path} ganzer Pfad · {host} Rechner bei SSH · {title} Titel der Shell · {profile} Profil")
+        .tooltip_text(gettext("{n} number · {program} program · {dir} folder · {path} full path · {host} host over SSH · {title} shell title · {profile} profile"))
         .build();
     let d = dialog.downgrade();
     let i = id.clone();
@@ -590,15 +614,19 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
             update(&d, &i, |p| p.tab_label = text);
         }
     });
-    let labels = adw::PreferencesGroup::builder().title("Reiter").build();
+    let labels = adw::PreferencesGroup::builder().title(gettext("Tabs")).build();
     labels.add(&tab_label);
     page.add(&labels);
 
     // Prozessende
     let end = adw::PreferencesGroup::new();
     let exit = adw::ComboRow::builder()
-        .title("Wenn der Prozess endet")
-        .model(&gtk::StringList::new(&["Leiste anzeigen", "Bereich schließen (bei Erfolg)", "Neu starten"]))
+        .title(gettext("When the process exits"))
+        .model(&gtk::StringList::new(&[
+            gettext("Show bar").as_str(),
+            gettext("Close pane (on success)").as_str(),
+            gettext("Restart").as_str(),
+        ]))
         .selected(match profile.exit_action {
             ExitAction::Hold => 0,
             ExitAction::Close => 1,
@@ -623,7 +651,7 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
     // Löschen
     let danger = adw::PreferencesGroup::new();
     let delete = gtk::Button::builder()
-        .label("Profil löschen")
+        .label(gettext("Delete profile"))
         .css_classes(["destructive-action", "pill"])
         .halign(gtk::Align::Center)
         .build();
@@ -685,9 +713,9 @@ fn scheme_tile(pal: &Palette) -> gtk::Box {
     tile.append(&preview);
     tile.append(&label);
     if !pal.has_variants() {
-        tile.set_tooltip_text(Some("Nur eine Fassung – gilt für hell und dunkel"));
+        tile.set_tooltip_text(Some(&gettext("Only one variant – applies to light and dark")));
     }
-    tile.update_property(&[gtk::accessible::Property::Label(&format!("Farbschema {}", pal.name))]);
+    tile.update_property(&[gtk::accessible::Property::Label(&trf("Color scheme {name}", &[("name", &pal.name)]))]);
     tile
 }
 
@@ -722,14 +750,14 @@ type ShortcutRow = (adw::ActionRow, gtk::Label, &'static str);
 
 fn shortcuts_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
     use crate::shortcuts;
-    let page = adw::PreferencesPage::builder().title("Kürzel").icon_name("input-keyboard-symbolic").build();
+    let page = adw::PreferencesPage::builder().title(gettext("Shortcuts")).icon_name("input-keyboard-symbolic").build();
     let rows: Rc<RefCell<Vec<ShortcutRow>>> = Rc::default();
     for (n, section) in shortcuts::SECTIONS.iter().enumerate() {
-        let group = adw::PreferencesGroup::builder().title(*section).build();
+        let group = adw::PreferencesGroup::builder().title(gettext(*section)).build();
         if n == 0 {
-            group.set_description(Some("Zeile anklicken und neue Kombination drücken."));
+            group.set_description(Some(&gettext("Click a row and press a new combination.")));
             let reset = gtk::Button::builder()
-                .label("Alle zurücksetzen")
+                .label(gettext("Reset all"))
                 .css_classes(["flat"])
                 .valign(gtk::Align::Center)
                 .build();
@@ -738,7 +766,7 @@ fn shortcuts_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
         }
         for e in shortcuts::ENTRIES.iter().filter(|e| e.section == *section) {
             let label = gtk::Label::builder().css_classes(["dim-label"]).build();
-            let row = adw::ActionRow::builder().title(e.label).activatable(true).build();
+            let row = adw::ActionRow::builder().title(gettext(e.label)).activatable(true).build();
             row.add_suffix(&label);
             let d = dialog.downgrade();
             let action = e.action;
@@ -757,7 +785,7 @@ fn shortcuts_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
         move || {
             for (row, label, action) in rows.borrow().iter() {
                 label.set_label(&shortcuts::label(&shortcuts::effective(action)));
-                row.set_subtitle(if shortcuts::is_custom(action) { "Eigene Belegung" } else { "" });
+                row.set_subtitle(&if shortcuts::is_custom(action) { gettext("Custom") } else { String::new() });
             }
         }
     };
@@ -775,10 +803,12 @@ fn capture_shortcut(prefs: &adw::PreferencesDialog, action: &'static str) {
     use crate::shortcuts;
     let Some(entry) = shortcuts::entry(action) else { return };
     let current = shortcuts::label(&shortcuts::effective(action));
-    let hint =
-        format!("Aktuell: {current}\nNeue Kombination drücken. Esc bricht ab, Rücktaste schaltet das Kürzel aus.");
-    let dialog = adw::AlertDialog::new(Some(entry.label), Some(&hint));
-    dialog.add_responses(&[("cancel", "Abbrechen"), ("default", "Standard wiederherstellen")]);
+    let hint = trf(
+        "Current: {current}\nPress a new combination. Esc cancels, Backspace disables the shortcut.",
+        &[("current", &current)],
+    );
+    let dialog = adw::AlertDialog::new(Some(&gettext(entry.label)), Some(&hint));
+    dialog.add_responses(&[("cancel", gettext("Cancel").as_str()), ("default", gettext("Restore default").as_str())]);
     dialog.set_close_response("cancel");
 
     let window = prefs.root().and_downcast::<crate::window::Window>();
@@ -823,7 +853,7 @@ fn capture_shortcut(prefs: &adw::PreferencesDialog, action: &'static str) {
         match shortcuts::from_key(key, state) {
             Ok(None) => glib::Propagation::Stop,
             Err(msg) => {
-                d.set_body(msg);
+                d.set_body(&gettext(msg));
                 glib::Propagation::Stop
             }
             Ok(Some(accel)) => {
@@ -831,8 +861,10 @@ fn capture_shortcut(prefs: &adw::PreferencesDialog, action: &'static str) {
                     shortcuts::conflict(action, &accel).map(|e| e.label).or_else(|| shortcuts::reserved(&accel));
                 if let Some(other) = taken {
                     let label = shortcuts::label(std::slice::from_ref(&accel));
-                    d.set_body(&format!(
-                        "{label} ist schon „{other}“ zugeordnet. Bitte eine andere Kombination drücken."
+                    let other = gettext(other);
+                    d.set_body(&trf(
+                        "{label} is already assigned to “{other}”. Please press a different combination.",
+                        &[("label", &label), ("other", &other)],
                     ));
                 } else {
                     shortcuts::set(action, Some(&accel));
@@ -852,12 +884,12 @@ type Refill = Rc<RefCell<Option<Rc<dyn Fn()>>>>;
 /// Lesezeichen umbenennen, sortieren, löschen und Ordner hinzufügen. Jede Änderung wird
 /// sofort gespeichert; die Liste wird danach neu aufgebaut.
 fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
-    let page = adw::PreferencesPage::builder().title("Lesezeichen").icon_name("user-bookmarks-symbolic").build();
+    let page = adw::PreferencesPage::builder().title(gettext("Bookmarks")).icon_name("user-bookmarks-symbolic").build();
     let add =
-        gtk::Button::builder().label("Ordner hinzufügen …").css_classes(["flat"]).valign(gtk::Align::Center).build();
+        gtk::Button::builder().label(gettext("Add folder…")).css_classes(["flat"]).valign(gtk::Align::Center).build();
     let group = adw::PreferencesGroup::builder()
-        .title("Lesezeichen")
-        .description("Ordner für die Befehlspalette (~) und das Hauptmenü: Eingabe öffnet einen neuen Reiter, Strg+Eingabe einen neuen Bereich, Alt+Eingabe wechselt im aktiven Bereich dorthin.")
+        .title(gettext("Bookmarks"))
+        .description(gettext("Folders for the command palette (~) and the main menu: Enter opens a new tab, Ctrl+Enter a new pane, Alt+Enter switches to it in the active pane."))
         .header_suffix(&add)
         .build();
     page.add(&group);
@@ -868,7 +900,10 @@ fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
         move |list: &[parkett_core::bookmark::Bookmark]| {
             if let Err(e) = crate::bookmarks::save(list) {
                 if let Some(d) = dialog.upgrade() {
-                    d.add_toast(crate::window::plain_toast(&format!("Lesezeichen nicht gespeichert: {e}")));
+                    d.add_toast(crate::window::plain_toast(&trf(
+                        "Bookmarks not saved: {error}",
+                        &[("error", &e.to_string())],
+                    )));
                 }
             }
         }
@@ -887,8 +922,8 @@ fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
             let list = crate::bookmarks::load();
             if list.is_empty() {
                 let empty = adw::ActionRow::builder()
-                    .title("Noch keine Lesezeichen")
-                    .subtitle("Im Terminal: Befehlspalette oder Hauptmenü › „Aktuellen Ordner als Lesezeichen“")
+                    .title(gettext("No bookmarks yet"))
+                    .subtitle(gettext("In the terminal: command palette or main menu › “Current folder as bookmark”"))
                     .sensitive(false)
                     .build();
                 group.add(&empty);
@@ -908,9 +943,9 @@ fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
                     }
                 });
                 for (icon, tip, delta) in [
-                    ("go-up-symbolic", "Nach oben", -1i32),
-                    ("go-down-symbolic", "Nach unten", 1),
-                    ("user-trash-symbolic", "Löschen", 0),
+                    ("go-up-symbolic", gettext("Move up"), -1i32),
+                    ("go-down-symbolic", gettext("Move down"), 1),
+                    ("user-trash-symbolic", gettext("Delete"), 0),
                 ] {
                     let button = gtk::Button::builder()
                         .icon_name(icon)
@@ -962,7 +997,7 @@ fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
     let d = dialog.downgrade();
     add.connect_clicked(move |button| {
         let Some(d) = d.upgrade() else { return };
-        let chooser = gtk::FileDialog::builder().title("Ordner als Lesezeichen").modal(true).build();
+        let chooser = gtk::FileDialog::builder().title(gettext("Folder as bookmark")).modal(true).build();
         let window = button.root().and_downcast::<gtk::Window>();
         let f = f.clone();
         chooser.select_folder(window.as_ref(), gio::Cancellable::NONE, move |res| {
@@ -970,8 +1005,11 @@ fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
             let Some(path) = folder.path().and_then(|p| p.to_str().map(String::from)) else { return };
             match crate::bookmarks::add(&path) {
                 Ok(true) => f(),
-                Ok(false) => d.add_toast(crate::window::plain_toast("Dieser Ordner ist schon ein Lesezeichen")),
-                Err(e) => d.add_toast(crate::window::plain_toast(&format!("Lesezeichen nicht gespeichert: {e}"))),
+                Ok(false) => d.add_toast(crate::window::plain_toast(&gettext("This folder is already a bookmark"))),
+                Err(e) => d.add_toast(crate::window::plain_toast(&trf(
+                    "Bookmarks not saved: {error}",
+                    &[("error", &e.to_string())],
+                ))),
             }
         });
     });
@@ -979,10 +1017,10 @@ fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
 }
 
 fn templates_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
-    let page = adw::PreferencesPage::builder().title("Vorlagen").icon_name("view-grid-symbolic").build();
+    let page = adw::PreferencesPage::builder().title(gettext("Templates")).icon_name("view-grid-symbolic").build();
     let group = adw::PreferencesGroup::builder()
-        .title("Vorlagen")
-        .description("Eine Vorlage öffnet einen Reiter mit fertiger Aufteilung, Profilen und Startbefehlen. Neue Vorlagen entstehen aus einem laufenden Reiter: Menü am Neu-Knopf › „Aktuellen Reiter als Vorlage speichern …“.")
+        .title(gettext("Templates"))
+        .description(gettext("A template opens a tab with a ready-made layout, profiles and start commands. New templates are made from a running tab: menu on the New button › “Save current tab as template…”."))
         .build();
     page.add(&group);
     let rows: Rc<RefCell<Vec<gtk::Widget>>> = Rc::default();
@@ -998,8 +1036,8 @@ fn templates_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
             let templates = ProfileManager::get().templates();
             if templates.is_empty() {
                 let empty = adw::ActionRow::builder()
-                    .title("Noch keine Vorlagen")
-                    .subtitle("Teile einen Reiter wie gewünscht auf und speichere ihn als Vorlage")
+                    .title(gettext("No templates yet"))
+                    .subtitle(gettext("Split a tab as you like and save it as a template"))
                     .sensitive(false)
                     .build();
                 group.add(&empty);
@@ -1008,16 +1046,18 @@ fn templates_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
             for t in templates {
                 let n = t.layout.panes().len();
                 let dir = if t.directory.trim().is_empty() {
-                    "Verzeichnis beim Öffnen wählen".to_string()
+                    gettext("Choose directory when opening")
                 } else {
                     t.directory.clone()
                 };
                 let row = adw::ActionRow::builder()
                     .title(glib::markup_escape_text(&t.name).as_str())
                     .subtitle(
-                        glib::markup_escape_text(&format!(
-                            "{n} {} · {dir}",
-                            if n == 1 { "Bereich" } else { "Bereiche" }
+                        glib::markup_escape_text(&ntrf(
+                            "{n} pane · {dir}",
+                            "{n} panes · {dir}",
+                            n as u32,
+                            &[("dir", &dir)],
                         ))
                         .as_str(),
                     )
@@ -1031,7 +1071,7 @@ fn templates_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
                     // inzwischen gelöscht (z. B. aus einem zweiten Fenster)?
                     match template_editor(&d, &id) {
                         Some(page) => d.push_subpage(&page),
-                        None => d.add_toast(crate::window::plain_toast("Die Vorlage gibt es nicht mehr")),
+                        None => d.add_toast(crate::window::plain_toast(&gettext("The template no longer exists"))),
                     }
                 });
                 group.add(&row);
@@ -1051,7 +1091,7 @@ fn update_template(dialog: &adw::PreferencesDialog, id: &str, f: impl FnOnce(&mu
     let Some(mut t) = manager.template(id) else { return };
     f(&mut t);
     if let Err(e) = manager.save_template(&t) {
-        dialog.add_toast(crate::window::plain_toast(&format!("Nicht gespeichert: {e}")));
+        dialog.add_toast(crate::window::plain_toast(&trf("Not saved: {error}", &[("error", &e.to_string())])));
     }
 }
 
@@ -1062,7 +1102,7 @@ fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::Nav
     let page = adw::PreferencesPage::new();
 
     let general = adw::PreferencesGroup::new();
-    let name = adw::EntryRow::builder().title("Name").text(&template.name).build();
+    let name = adw::EntryRow::builder().title(gettext("Name")).text(&template.name).build();
     let d = dialog.downgrade();
     let i = id.clone();
     name.connect_changed(move |e| {
@@ -1072,7 +1112,7 @@ fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::Nav
         }
     });
     let dir = adw::EntryRow::builder()
-        .title("Festes Verzeichnis (leer = beim Öffnen wählen)")
+        .title(gettext("Fixed directory (empty = choose when opening)"))
         .text(&template.directory)
         .build();
     let d = dialog.downgrade();
@@ -1092,7 +1132,7 @@ fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::Nav
     preview.set_overflow(gtk::Overflow::Hidden);
     let (layout, specs) = template.instantiate();
     let names: Vec<String> =
-        specs.iter().map(|(_, s)| if s.name.is_empty() { "Shell".into() } else { s.name.clone() }).collect();
+        specs.iter().map(|(_, s)| if s.name.is_empty() { gettext("Shell") } else { s.name.clone() }).collect();
     preview.set_draw_func(move |area, cr, w, h| {
         let fg = area.color();
         let rects = layout.geometry(w as f32, h as f32);
@@ -1107,10 +1147,13 @@ fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::Nav
         }
     });
     // Aufteilung ändern: je Bereich teilen/entfernen, hier angleichen; danach die Seite neu
-    let equalize = gtk::Button::builder().label("Angleichen").css_classes(["flat"]).valign(gtk::Align::Center).build();
+    let equalize =
+        gtk::Button::builder().label(gettext("Equalize")).css_classes(["flat"]).valign(gtk::Align::Center).build();
     let pg = adw::PreferencesGroup::builder()
-        .title("Aufteilung")
-        .description("Kommt aus dem Reiter, aus dem die Vorlage gespeichert wurde; mit den Knöpfen an den Bereichen teilen oder entfernen.")
+        .title(gettext("Layout"))
+        .description(gettext(
+            "Comes from the tab the template was saved from; split or remove panes with the buttons on them.",
+        ))
         .header_suffix(&equalize)
         .build();
     let edit_layout = {
@@ -1136,16 +1179,16 @@ fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::Nav
     page.add(&pg);
 
     let profiles = manager.profiles();
-    let mut profile_names = vec!["Standardprofil".to_string()];
+    let mut profile_names = vec![gettext("Default profile")];
     profile_names.extend(profiles.iter().map(|p| p.name.clone()));
     let refs: Vec<&str> = profile_names.iter().map(String::as_str).collect();
     let count = template.layout.panes().len();
     for (n, spec) in template.layout.panes().iter().enumerate() {
         let buttons = gtk::Box::builder().spacing(2).valign(gtk::Align::Center).build();
         for (icon, tip, action) in [
-            ("parkett-split-right-symbolic", "Rechts teilen", 0u8),
-            ("parkett-split-down-symbolic", "Unten teilen", 1),
-            ("user-trash-symbolic", "Bereich entfernen", 2),
+            ("parkett-split-right-symbolic", gettext("Split right"), 0u8),
+            ("parkett-split-down-symbolic", gettext("Split down"), 1),
+            ("user-trash-symbolic", gettext("Remove pane"), 2),
         ] {
             let b = gtk::Button::builder().icon_name(icon).tooltip_text(tip).css_classes(["flat"]).build();
             b.set_sensitive(action != 2 || count > 1);
@@ -1162,15 +1205,15 @@ fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::Nav
             buttons.append(&b);
         }
         let g = adw::PreferencesGroup::builder()
-            .title(format!("Bereich {}", n + 1).as_str())
+            .title(trf("Pane {n}", &[("n", &(n + 1).to_string())]))
             .header_suffix(&buttons)
             .build();
-        let pname = adw::EntryRow::builder().title("Name").text(&spec.name).build();
-        let profile = adw::ComboRow::builder().title("Profil").model(&gtk::StringList::new(&refs)).build();
+        let pname = adw::EntryRow::builder().title(gettext("Name")).text(&spec.name).build();
+        let profile = adw::ComboRow::builder().title(gettext("Profile")).model(&gtk::StringList::new(&refs)).build();
         profile.set_selected(profiles.iter().position(|p| p.id == spec.profile).map(|i| i as u32 + 1).unwrap_or(0));
         let command =
-            adw::EntryRow::builder().title("Startbefehl (wird in die Shell getippt)").text(&spec.command).build();
-        let subdir = adw::EntryRow::builder().title("Unterverzeichnis").text(&spec.subdir).build();
+            adw::EntryRow::builder().title(gettext("Start command (typed into the shell)")).text(&spec.command).build();
+        let subdir = adw::EntryRow::builder().title(gettext("Subdirectory")).text(&spec.subdir).build();
         for (row, field) in [(&pname, 0u8), (&command, 1), (&subdir, 2)] {
             let d = dialog.downgrade();
             let i = id.clone();
@@ -1214,7 +1257,7 @@ fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::Nav
 
     let danger = adw::PreferencesGroup::new();
     let delete = gtk::Button::builder()
-        .label("Vorlage löschen")
+        .label(gettext("Delete template"))
         .css_classes(["destructive-action", "pill"])
         .halign(gtk::Align::Center)
         .build();

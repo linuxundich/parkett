@@ -21,6 +21,7 @@
     </ul>
   </description>
   <launchable type="desktop-id">de.linuxundich.Parkett.desktop</launchable>
+  <translation type="gettext">parkett</translation>
   <developer id="de.linuxundich">
     <name translate="no">Christoph Langner</name>
   </developer>

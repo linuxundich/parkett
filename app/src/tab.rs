@@ -13,6 +13,7 @@ use gtk::glib::subclass::Signal;
 use parkett_core::layout::{Direction, Layout, Node, Orientation, PaneId, Side};
 use vte::prelude::*;
 
+use crate::i18n::{gettext, ntrf, N_};
 use crate::pane::Pane;
 use crate::terminal::{Launch, MIN_COLUMNS, MIN_ROWS};
 
@@ -169,7 +170,7 @@ impl Tab {
         let overlay = gtk::Overlay::new();
 
         let zoom_label = gtk::Label::new(None);
-        let show_all = gtk::Button::builder().label("Alle zeigen").action_name("win.toggle-zoom").build();
+        let show_all = gtk::Button::builder().label(gettext("Show all")).action_name("win.toggle-zoom").build();
         let banner = gtk::Box::builder()
             .css_classes(["parkett-zoom-banner"])
             .halign(gtk::Align::Center)
@@ -191,15 +192,15 @@ impl Tab {
 
         // Hilfeleiste des Layout-Modus (unten mittig)
         let hints = [
-            ("←↑↓→", "Fokus"),
-            ("Umschalt+Pfeil", "Größe"),
-            ("R/D", "teilen"),
-            ("M+Pfeil", "tauschen"),
-            ("Z", "maximieren"),
-            ("=", "angleichen"),
-            ("X", "schließen"),
-            ("1–9", "springen"),
-            ("Esc", "fertig"),
+            ("←↑↓→", N_("focus")),
+            (N_("Shift+Arrow"), N_("size")),
+            ("R/D", N_("split")),
+            (N_("M+Arrow"), N_("swap")),
+            ("Z", N_("maximize")),
+            ("=", N_("equalize")),
+            ("X", N_("close")),
+            ("1–9", N_("jump")),
+            ("Esc", N_("done")),
         ];
         // FlowBox statt Box: bricht in schmalen Fenstern um, statt abgeschnitten zu werden
         let bar = gtk::FlowBox::builder()
@@ -219,8 +220,8 @@ impl Tab {
         bar.append(&gtk::Label::builder().label("LAYOUT").css_classes(["parkett-mode-tag"]).build());
         for (key, what) in hints {
             let item = gtk::Box::builder().spacing(5).build();
-            item.append(&gtk::Label::builder().label(key).css_classes(["parkett-key"]).build());
-            item.append(&gtk::Label::new(Some(what)));
+            item.append(&gtk::Label::builder().label(gettext(key)).css_classes(["parkett-key"]).build());
+            item.append(&gtk::Label::new(Some(&gettext(what))));
             bar.append(&item);
         }
         tab.imp().overlay.get().unwrap().add_overlay(&bar);
@@ -855,9 +856,11 @@ impl Tab {
         let hidden = imp.panes.borrow().len().saturating_sub(1);
         let banner = imp.zoom_banner.get().unwrap();
         banner.set_visible(layout.zoomed().is_some());
-        imp.zoom_label.get().unwrap().set_markup(&format!(
-            "<b>Maximiert</b> · {hidden} {} ausgeblendet",
-            if hidden == 1 { "Bereich" } else { "Bereiche" }
+        imp.zoom_label.get().unwrap().set_markup(&ntrf(
+            "<b>Maximized</b> · {n} pane hidden",
+            "<b>Maximized</b> · {n} panes hidden",
+            hidden as u32,
+            &[],
         ));
     }
 }

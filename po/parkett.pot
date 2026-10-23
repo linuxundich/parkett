@@ -1,0 +1,1466 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the parkett package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: parkett\n"
+"Report-Msgid-Bugs-To: https://github.com/linuxundich/parkett/issues\n"
+"POT-Creation-Date: 2026-10-23 09:57+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: data/de.linuxundich.Parkett.desktop.in:2
+#: data/de.linuxundich.Parkett.metainfo.xml.in:7
+msgid "Parkett"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.desktop.in:3
+#: data/de.linuxundich.Parkett.metainfo.xml.in:8
+msgid "Terminal with split panes"
+msgstr ""
+
+#. Translators: search terms, separated by semicolons; keep the English ones and add your own
+#: data/de.linuxundich.Parkett.desktop.in:10
+msgid "terminal;shell;console;split;tilix;tab;pane;"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.metainfo.xml.in:10
+msgid "Parkett is a terminal for GNOME that arranges several terminals side by side and on top of each other in one tab – like Tilix, but with GTK 4 and libadwaita."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.metainfo.xml.in:12
+msgid "Tabs with overview and search"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.metainfo.xml.in:13
+msgid "Split panes to the right or below, maximize, equalize and switch them by keyboard"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.metainfo.xml.in:14
+msgid "Profiles with their own command, start directory and behavior when the process exits"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.metainfo.xml.in:15
+msgid "14 color schemes with light and dark variants, import of Ptyxis and Tilix schemes"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.metainfo.xml.in:16
+msgid "Search in the terminal, links by Ctrl+click, customizable shortcuts"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.metainfo.xml.in:17
+msgid "Command palette, layout mode for the keyboard and templates with start commands"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.metainfo.xml.in:18
+msgid "Context color for panes with SSH or root rights, undo when closing"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.metainfo.xml.in:19
+msgid "Asks before closing while a program is still running"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.metainfo.xml.in:20
+msgid "Light and dark style following the system setting"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.metainfo.xml.in:47
+msgid "Input to all panes of a tab, moving panes by dragging (also into other tabs), automatic profile by host or folder, bookmarks for folders, templates for tab names, file paths in the output as links, editing the layout of templates and narrow windows down to 360 pixels."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.metainfo.xml.in:52
+msgid "A second call passes its environment to the new shell, start commands of templates come only after the prompt and never into a password prompt, short tab names, match count in the search, selection in the accent color, color scheme “High Contrast” automatically with high contrast, a normal exit with exit code 0 closes the pane, less load in the background and many fixes."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.metainfo.xml.in:57
+msgid "Restore the session on startup, command line (directory, command, profile, title, tab), context menu in Nautilus, transparent background, font, cursor and bell per profile, notification when a command finishes in the background and many fixes."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.metainfo.xml.in:62
+msgid "First version: tabs and split panes, command palette, layout mode, templates with start commands, profiles, color schemes with light and dark variants, context color for root and SSH, undo when closing, search, links and customizable shortcuts."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:24
+msgid "Style"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:25
+msgid "“system”: light or dark following GNOME, “light”/“dark”: set by hand."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:29
+msgid "Window width"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:30
+msgid "Width of the last closed window in pixels."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:34
+msgid "Window height"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:35
+msgid "Height of the last closed window in pixels."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:39
+msgid "Window maximized"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:40
+msgid "Whether the last closed window was maximized."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:44
+msgid "Confirm before closing"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:45
+msgid "Ask before closing a pane, tab or window in which a program is still running."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:49
+msgid "Warn before multi-line paste"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:50
+msgid "When pasting multi-line text (Ctrl+Shift+V, context menu), show it first and ask for confirmation."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:54
+msgid "Pane title"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:55
+msgid "“floating”: floating title at the top right (default), “row”: title bar above each pane."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:59
+msgid "Dim inactive panes"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:60
+msgid "In split tabs, slightly dim the panes without focus."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:64
+msgid "Context color for root and SSH"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:65
+msgid "Mark panes running a program with root privileges or an SSH connection with a line, a chip and a tinted background. The colors come from the color scheme."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:69
+msgid "Follow system high contrast"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:70
+msgid "When “High Contrast” is turned on in GNOME, all panes use the “High Contrast” color scheme instead of the scheme from the profile."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:74
+msgid "Template for short tab names"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:75
+msgid "Placeholders: {n} number, {program} program, {dir} folder, {path} full path, {host} host for SSH, {title} shell title, {profile} profile. Empty values are dropped together with their separator."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:79
+msgid "Short tab names"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:80
+msgid "Tabs show number, running program and folder (“1 htop · parkett”) instead of the title set by the shell. A name you set yourself takes precedence."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:84
+msgid "Hide tab bar with a single tab"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:85
+msgid "Show the tab bar only when more than one tab is open."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:89
+msgid "Directory for new terminals"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:90
+msgid "“current”: use the directory of the active pane, “home”: start in the home folder."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:94
+msgid "Default profile"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:95
+msgid "Id of the profile for new tabs (file name in ~/.config/parkett/profiles without .toml)."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:99
+msgid "Custom keyboard shortcuts"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:100
+msgid "Action (e.g. “win.split-right”) → shortcut in GTK notation; empty = shortcut off. Actions not listed use the default shortcut."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:104
+msgid "Restore last session"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:105
+msgid "On start, open the windows and tabs of the last session: layout, profiles, directories and custom titles, without the programs running in them."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:109
+msgid "Notify when a command finishes"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:110
+msgid "Show a notification when a command that ran for at least 10 seconds finishes in a pane that is not visible. Requires the VTE shell integration (vte.sh)."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:114
+msgid "Show Sixel graphics"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:115
+msgid "Display images in Sixel format in the terminal. Only works if the installed VTE library is built with Sixel support."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:120
+msgid "Scrollback lines"
+msgstr ""
+
+#: data/de.linuxundich.Parkett.gschema.xml:121
+msgid "How many lines each terminal keeps for scrolling back; -1 = unlimited."
+msgstr ""
+
+#: app/src/commands.rs:30
+msgid "Tabs and panes"
+msgstr ""
+
+#: app/src/commands.rs:31 app/src/prefs.rs:887 app/src/prefs.rs:891
+#: app/src/window.rs:301
+msgid "Bookmarks"
+msgstr ""
+
+#: app/src/commands.rs:32 app/src/commands.rs:186 app/src/prefs.rs:1020
+#: app/src/prefs.rs:1022 app/src/window.rs:298 app/src/window.rs:1393
+msgid "Templates"
+msgstr ""
+
+#: app/src/commands.rs:33
+msgid "Actions"
+msgstr ""
+
+#: app/src/commands.rs:72
+msgid "Tab {number} · {dir}"
+msgstr ""
+
+#: app/src/commands.rs:88
+msgid "Pane {number} · {dir}"
+msgstr ""
+
+#: app/src/commands.rs:129
+msgid "Open {name}"
+msgstr ""
+
+#: app/src/commands.rs:130
+msgid "{n} pane · {commands}"
+msgid_plural "{n} panes · {commands}"
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/src/commands.rs:145
+msgid "New tab with profile “{name}”"
+msgstr ""
+
+#: app/src/commands.rs:185 app/src/window.rs:1424
+msgid "Save current tab as template…"
+msgstr ""
+
+#: app/src/commands.rs:225
+msgid "Command, tab, bookmark or template… (> actions, @ tabs, ~ bookmarks, # templates)"
+msgstr ""
+
+#: app/src/commands.rs:259
+msgid "↑↓ select · Enter run · Ctrl+Enter in new pane · Alt+Enter bookmark here · Esc"
+msgstr ""
+
+#: app/src/commands.rs:265
+msgid "Commands"
+msgstr ""
+
+#: app/src/main.rs:172
+msgid "-e “{command}”: {error}"
+msgstr ""
+
+#: app/src/main.rs:204 app/src/window.rs:1300
+msgid "Directory “{path}” does not exist"
+msgstr ""
+
+#: app/src/main.rs:219
+msgid "Profile “{id}” does not exist, using the default profile"
+msgstr ""
+
+#: app/src/main.rs:286
+msgid "Terminal with split panes for GNOME"
+msgstr ""
+
+#. Translators: your name(s) for the About dialog
+#: app/src/main.rs:288
+msgid "translator-credits"
+msgstr ""
+
+#: app/src/main.rs:340
+msgid "Tab 1 … 9"
+msgstr ""
+
+#: app/src/main.rs:341
+msgid "Pane 1 … 9"
+msgstr ""
+
+#: app/src/pane.rs:125
+msgid "Shared input"
+msgstr ""
+
+#: app/src/pane.rs:179 app/src/pane.rs:276 app/src/shortcuts.rs:56
+#: app/src/terminal.rs:1271
+msgid "Maximize pane"
+msgstr ""
+
+#: app/src/pane.rs:181 app/src/pane.rs:278 app/src/shortcuts.rs:53
+#: app/src/terminal.rs:1281
+msgid "Close pane"
+msgstr ""
+
+#: app/src/pane.rs:223
+msgid "Search in terminal"
+msgstr ""
+
+#: app/src/pane.rs:233
+msgid "Match case"
+msgstr ""
+
+#: app/src/pane.rs:236
+msgid "Regular expression"
+msgstr ""
+
+#: app/src/pane.rs:240 app/src/shortcuts.rs:67
+msgid "Previous match"
+msgstr ""
+
+#: app/src/pane.rs:240
+msgid "Enter"
+msgstr ""
+
+#: app/src/pane.rs:242 app/src/shortcuts.rs:68
+msgid "Next match"
+msgstr ""
+
+#: app/src/pane.rs:242
+msgid "Shift+Enter"
+msgstr ""
+
+#: app/src/pane.rs:245
+msgid "Close search (Esc)"
+msgstr ""
+
+#: app/src/pane.rs:248
+msgid "Close search"
+msgstr ""
+
+#: app/src/pane.rs:652
+msgid "Invalid expression: {error}"
+msgstr ""
+
+#: app/src/pane.rs:726
+msgid "{n}+ matches"
+msgstr ""
+
+#: app/src/pane.rs:728
+msgid "{n} match"
+msgid_plural "{n} matches"
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/src/prefs.rs:18 app/src/shortcuts.rs:47 app/src/window.rs:304
+msgid "Preferences"
+msgstr ""
+
+#: app/src/prefs.rs:30
+msgid "General"
+msgstr ""
+
+#: app/src/prefs.rs:32
+msgid "Appearance"
+msgstr ""
+
+#: app/src/prefs.rs:35
+msgid "Shows which pane has focus in split tabs"
+msgstr ""
+
+#: app/src/prefs.rs:40
+msgid "Number, program and folder instead of the shell title"
+msgstr ""
+
+#: app/src/prefs.rs:44
+msgid "Tab name template"
+msgstr ""
+
+#: app/src/prefs.rs:45 app/src/prefs.rs:607
+msgid "{n} number · {program} program · {dir} folder · {path} full path · {host} host over SSH · {title} shell title · {profile} profile"
+msgstr ""
+
+#: app/src/prefs.rs:53
+msgid "Line, chip and tinted background, colors from the color scheme"
+msgstr ""
+
+#: app/src/prefs.rs:58
+msgid "Color scheme “High Contrast” in all panes while it is on in GNOME"
+msgstr ""
+
+#: app/src/prefs.rs:64 app/src/style.rs:31
+msgid "Follow system style"
+msgstr ""
+
+#: app/src/prefs.rs:65 app/src/style.rs:32
+msgid "Light"
+msgstr ""
+
+#: app/src/prefs.rs:66 app/src/style.rs:33
+msgid "Dark"
+msgstr ""
+
+#: app/src/prefs.rs:81
+msgid "Pane titles in split tabs"
+msgstr ""
+
+#: app/src/prefs.rs:82
+msgid "Floating"
+msgstr ""
+
+#: app/src/prefs.rs:82
+msgid "As a row"
+msgstr ""
+
+#: app/src/prefs.rs:97
+msgid "Behavior"
+msgstr ""
+
+#: app/src/prefs.rs:99
+msgid "Open new terminals in"
+msgstr ""
+
+#: app/src/prefs.rs:101
+msgid "Directory of the active pane"
+msgstr ""
+
+#: app/src/prefs.rs:102
+msgid "Home folder"
+msgstr ""
+
+#: app/src/prefs.rs:111
+msgid "Ask before closing"
+msgstr ""
+
+#: app/src/prefs.rs:112
+msgid "When a program is still running in a pane"
+msgstr ""
+
+#: app/src/prefs.rs:117
+msgid "−1 = unlimited"
+msgstr ""
+
+#: app/src/prefs.rs:125
+msgid "Shows text with line breaks first – it would run immediately otherwise"
+msgstr ""
+
+#: app/src/prefs.rs:131
+msgid "Windows, tabs, splits and directories – without the programs in them"
+msgstr ""
+
+#: app/src/prefs.rs:137
+msgid "After running for at least 10 seconds, when the pane is not visible"
+msgstr ""
+
+#: app/src/prefs.rs:143
+msgid "Images in the terminal, e.g. from img2sixel or chafa"
+msgstr ""
+
+#: app/src/prefs.rs:146
+msgid "The installed VTE library is built without Sixel"
+msgstr ""
+
+#: app/src/prefs.rs:157 app/src/prefs.rs:165
+msgid "Profiles"
+msgstr ""
+
+#: app/src/prefs.rs:160 app/src/prefs.rs:215
+msgid "New profile"
+msgstr ""
+
+#: app/src/prefs.rs:166
+msgid "A profile defines how a terminal starts and which color scheme it uses."
+msgstr ""
+
+#: app/src/prefs.rs:186
+msgid "{scheme} · Default profile"
+msgstr ""
+
+#: app/src/prefs.rs:217
+msgid "Profile not created: {error}"
+msgstr ""
+
+#: app/src/prefs.rs:255 app/src/prefs.rs:1094
+msgid "Not saved: {error}"
+msgstr ""
+
+#: app/src/prefs.rs:268 app/src/prefs.rs:1105 app/src/prefs.rs:1211
+msgid "Name"
+msgstr ""
+
+#: app/src/prefs.rs:280
+msgid "For new tabs"
+msgstr ""
+
+#: app/src/prefs.rs:297
+msgid "Import…"
+msgstr ""
+
+#: app/src/prefs.rs:300
+msgid "Ptyxis palette (.palette) or Tilix scheme (.json)"
+msgstr ""
+
+#: app/src/prefs.rs:303
+msgid "Color scheme"
+msgstr ""
+
+#: app/src/prefs.rs:304
+msgid "Each scheme has a light and a dark variant (left/right); Parkett follows the system style. The selection applies immediately."
+msgstr ""
+
+#: app/src/prefs.rs:390
+msgid "Color schemes (.palette, .json)"
+msgstr ""
+
+#: app/src/prefs.rs:395
+msgid "Import color scheme"
+msgstr ""
+
+#: app/src/prefs.rs:405
+msgid "“{name}” imported"
+msgstr ""
+
+#: app/src/prefs.rs:407
+msgid "“{name}” imported (only one variant, applies to light and dark)"
+msgstr ""
+
+#: app/src/prefs.rs:411
+msgid "Import failed: {error}"
+msgstr ""
+
+#: app/src/prefs.rs:420
+msgid "Font and cursor"
+msgstr ""
+
+#: app/src/prefs.rs:422
+msgid "Use system font"
+msgstr ""
+
+#: app/src/prefs.rs:423
+msgid "Monospace font from the GNOME settings"
+msgstr ""
+
+#: app/src/prefs.rs:426
+msgid "Terminal font"
+msgstr ""
+
+#: app/src/prefs.rs:441
+msgid "Font"
+msgstr ""
+
+#: app/src/prefs.rs:469
+msgid "Background opacity"
+msgstr ""
+
+#: app/src/prefs.rs:470
+msgid "In percent; below 100 the desktop shows through"
+msgstr ""
+
+#: app/src/prefs.rs:494
+msgid "Cursor shape"
+msgstr ""
+
+#: app/src/prefs.rs:495
+msgid "Block"
+msgstr ""
+
+#: app/src/prefs.rs:495
+msgid "I-beam"
+msgstr ""
+
+#: app/src/prefs.rs:495
+msgid "Underline"
+msgstr ""
+
+#: app/src/prefs.rs:503
+msgid "Cursor blinks"
+msgstr ""
+
+#: app/src/prefs.rs:504
+msgid "Like the system"
+msgstr ""
+
+#: app/src/prefs.rs:504
+msgid "Always"
+msgstr ""
+
+#: app/src/prefs.rs:504
+msgid "Never"
+msgstr ""
+
+#: app/src/prefs.rs:512
+msgid "Bell"
+msgstr ""
+
+#: app/src/prefs.rs:513
+msgid "Sound and mark tab"
+msgstr ""
+
+#: app/src/prefs.rs:513
+msgid "Mark tab only"
+msgstr ""
+
+#: app/src/prefs.rs:513 app/src/shortcuts.rs:148
+msgid "Off"
+msgstr ""
+
+#: app/src/prefs.rs:520
+msgid "Startup"
+msgstr ""
+
+#: app/src/prefs.rs:521
+msgid "Run as login shell"
+msgstr ""
+
+#: app/src/prefs.rs:531
+msgid "Command instead of shell (e.g. ssh bender)"
+msgstr ""
+
+#: app/src/prefs.rs:535
+msgid "Start directory (empty = preferences)"
+msgstr ""
+
+#: app/src/prefs.rs:539
+msgid "Environment variables (NAME=value, separated by spaces)"
+msgstr ""
+
+#: app/src/prefs.rs:576
+msgid "Use automatically"
+msgstr ""
+
+#: app/src/prefs.rs:577
+msgid "Panes show the color scheme, font and opacity of this profile while a rule matches – for example while “ssh bender” is running. Separate several entries with commas, * as wildcard."
+msgstr ""
+
+#: app/src/prefs.rs:580
+msgid "For hosts (e.g. bender, *.tuxedo.de)"
+msgstr ""
+
+#: app/src/prefs.rs:584
+msgid "For folders, including subfolders (e.g. ~/client)"
+msgstr ""
+
+#: app/src/prefs.rs:605
+msgid "Tab name template (empty = preferences)"
+msgstr ""
+
+#: app/src/prefs.rs:617
+msgid "Tabs"
+msgstr ""
+
+#: app/src/prefs.rs:624
+msgid "When the process exits"
+msgstr ""
+
+#: app/src/prefs.rs:626
+msgid "Show bar"
+msgstr ""
+
+#: app/src/prefs.rs:627
+msgid "Close pane (on success)"
+msgstr ""
+
+#: app/src/prefs.rs:628 app/src/terminal.rs:138
+msgid "Restart"
+msgstr ""
+
+#: app/src/prefs.rs:654
+msgid "Delete profile"
+msgstr ""
+
+#: app/src/prefs.rs:716
+msgid "Only one variant – applies to light and dark"
+msgstr ""
+
+#: app/src/prefs.rs:718
+msgid "Color scheme {name}"
+msgstr ""
+
+#: app/src/prefs.rs:753
+msgid "Shortcuts"
+msgstr ""
+
+#: app/src/prefs.rs:758
+msgid "Click a row and press a new combination."
+msgstr ""
+
+#: app/src/prefs.rs:760
+msgid "Reset all"
+msgstr ""
+
+#: app/src/prefs.rs:788
+msgid "Custom"
+msgstr ""
+
+#: app/src/prefs.rs:806
+msgid ""
+"Current: {current}\n"
+"Press a new combination. Esc cancels, Backspace disables the shortcut."
+msgstr ""
+
+#: app/src/prefs.rs:811 app/src/terminal.rs:1358 app/src/window.rs:827
+#: app/src/window.rs:847 app/src/window.rs:1272 app/src/window.rs:1330
+msgid "Cancel"
+msgstr ""
+
+#: app/src/prefs.rs:811
+msgid "Restore default"
+msgstr ""
+
+#: app/src/prefs.rs:865
+msgid "{label} is already assigned to “{other}”. Please press a different combination."
+msgstr ""
+
+#: app/src/prefs.rs:889
+msgid "Add folder…"
+msgstr ""
+
+#: app/src/prefs.rs:892
+msgid "Folders for the command palette (~) and the main menu: Enter opens a new tab, Ctrl+Enter a new pane, Alt+Enter switches to it in the active pane."
+msgstr ""
+
+#: app/src/prefs.rs:903 app/src/prefs.rs:1009
+msgid "Bookmarks not saved: {error}"
+msgstr ""
+
+#: app/src/prefs.rs:925
+msgid "No bookmarks yet"
+msgstr ""
+
+#: app/src/prefs.rs:926
+msgid "In the terminal: command palette or main menu › “Current folder as bookmark”"
+msgstr ""
+
+#: app/src/prefs.rs:946
+msgid "Move up"
+msgstr ""
+
+#: app/src/prefs.rs:947
+msgid "Move down"
+msgstr ""
+
+#: app/src/prefs.rs:948
+msgid "Delete"
+msgstr ""
+
+#: app/src/prefs.rs:1000
+msgid "Folder as bookmark"
+msgstr ""
+
+#: app/src/prefs.rs:1008 app/src/window.rs:970
+msgid "This folder is already a bookmark"
+msgstr ""
+
+#: app/src/prefs.rs:1023
+msgid "A template opens a tab with a ready-made layout, profiles and start commands. New templates are made from a running tab: menu on the New button › “Save current tab as template…”."
+msgstr ""
+
+#: app/src/prefs.rs:1039
+msgid "No templates yet"
+msgstr ""
+
+#: app/src/prefs.rs:1040
+msgid "Split a tab as you like and save it as a template"
+msgstr ""
+
+#: app/src/prefs.rs:1049
+msgid "Choose directory when opening"
+msgstr ""
+
+#: app/src/prefs.rs:1056
+msgid "{n} pane · {dir}"
+msgid_plural "{n} panes · {dir}"
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/src/prefs.rs:1074
+msgid "The template no longer exists"
+msgstr ""
+
+#: app/src/prefs.rs:1115
+msgid "Fixed directory (empty = choose when opening)"
+msgstr ""
+
+#: app/src/prefs.rs:1135 core/src/label.rs:104
+msgid "Shell"
+msgstr ""
+
+#: app/src/prefs.rs:1151
+msgid "Equalize"
+msgstr ""
+
+#: app/src/prefs.rs:1153
+msgid "Layout"
+msgstr ""
+
+#: app/src/prefs.rs:1154
+msgid "Comes from the tab the template was saved from; split or remove panes with the buttons on them."
+msgstr ""
+
+#: app/src/prefs.rs:1189 app/src/shortcuts.rs:50 app/src/terminal.rs:1269
+#: app/src/window.rs:400 app/src/window.rs:1396
+msgid "Split right"
+msgstr ""
+
+#: app/src/prefs.rs:1190 app/src/shortcuts.rs:51 app/src/terminal.rs:1270
+#: app/src/window.rs:401 app/src/window.rs:1397
+msgid "Split down"
+msgstr ""
+
+#: app/src/prefs.rs:1191
+msgid "Remove pane"
+msgstr ""
+
+#: app/src/prefs.rs:1208
+msgid "Pane {n}"
+msgstr ""
+
+#: app/src/prefs.rs:1212
+msgid "Profile"
+msgstr ""
+
+#: app/src/prefs.rs:1215
+msgid "Start command (typed into the shell)"
+msgstr ""
+
+#: app/src/prefs.rs:1216
+msgid "Subdirectory"
+msgstr ""
+
+#: app/src/prefs.rs:1260
+msgid "Delete template"
+msgstr ""
+
+#: app/src/profiles.rs:84
+msgid "Profiles: {error}"
+msgstr ""
+
+#: app/src/profiles.rs:118
+msgid "Templates: {error}"
+msgstr ""
+
+#: app/src/profiles.rs:215
+msgid "The last profile cannot be deleted"
+msgstr ""
+
+#: app/src/shortcuts.rs:32 app/src/shortcuts.rs:36 app/src/shortcuts.rs:37
+#: app/src/shortcuts.rs:38 app/src/shortcuts.rs:39 app/src/shortcuts.rs:41
+#: app/src/shortcuts.rs:42 app/src/shortcuts.rs:43 app/src/shortcuts.rs:44
+#: app/src/shortcuts.rs:45 app/src/shortcuts.rs:46 app/src/shortcuts.rs:47
+#: app/src/shortcuts.rs:48
+msgid "Tabs and windows"
+msgstr ""
+
+#: app/src/shortcuts.rs:32 app/src/shortcuts.rs:49 app/src/shortcuts.rs:50
+#: app/src/shortcuts.rs:51 app/src/shortcuts.rs:52 app/src/shortcuts.rs:53
+#: app/src/shortcuts.rs:54 app/src/shortcuts.rs:55 app/src/shortcuts.rs:56
+#: app/src/shortcuts.rs:57 app/src/shortcuts.rs:58 app/src/shortcuts.rs:59
+#: app/src/shortcuts.rs:60 app/src/shortcuts.rs:61 app/src/shortcuts.rs:62
+#: app/src/shortcuts.rs:63 app/src/shortcuts.rs:64 app/src/shortcuts.rs:65
+msgid "Panes"
+msgstr ""
+
+#: app/src/shortcuts.rs:32 app/src/shortcuts.rs:66 app/src/shortcuts.rs:67
+#: app/src/shortcuts.rs:68 app/src/shortcuts.rs:69 app/src/shortcuts.rs:70
+#: app/src/shortcuts.rs:71 app/src/shortcuts.rs:74 app/src/shortcuts.rs:78
+#: app/src/shortcuts.rs:79
+msgid "Terminal"
+msgstr ""
+
+#: app/src/shortcuts.rs:36 app/src/window.rs:373 app/src/window.rs:383
+#: app/src/window.rs:1372
+msgid "New tab"
+msgstr ""
+
+#: app/src/shortcuts.rs:37
+msgid "Close tab"
+msgstr ""
+
+#: app/src/shortcuts.rs:38
+msgid "Next tab"
+msgstr ""
+
+#: app/src/shortcuts.rs:39
+msgid "Previous tab"
+msgstr ""
+
+#: app/src/shortcuts.rs:41 app/src/window.rs:843
+msgid "Rename tab"
+msgstr ""
+
+#: app/src/shortcuts.rs:42 app/src/window.rs:332
+msgid "Tab overview"
+msgstr ""
+
+#: app/src/shortcuts.rs:43 app/src/window.rs:290 app/src/window.rs:1400
+msgid "New window"
+msgstr ""
+
+#: app/src/shortcuts.rs:44 app/src/window.rs:296 app/src/window.rs:366
+msgid "Command palette"
+msgstr ""
+
+#: app/src/shortcuts.rs:45 app/src/window.rs:1328
+msgid "Save tab as template"
+msgstr ""
+
+#: app/src/shortcuts.rs:46 app/src/window.rs:1413
+msgid "Bookmark current folder"
+msgstr ""
+
+#: app/src/shortcuts.rs:48
+msgid "Keyboard shortcuts overview"
+msgstr ""
+
+#: app/src/shortcuts.rs:49 app/src/window.rs:297
+msgid "Layout mode"
+msgstr ""
+
+#: app/src/shortcuts.rs:52
+msgid "Split automatically"
+msgstr ""
+
+#: app/src/shortcuts.rs:54 app/src/terminal.rs:1275
+msgid "Input to all panes"
+msgstr ""
+
+#: app/src/shortcuts.rs:55
+msgid "Pane receives shared input"
+msgstr ""
+
+#: app/src/shortcuts.rs:57 app/src/terminal.rs:1272
+msgid "Equalize sizes"
+msgstr ""
+
+#: app/src/shortcuts.rs:58
+msgid "Focus left"
+msgstr ""
+
+#: app/src/shortcuts.rs:59
+msgid "Focus right"
+msgstr ""
+
+#: app/src/shortcuts.rs:60
+msgid "Focus up"
+msgstr ""
+
+#: app/src/shortcuts.rs:61
+msgid "Focus down"
+msgstr ""
+
+#: app/src/shortcuts.rs:62
+msgid "Move divider left"
+msgstr ""
+
+#: app/src/shortcuts.rs:63
+msgid "Move divider right"
+msgstr ""
+
+#: app/src/shortcuts.rs:64
+msgid "Move divider up"
+msgstr ""
+
+#: app/src/shortcuts.rs:65
+msgid "Move divider down"
+msgstr ""
+
+#: app/src/shortcuts.rs:66 app/src/window.rs:330
+msgid "Search"
+msgstr ""
+
+#: app/src/shortcuts.rs:69 app/src/terminal.rs:1254 app/src/window.rs:180
+msgid "Copy"
+msgstr ""
+
+#: app/src/shortcuts.rs:70 app/src/terminal.rs:1255 app/src/terminal.rs:1358
+msgid "Paste"
+msgstr ""
+
+#: app/src/shortcuts.rs:71 app/src/terminal.rs:1256
+msgid "Select all"
+msgstr ""
+
+#: app/src/shortcuts.rs:75
+msgid "Increase font size"
+msgstr ""
+
+#: app/src/shortcuts.rs:78
+msgid "Decrease font size"
+msgstr ""
+
+#: app/src/shortcuts.rs:79
+msgid "Normal font size"
+msgstr ""
+
+#: app/src/shortcuts.rs:139
+msgid "Select pane 1–9"
+msgstr ""
+
+#: app/src/shortcuts.rs:140
+msgid "Select tab 1–9"
+msgstr ""
+
+#: app/src/shortcuts.rs:244
+msgid "Please combine with Ctrl, Alt or Super (only F keys work alone)"
+msgstr ""
+
+#: app/src/tab.rs:173
+msgid "Show all"
+msgstr ""
+
+#: app/src/tab.rs:195
+msgid "focus"
+msgstr ""
+
+#: app/src/tab.rs:196
+msgid "Shift+Arrow"
+msgstr ""
+
+#: app/src/tab.rs:196
+msgid "size"
+msgstr ""
+
+#: app/src/tab.rs:197
+msgid "split"
+msgstr ""
+
+#: app/src/tab.rs:198
+msgid "M+Arrow"
+msgstr ""
+
+#: app/src/tab.rs:198
+msgid "swap"
+msgstr ""
+
+#: app/src/tab.rs:199
+msgid "maximize"
+msgstr ""
+
+#: app/src/tab.rs:200
+msgid "equalize"
+msgstr ""
+
+#: app/src/tab.rs:201
+msgid "close"
+msgstr ""
+
+#: app/src/tab.rs:202
+msgid "jump"
+msgstr ""
+
+#: app/src/tab.rs:203
+msgid "done"
+msgstr ""
+
+#: app/src/tab.rs:859
+msgid "<b>Maximized</b> · {n} pane hidden"
+msgid_plural "<b>Maximized</b> · {n} panes hidden"
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/src/terminal.rs:139 app/src/window.rs:827
+msgid "Close"
+msgstr ""
+
+#: app/src/terminal.rs:358
+msgid "Command finished"
+msgstr ""
+
+#: app/src/terminal.rs:360
+msgid "Command"
+msgstr ""
+
+#: app/src/terminal.rs:361
+msgid "{command} · after {duration}"
+msgstr ""
+
+#: app/src/terminal.rs:680
+msgid "<b>{program}</b> could not be started: {error}"
+msgstr ""
+
+#: app/src/terminal.rs:723 app/src/terminal.rs:742
+msgid "<b>Process exited</b>"
+msgstr ""
+
+#: app/src/terminal.rs:743
+msgid "<b>Process exited</b> · exit code {code}"
+msgstr ""
+
+#: app/src/terminal.rs:744
+msgid "<b>Process exited</b> · signal {signal}"
+msgstr ""
+
+#: app/src/terminal.rs:747
+msgid "{text} · no automatic restart, exited immediately"
+msgstr ""
+
+#: app/src/terminal.rs:995
+msgid "The path is on the other computer"
+msgstr ""
+
+#: app/src/terminal.rs:1003
+msgid "“{path}” does not exist"
+msgstr ""
+
+#: app/src/terminal.rs:1042
+msgid "Link not opened"
+msgstr ""
+
+#: app/src/terminal.rs:1043
+msgid "The link points to a file on another computer."
+msgstr ""
+
+#: app/src/terminal.rs:1045 app/src/window.rs:181
+msgid "OK"
+msgstr ""
+
+#: app/src/terminal.rs:1060
+msgid "Link not opened: {error}"
+msgstr ""
+
+#: app/src/terminal.rs:1247
+msgid "Open link"
+msgstr ""
+
+#: app/src/terminal.rs:1247
+msgid "Copy link"
+msgstr ""
+
+#: app/src/terminal.rs:1259
+msgid "Zoom in"
+msgstr ""
+
+#: app/src/terminal.rs:1260
+msgid "Zoom out"
+msgstr ""
+
+#: app/src/terminal.rs:1261
+msgid "Normal size"
+msgstr ""
+
+#: app/src/terminal.rs:1266
+msgid "Search…"
+msgstr ""
+
+#: app/src/terminal.rs:1276
+msgid "This pane receives shared input"
+msgstr ""
+
+#: app/src/terminal.rs:1326
+msgid "… ({n} more line)"
+msgid_plural "… ({n} more lines)"
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/src/terminal.rs:1332
+msgid "Paste text with line break?"
+msgstr ""
+
+#: app/src/terminal.rs:1333
+msgid "The text ends with a line break. If the shell does not support “bracketed paste”, it runs immediately."
+msgstr ""
+
+#: app/src/terminal.rs:1337
+msgid "Paste multi-line text?"
+msgstr ""
+
+#: app/src/terminal.rs:1338
+msgid "The text has {lines} lines. If the shell does not support “bracketed paste”, they run immediately."
+msgstr ""
+
+#: app/src/window.rs:62
+msgid "Close window?"
+msgstr ""
+
+#: app/src/window.rs:140
+msgid "{n} file could not be read, see details"
+msgid_plural "{n} files could not be read, see details"
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/src/window.rs:146
+msgid "Details"
+msgstr ""
+
+#: app/src/window.rs:153
+msgid "Unreadable files"
+msgstr ""
+
+#: app/src/window.rs:154
+msgid "Parkett skipped these files and left them unchanged."
+msgstr ""
+
+#: app/src/window.rs:279
+msgid "More options"
+msgstr ""
+
+#: app/src/window.rs:291
+msgid "Rename tab…"
+msgstr ""
+
+#: app/src/window.rs:305
+msgid "Keyboard shortcuts"
+msgstr ""
+
+#: app/src/window.rs:306
+msgid "About Parkett"
+msgstr ""
+
+#: app/src/window.rs:313
+msgid "Main menu"
+msgstr ""
+
+#: app/src/window.rs:336
+msgid "Tab overview, {n} tab"
+msgid_plural "Tab overview, {n} tabs"
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/src/window.rs:384
+msgid "Open a new tab"
+msgstr ""
+
+#: app/src/window.rs:474 app/src/window.rs:1013
+msgid "Shared input off"
+msgstr ""
+
+#: app/src/window.rs:488
+msgid "Close tab?"
+msgstr ""
+
+#: app/src/window.rs:550
+msgid "Tab “{name}” closed"
+msgstr ""
+
+#: app/src/window.rs:551 app/src/window.rs:638
+msgid "Undo"
+msgstr ""
+
+#: app/src/window.rs:638
+msgid "Pane closed"
+msgstr ""
+
+#: app/src/window.rs:692
+msgid "Appearance: profile “{name}” (automatic)"
+msgstr ""
+
+#: app/src/window.rs:701
+msgid "A process exited with an error"
+msgstr ""
+
+#: app/src/window.rs:709
+msgid "Shared input on – click to turn it off"
+msgstr ""
+
+#: app/src/window.rs:744
+msgid "Layout mode · Esc to exit"
+msgstr ""
+
+#: app/src/window.rs:808
+msgid "Not enough room in the tab"
+msgstr ""
+
+#: app/src/window.rs:825
+msgid "Still running: {processes}. Closing ends these programs."
+msgstr ""
+
+#: app/src/window.rs:844
+msgid "Leave empty to use the terminal’s title."
+msgstr ""
+
+#: app/src/window.rs:847
+msgid "Rename"
+msgstr ""
+
+#: app/src/window.rs:924 app/src/window.rs:948 app/src/window.rs:993
+#: app/src/window.rs:1198 app/src/window.rs:1203 app/src/window.rs:1208
+msgid "Not enough room to split"
+msgstr ""
+
+#: app/src/window.rs:965
+msgid "No folder known"
+msgstr ""
+
+#: app/src/window.rs:969
+msgid "Bookmark “{name}” added"
+msgstr ""
+
+#: app/src/window.rs:971
+msgid "Bookmark not saved: {error}"
+msgstr ""
+
+#: app/src/window.rs:1011
+msgid "Input goes to {n} pane"
+msgid_plural "Input goes to {n} panes"
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/src/window.rs:1038
+msgid "Close pane?"
+msgstr ""
+
+#: app/src/window.rs:1242
+msgid "Open template “{name}”"
+msgstr ""
+
+#: app/src/window.rs:1243
+msgid "Opens a new tab with {n} pane."
+msgid_plural "Opens a new tab with {n} panes."
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/src/window.rs:1247
+msgid "Directory"
+msgstr ""
+
+#: app/src/window.rs:1253
+msgid "Choose directory"
+msgstr ""
+
+#: app/src/window.rs:1260
+msgid "Run start commands"
+msgstr ""
+
+#: app/src/window.rs:1263
+msgid "No start commands"
+msgstr ""
+
+#: app/src/window.rs:1272
+msgid "Open"
+msgstr ""
+
+#: app/src/window.rs:1282
+msgid "Directory for the template"
+msgstr ""
+
+#: app/src/window.rs:1312 app/src/window.rs:1339
+msgid "Template"
+msgstr ""
+
+#: app/src/window.rs:1318
+msgid "Saves the layout and profiles of the {n} pane. The directory is asked for when opening."
+msgid_plural "Saves the layout and profiles of the {n} panes. The directory is asked for when opening."
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/src/window.rs:1325
+msgid "Saves the layout and profiles of the {n} pane and the running commands ({commands}). The directory is asked for when opening."
+msgid_plural "Saves the layout and profiles of the {n} panes and the running commands ({commands}). The directory is asked for when opening."
+msgstr[0] ""
+msgstr[1] ""
+
+#: app/src/window.rs:1330
+msgid "Save"
+msgstr ""
+
+#: app/src/window.rs:1342
+msgid "Template “{name}” saved"
+msgstr ""
+
+#: app/src/window.rs:1343
+msgid "Template not saved: {error}"
+msgstr ""
+
+#: app/src/window.rs:1390
+msgid "New tab with profile"
+msgstr ""
+
+#: app/src/window.rs:1401
+msgid "Edit profiles…"
+msgstr ""
+
+#: core/src/cli.rs:9
+msgid ""
+"Usage: parkett [OPTIONS] [-- COMMAND [ARGUMENTS …]]\n"
+"\n"
+"  -d, --working-directory=DIR   Start directory; repeat for one tab per directory\n"
+"  -e, -x, --                    Run the rest of the line instead of the shell\n"
+"                                (-e with a single argument: split like a shell)\n"
+"  -p, --profile=ID              Profile (file name without .toml)\n"
+"  -t, --title=TITLE             Tab title\n"
+"      --tab                     Open as a tab in the active window instead of a new window\n"
+"  -h, --help                    Show this help\n"
+"      --version                 Show version\n"
+msgstr ""
+
+#: core/src/cli.rs:57
+msgid "{option} needs a value"
+msgstr ""
+
+#: core/src/cli.rs:62
+msgid "{option} takes no value (“{argument}”)"
+msgstr ""
+
+#: core/src/cli.rs:72 core/src/cli.rs:89
+msgid "Unknown option “{argument}” (see parkett --help)"
+msgstr ""
+
+#: core/src/cli.rs:76
+msgid "{argument}: no command given"
+msgstr ""
+
+#: core/src/palette.rs:116
+msgid "{what} is missing"
+msgstr ""
+
+#: core/src/palette.rs:118
+msgid "{key}: “{value}” is not a color"
+msgstr ""
+
+#: core/src/palette.rs:120
+msgid "not a valid Tilix scheme: {error}"
+msgstr ""
+
+#: core/src/palette.rs:241
+msgid "Section [Light] or [Dark]"
+msgstr ""
+
+#: core/src/palette.rs:268
+msgid "16 colors in palette (only {count})"
+msgstr ""
