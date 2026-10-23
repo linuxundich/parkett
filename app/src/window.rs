@@ -393,6 +393,17 @@ impl Window {
         crate::shortcuts::live_tooltip(&split_down, "Unten teilen", "win.split-down", &[]);
         header.pack_start(&split_right);
         header.pack_start(&split_down);
+        // Schmales Fenster (Kacheln auf kleinen Bildschirmen): Teilen-Knöpfe und Suche weg,
+        // sonst bestimmt die Kopfleiste die Mindestbreite (≈ 550 px, QA-13). Teilen bleibt im
+        // Menü am Neu-Knopf und per Kürzel, Suchen per Kürzel und Kontextmenü.
+        let narrow =
+            adw::Breakpoint::new(adw::BreakpointCondition::parse("max-width: 600sp").expect("gültige Bedingung"));
+        for w in [split_right.upcast_ref::<glib::Object>(), split_down.upcast_ref(), find_button.upcast_ref()] {
+            narrow.add_setter(w, "visible", Some(&false.to_value()));
+        }
+        self.add_breakpoint(narrow);
+        // Breakpoints verlangen eine feste Mindestgröße; 360 px wie in der GNOME-HIG
+        self.set_size_request(360, 294);
         imp.new_button.set(new_button.clone()).ok();
         header.pack_end(&menu_button);
         header.pack_end(&overview_button);
@@ -1370,6 +1381,11 @@ fn fill_new_menu(menu: &gio::Menu) {
     let templates = gio::Menu::new();
     fill_template_menu(&templates);
     menu.append_section(Some("Vorlagen"), &templates);
+    // Teilen auch hier: In schmalen Fenstern fehlen die Knöpfe in der Kopfleiste (QA-13)
+    let split = gio::Menu::new();
+    split.append(Some("Rechts teilen"), Some("win.split-right"));
+    split.append(Some("Unten teilen"), Some("win.split-down"));
+    menu.append_section(None, &split);
     let more = gio::Menu::new();
     more.append(Some("Neues Fenster"), Some("app.new-window"));
     more.append(Some("Profile bearbeiten …"), Some("app.preferences"));
