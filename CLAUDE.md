@@ -55,5 +55,7 @@ Run `build-aux/ci.sh` before every commit. App unit tests must not call GTK func
   session (`dbus-run-session`, `mutter --headless`, keyfile GSettings, XDG dirs in a temp dir).
   mutter RemoteDesktop drops the first key event of a new session.
 - Christoph's own profile still has `exit_action = "hold"`; QA-11 only changes the default.
-- Next (0.4, see `BACKLOG.md`): synchronized input, moving panes by drag and drop, then QA-20,
-  L1/L2, rest of D2, small features.
+- Done after 0.3.0 on branch `small-0.4`: L1/L2, D2, Ctrl+Enter in the palette, main menu
+  entries, smoke checks QA-07/QA-09 (`build-aux/vm/atspi.py`), QA-20 closed.
+- Next (0.4, see `BACKLOG.md`): synchronized input, moving panes by drag and drop, template
+  layout in the editor.

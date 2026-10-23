@@ -35,7 +35,9 @@ As of 0.3.0. All shortcuts can be changed or disabled under *Einstellungen › K
 
 Ctrl+Shift+P opens a list of all actions, tabs, panes, templates and profiles with
 fuzzy search. Prefixes narrow it down: `>` actions only, `@` tabs and panes only,
-`#` templates only. Each action shows its shortcut.
+`#` templates only. Each action shows its shortcut. Enter runs the selected entry; Ctrl+Enter
+on *Neuer Reiter mit Profil …* opens that profile in a new pane of the current tab instead.
+The palette, the layout mode and the templates are also in the main menu.
 
 ## Terminal
 
