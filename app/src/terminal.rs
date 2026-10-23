@@ -30,6 +30,7 @@ type InputCallback = Box<dyn Fn(&str)>;
 
 struct Inner {
     root: gtk::Box,
+    scroller: gtk::ScrolledWindow,
     vte: vte::Terminal,
     exit_bar: gtk::Revealer,
     exit_icon: gtk::Image,
@@ -62,6 +63,12 @@ struct Inner {
     sync_excluded: Cell<bool>,
     /// Profil, dessen Aussehen gerade gilt (automatischer Wechsel nach Rechner/Ordner)
     appearance: RefCell<String>,
+    /// Überwachen wie Tilix: neue Ausgabe bzw. Ruhe melden, wenn der Bereich nicht zu sehen ist
+    monitor_activity: Cell<bool>,
+    monitor_silence: Cell<bool>,
+    /// Aktivität schon gemeldet; wieder scharf, sobald man den Bereich sieht
+    activity_reported: Cell<bool>,
+    silence_timer: RefCell<Option<glib::SourceId>>,
     on_close: RefCell<Vec<Callback>>,
     /// Glocke oder Befehlsende, seit der Reiter zuletzt angesehen wurde
     attention: Cell<bool>,
@@ -83,6 +90,8 @@ struct Inner {
 
 /// Ab dieser Laufzeit meldet ein Befehl sein Ende, wenn sein Bereich nicht zu sehen ist.
 const NOTIFY_AFTER: std::time::Duration = std::time::Duration::from_secs(10);
+/// So lange ohne Ausgabe gilt als Stille (Tilix: 10 s)
+const SILENCE_AFTER: std::time::Duration = std::time::Duration::from_secs(10);
 
 static NEXT_UID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
@@ -151,12 +160,16 @@ impl Terminal {
             .visible(false)
             .build();
 
+        // Bildlaufleiste wie bei Ptyxis: VTE in einem ScrolledWindow, überlagernd und schmal
+        let scroller =
+            gtk::ScrolledWindow::builder().child(&vte).hscrollbar_policy(gtk::PolicyType::Never).vexpand(true).build();
         let root = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        root.append(&vte);
+        root.append(&scroller);
         root.append(&exit_bar);
 
         let t = Terminal(Rc::new(Inner {
             root,
+            scroller,
             vte,
             exit_bar,
             exit_icon,
@@ -181,6 +194,10 @@ impl Terminal {
             on_input: RefCell::default(),
             sync_excluded: Cell::new(false),
             appearance: RefCell::default(),
+            monitor_activity: Cell::new(false),
+            monitor_silence: Cell::new(false),
+            activity_reported: Cell::new(false),
+            silence_timer: RefCell::default(),
             on_close: RefCell::default(),
             attention: Cell::new(false),
             uid: NEXT_UID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
@@ -361,6 +378,47 @@ impl Terminal {
         n.set_body(Some(&trf("{command} · after {duration}", &[("command", &what), ("duration", &duration)])));
         n.set_default_action_and_target_value("app.show-terminal", Some(&self.0.uid.to_variant()));
         app.send_notification(Some(&format!("command-{}", self.0.uid)), &n);
+    }
+
+    /// Neue Ausgabe: Aktivität melden, Zeitgeber für Stille neu starten (je Bereich ein).
+    fn watch_output(&self) {
+        let inner = &self.0;
+        if inner.monitor_activity.get() {
+            if self.is_seen() {
+                inner.activity_reported.set(false);
+            } else if !inner.activity_reported.replace(true) {
+                self.notify_monitor("activity", &gettext("New output"));
+            }
+        }
+        if inner.monitor_silence.get() {
+            if let Some(old) = inner.silence_timer.borrow_mut().take() {
+                old.remove();
+            }
+            let weak = Rc::downgrade(&self.0);
+            let id = glib::timeout_add_local_once(SILENCE_AFTER, move || {
+                let Some(inner) = weak.upgrade() else { return };
+                inner.silence_timer.borrow_mut().take();
+                let t = Terminal(inner);
+                if t.0.monitor_silence.get() && !t.is_seen() && t.0.exit.get().is_none() {
+                    t.notify_monitor(
+                        "silence",
+                        &trf("No output for {seconds} s", &[("seconds", &SILENCE_AFTER.as_secs().to_string())]),
+                    );
+                }
+            });
+            *inner.silence_timer.borrow_mut() = Some(id);
+        }
+    }
+
+    /// Reiter markieren und Benachrichtigung mit Klick auf den Bereich.
+    fn notify_monitor(&self, kind: &str, title: &str) {
+        self.0.attention.set(true);
+        self.emit_state_changed();
+        let Some(app) = gio::Application::default() else { return };
+        let n = gio::Notification::new(title);
+        n.set_body(Some(&self.title().unwrap_or_else(|| "Shell".into())));
+        n.set_default_action_and_target_value("app.show-terminal", Some(&self.0.uid.to_variant()));
+        app.send_notification(Some(&format!("{kind}-{}", self.0.uid)), &n);
     }
 
     /// Liefert und löscht die Markierung (Glocke, Befehlsende).
@@ -779,6 +837,7 @@ impl Terminal {
         self.0.vte.connect_contents_changed(move |_| {
             if let Some(inner) = weak.upgrade() {
                 inner.last_output.set(Instant::now());
+                Terminal(inner).watch_output();
             }
         });
 
@@ -895,6 +954,12 @@ impl Terminal {
             CursorBlink::Off => vte::CursorBlinkMode::Off,
         });
         vte.set_audible_bell(manager.profile(&self.profile_id()).bell == Bell::Sound);
+        // ohne Leiste bleibt das Mausrad wirksam (External = Fläche scrollt, keine Leiste)
+        self.0.scroller.set_vscrollbar_policy(if look.scrollbar {
+            gtk::PolicyType::Automatic
+        } else {
+            gtk::PolicyType::External
+        });
         vte.set_enable_sixel(sixel_supported() && crate::settings::settings().boolean("enable-sixel"));
         self.0.background.set(background);
         for f in self.0.on_colors_changed.borrow().iter() {
@@ -902,6 +967,29 @@ impl Terminal {
         }
         // Fenster prüft Durchsichtigkeit, Reiter ihre Anzeige
         self.emit_state_changed();
+    }
+
+    /// Dateien aus dem Dateimanager ins Terminal ziehen: Pfade gequotet einfügen (wie Tilix,
+    /// Ptyxis), über Einfügen – mit Bracketed Paste der Shell führt das nichts aus.
+    fn setup_file_drop(&self) {
+        let target = gtk::DropTarget::new(gtk::gdk::FileList::static_type(), gtk::gdk::DragAction::COPY);
+        let vte = self.0.vte.downgrade();
+        target.connect_drop(move |_, value, _, _| {
+            let (Some(vte), Ok(files)) = (vte.upgrade(), value.get::<gtk::gdk::FileList>()) else { return false };
+            let paths: Vec<String> = files
+                .files()
+                .iter()
+                .filter_map(|f| f.path())
+                .map(|p| glib::shell_quote(&p).to_string_lossy().into_owned())
+                .collect();
+            if paths.is_empty() {
+                return false;
+            }
+            vte.paste_text(&format!("{} ", paths.join(" ")));
+            vte.grab_focus();
+            true
+        });
+        self.0.vte.add_controller(target);
     }
 
     fn setup_links(&self) {
@@ -1204,7 +1292,33 @@ impl Terminal {
         add("zoom-in", Box::new(|v| v.set_font_scale((v.font_scale() * 1.1).min(4.0))));
         add("zoom-out", Box::new(|v| v.set_font_scale((v.font_scale() / 1.1).max(0.3))));
         add("zoom-reset", Box::new(|v| v.set_font_scale(1.0)));
+        // Zurücksetzen wie in Tilix: nach kaputten Steuersequenzen (z. B. `cat` einer
+        // Binärdatei); „leeren“ verwirft auch den Verlauf
+        add("reset", Box::new(|v| v.reset(true, false)));
+        add("reset-clear", Box::new(|v| v.reset(true, true)));
+        add("save-output", Box::new(save_output));
+        // Überwachen: Schalter mit Zustand für den Haken im Kontextmenü
+        for name in ["monitor-activity", "monitor-silence"] {
+            let a = gio::SimpleAction::new_stateful(name, None, &false.to_variant());
+            let weak = Rc::downgrade(&self.0);
+            a.connect_activate(move |a, _| {
+                let Some(inner) = weak.upgrade() else { return };
+                let on = !a.state().and_then(|v| v.get::<bool>()).unwrap_or(false);
+                a.set_state(&on.to_variant());
+                if name == "monitor-activity" {
+                    inner.monitor_activity.set(on);
+                    inner.activity_reported.set(false);
+                } else {
+                    inner.monitor_silence.set(on);
+                    if let Some(old) = inner.silence_timer.borrow_mut().take() {
+                        old.remove();
+                    }
+                }
+            });
+            group.add_action(&a);
+        }
         self.0.vte.insert_action_group("term", Some(&group));
+        self.setup_file_drop();
 
         self.rebuild_shortcuts();
         // Eigene Kürzel aus den Einstellungen sofort übernehmen
@@ -1271,6 +1385,20 @@ impl Terminal {
         item(&split, &gettext("Maximize pane"), "win.toggle-zoom");
         item(&split, &gettext("Equalize sizes"), "win.equalize");
         menu.append_section(None, &split);
+        // Seltener Gebrauchtes im Untermenü, sonst wird das Menü höher als kleine Bildschirme
+        let more = gio::Menu::new();
+        let output = gio::Menu::new();
+        item(&output, &gettext("Save output…"), "term.save-output");
+        item(&output, &gettext("Reset"), "term.reset");
+        item(&output, &gettext("Reset and clear"), "term.reset-clear");
+        more.append_section(None, &output);
+        let monitor = gio::Menu::new();
+        item(&monitor, &gettext("Monitor activity"), "term.monitor-activity");
+        item(&monitor, &gettext("Monitor silence"), "term.monitor-silence");
+        more.append_section(None, &monitor);
+        let sub = gio::Menu::new();
+        sub.append_submenu(Some(&gettext("Terminal")), &more);
+        menu.append_section(None, &sub);
         let sync = gio::Menu::new();
         item(&sync, &gettext("Input to all panes"), "win.toggle-sync");
         let it = gio::MenuItem::new(Some(&gettext("This pane receives shared input")), Some("win.sync-pane"));
@@ -1308,6 +1436,35 @@ const SEARCH_COUNT_ROWS: libc::c_long = 20_000;
 
 pub const PCRE2_FLAGS: u32 = 0x0008_0000 | 0x4000_0000 | 0x0002_0000 | 0x0000_0400;
 pub const PCRE2_CASELESS: u32 = 0x0000_0008;
+
+/// Verlauf und sichtbaren Text als Datei speichern (Tilix „Speichern …“).
+fn save_output(vte: &vte::Terminal) {
+    let dialog = gtk::FileDialog::builder()
+        .title(gettext("Save output"))
+        .initial_name(gettext("terminal-output.txt"))
+        .modal(true)
+        .build();
+    let window = vte.root().and_downcast::<gtk::Window>();
+    let vte = vte.clone();
+    dialog.save(window.as_ref(), gio::Cancellable::NONE, move |res| {
+        let Ok(file) = res else { return };
+        let written = file
+            .replace(None, false, gio::FileCreateFlags::REPLACE_DESTINATION, gio::Cancellable::NONE)
+            .and_then(|stream| {
+                vte.write_contents_sync(&stream, vte::WriteFlags::Default, gio::Cancellable::NONE)?;
+                stream.close(gio::Cancellable::NONE)
+            });
+        if let Some(w) = vte.root().and_downcast::<crate::window::Window>() {
+            match written {
+                Ok(()) => w.toast(&trf(
+                    "Output saved to “{path}”",
+                    &[("path", &file.path().map(|p| p.display().to_string()).unwrap_or_default())],
+                )),
+                Err(e) => w.toast(&trf("Output not saved: {error}", &[("error", e.message())])),
+            }
+        }
+    });
+}
 
 fn paste_with_check(vte: &vte::Terminal) {
     let vte = vte.clone();

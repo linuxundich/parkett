@@ -464,6 +464,16 @@ impl Window {
             w.update_sync_actions();
         });
 
+        // Reiter aus dem Fenster ziehen und daneben ablegen: neues Fenster für ihn. Die
+        // Handler des Reiters suchen ihr Fenster beim Aufruf (R-01), Prozesse laufen weiter.
+        let weak = self.downgrade();
+        tab_view.connect_create_window(move |_| {
+            let app = weak.upgrade()?.application().and_downcast::<adw::Application>()?;
+            let w = Window::empty(&app);
+            w.present();
+            Some(w.tab_view().clone())
+        });
+
         // Klick auf das Symbol der gemeinsamen Eingabe schaltet sie für diesen Reiter ab
         let weak = self.downgrade();
         tab_view.connect_indicator_activated(move |_, page| {

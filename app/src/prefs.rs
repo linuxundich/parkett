@@ -487,6 +487,20 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
         }
     });
     look.add(&opacity);
+    let scrollbar = adw::SwitchRow::builder()
+        .title(gettext("Show scrollbar"))
+        .subtitle(gettext("Thin bar at the right edge while scrolling; scrolling works without it too"))
+        .active(profile.scrollbar)
+        .build();
+    let d = dialog.downgrade();
+    let i = id.clone();
+    scrollbar.connect_active_notify(move |row| {
+        if let Some(d) = d.upgrade() {
+            let on = row.is_active();
+            update(&d, &i, |p| p.scrollbar = on);
+        }
+    });
+    look.add(&scrollbar);
     let shapes = [CursorShape::Block, CursorShape::Ibeam, CursorShape::Underline];
     look.add(&choice_row(
         dialog,

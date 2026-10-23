@@ -42,6 +42,27 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
       `tuxedo-os-forky` and build a `.deb`
 - [ ] Project page on linuxundich.de, then the "On the blog" section in the README
 
+### Tilix parity (comparison 2026-10-23)
+- [x] Drag a tab into a new window (`create-window`)
+- [x] Scrollbar per profile (overlay, `ScrolledWindow` like Ptyxis)
+- [x] Reset / reset and clear
+- [x] Drop files onto the terminal (quoted paths)
+- [x] Save output to a file
+- [x] Monitor activity and silence per pane
+- [ ] Copy on select (setting)
+- [ ] Read-only terminal (`set_input_enabled`)
+- [ ] Copy as HTML
+- [ ] Advanced paste: edit before pasting, convert tabs to spaces, CRLF
+- [ ] Bookmarks for commands and SSH targets (Tilix has folder, path, command, remote)
+- [ ] Command line: `--split-right`/`--split-down` for a call to a running instance
+- [ ] Custom links per profile (regex → command, e.g. `#123` → issue in the browser)
+- [ ] Double-click on a divider equalizes
+- [ ] Text options per profile: bold is bright, cell spacing, scroll on output/keystroke
+- [ ] Search: whole words only
+- [ ] Window title template
+- Deliberately not (ANALYSIS.md): triggers, badges, password manager, background image,
+  sidebar with thumbnails (tab overview instead)
+
 ### Later
 - [ ] Flatpak with a host agent (like Ptyxis), own repository, no Flathub
 - [ ] Drop-down terminal (Quake style); on Wayland only possible with help from the shell

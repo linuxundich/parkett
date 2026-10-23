@@ -5,6 +5,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Drag a tab out of the window to open it in a new window (its programs keep running).
+- Scrollbar: a thin overlay bar at the right edge, can be turned off per profile
+  (*Bildlaufleiste anzeigen*); the mouse wheel scrolls either way.
+- Reset the terminal, or reset and clear its scrollback (context menu › *Terminal*, shortcuts
+  configurable).
+- Drop files from the file manager onto a terminal to insert their quoted paths.
+- Save the output (scrollback and screen) to a text file.
+- Monitor activity and silence per pane, like Tilix: a notification when a pane that is not in
+  view gets new output, or none for 10 s.
 - English interface; German is a translation now (`po/de.po`), chosen by the system language.
   The desktop file, the metainfo and the GSettings descriptions are translated too.
 

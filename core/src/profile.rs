@@ -87,6 +87,8 @@ pub struct Profile {
     pub directories: Vec<String>,
     /// Vorlage für kurze Reiter-Namen (siehe `label::render`); leer = Einstellung
     pub tab_label: String,
+    /// Bildlaufleiste zeigen (überlagernd wie bei GNOME); aus: Scrollen geht weiter
+    pub scrollbar: bool,
 }
 
 /// Kleinste erlaubte Deckkraft: darunter ist Text auf unruhigem Hintergrund kaum lesbar.
@@ -111,6 +113,7 @@ impl Default for Profile {
             hosts: Vec::new(),
             directories: Vec::new(),
             tab_label: String::new(),
+            scrollbar: true,
         }
     }
 }

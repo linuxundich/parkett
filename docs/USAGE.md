@@ -43,6 +43,8 @@ As of 0.4.0. All shortcuts can be changed or disabled under *Einstellungen › K
 - **Narrow windows** (below 600 px, down to 360 px): the split and search buttons leave the header
   bar; splitting stays in the menu of the arrow next to *Neuer Reiter*, both stay on their
   shortcuts.
+- **New window from a tab:** drag the tab out of the tab bar and drop it outside the window;
+  dropping it on another Parkett window's tab bar moves it there.
 - **Tab overview:** Ctrl+Shift+O; **rename:** main menu or command palette (no
   default shortcut: F2 and F10 stay with the programs in the terminal, e.g. `htop`, `mc`, `nano`).
 - **Pane title** (in split tabs): floats at the top right, but is normally hidden so it does
@@ -79,6 +81,8 @@ path = "~/05_Projekte"
 | Search, previous/next match | Ctrl+Shift+F, Ctrl+Shift+G, Ctrl+Shift+H |
 | Font larger/smaller/normal | Ctrl++, Ctrl+-, Ctrl+0 |
 | Open link | Ctrl+click; right-clicking a link offers *Öffnen* (Open) and *Kopieren* (Copy) |
+| Insert file paths | drag files from the file manager onto the terminal (quoted, not executed) |
+| Save output, reset, monitor | context menu › *Terminal*: *Ausgabe speichern …* (Save output…), *Zurücksetzen* (Reset), *Zurücksetzen und leeren* (Reset and clear), *Aktivität überwachen* (Monitor activity: notifies when the pane, while not in view, gets new output) and *Stille überwachen* (Monitor silence: notifies after 10 s without output) |
 | Open a path from the output | Ctrl+click on `/…`, `~/…`, `./…` or `../…` (also `file.rs:42:7`): folders open in the file manager, files show selected in their folder; not over SSH |
 
 The search bar shows how many matches the whole scrollback holds (up to „999+ Treffer“). The
@@ -192,6 +196,7 @@ cursor_shape = "ibeam"   # block | ibeam | underline
 cursor_blink = "system"  # system | on | off
 bell = "mark"            # sound | mark | none
 opacity = 0.9            # 0.3–1.0
+scrollbar = true         # thin overlay scrollbar at the right edge
 hosts = ["bender", "*.tuxedo.de"]  # use automatically for these SSH hosts
 directories = ["~/kunde"]          # … and for these local folders (also below)
 ```
