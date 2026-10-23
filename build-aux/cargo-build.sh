@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Von Meson aufgerufen: baut Parkett mit cargo und kopiert das Programm an die Stelle,
-# die Meson erwartet. Argumente: QUELLORDNER BUILDORDNER BUILDTYP AUSGABE
+# die Meson erwartet. Argumente: QUELLORDNER BUILDORDNER BUILDTYP AUSGABE LOCALEDIR
 set -euo pipefail
 source_root="$1"; build_root="$2"; buildtype="$3"; output="$4"
+# Übersetzungen aus dem installierten Ort
+export PARKETT_LOCALEDIR="$5"
 
 export CARGO_TARGET_DIR="$build_root/target"
 # Installierter Build: Schema aus dem Standardpfad, nicht aus dem Build-Ordner

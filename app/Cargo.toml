@@ -14,3 +14,4 @@ vte = { package = "vte4", version = "0.10", features = ["v0_80"] }
 glib = { version = "0.22", features = ["v2_72"] }
 gio = { version = "0.22", features = ["v2_80"] }
 libc = "0.2"
+gettext-rs = { version = "0.8", features = ["gettext-system"] }

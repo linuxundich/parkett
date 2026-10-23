@@ -1,17 +1,24 @@
 desktop_conf = configuration_data()
 desktop_conf.set('BINDIR', bindir)
-desktop_file = configure_file(
+desktop_configured = configure_file(
   input: app_id + '.desktop.in',
-  output: app_id + '.desktop',
+  output: app_id + '.desktop.translated.in',
   configuration: desktop_conf,
+)
+# Übersetzungen aus po/ in Desktop-Datei und Metainfo einsetzen
+desktop_file = i18n.merge_file(
+  input: desktop_configured,
+  output: app_id + '.desktop',
+  type: 'desktop',
+  po_dir: '../po',
   install: true,
   install_dir: datadir / 'applications',
 )
 
-metainfo_file = configure_file(
+metainfo_file = i18n.merge_file(
   input: app_id + '.metainfo.xml.in',
   output: app_id + '.metainfo.xml',
-  copy: true,
+  po_dir: '../po',
   install: true,
   install_dir: datadir / 'metainfo',
 )

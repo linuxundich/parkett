@@ -1,0 +1,24 @@
+# Dateien mit übersetzbaren Texten; nach Änderungen po/update-pot.sh
+data/de.linuxundich.Parkett.desktop.in
+data/de.linuxundich.Parkett.metainfo.xml.in
+data/de.linuxundich.Parkett.gschema.xml
+app/src/bookmarks.rs
+app/src/commands.rs
+app/src/main.rs
+app/src/pane.rs
+app/src/prefs.rs
+app/src/profiles.rs
+app/src/session.rs
+app/src/settings.rs
+app/src/shortcuts.rs
+app/src/style.rs
+app/src/tab.rs
+app/src/terminal.rs
+app/src/window.rs
+core/src/bookmark.rs
+core/src/cli.rs
+core/src/label.rs
+core/src/palette.rs
+core/src/profile.rs
+core/src/session.rs
+core/src/template.rs

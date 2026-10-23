@@ -2,6 +2,7 @@
 //! Parkett – Terminalemulator für GNOME mit Splits.
 
 mod bookmarks;
+mod i18n;
 mod commands;
 mod pane;
 mod prefs;
@@ -121,6 +122,7 @@ fn main() -> glib::ExitCode {
     for var in ["GIO_LAUNCHED_DESKTOP_FILE", "GIO_LAUNCHED_DESKTOP_FILE_PID"] {
         std::env::remove_var(var);
     }
+    i18n::init();
     settings::init();
     let app = adw::Application::builder()
         .application_id(APP_ID)

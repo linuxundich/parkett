@@ -7,6 +7,7 @@ pub mod cli;
 pub mod context;
 pub mod environment;
 pub mod fuzzy;
+pub mod i18n;
 pub mod label;
 pub mod layout;
 pub mod palette;

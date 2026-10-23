@@ -1,12 +1,13 @@
 [Desktop Entry]
 Name=Parkett
-Comment=Terminal mit geteilten Bereichen
+Comment=Terminal with split panes
 Exec=@BINDIR@/parkett
 Icon=de.linuxundich.Parkett
 Terminal=false
 Type=Application
 Categories=System;TerminalEmulator;GTK;GNOME;
-Keywords=terminal;shell;console;split;tilix;reiter;tab;
+# Translators: search terms, separated by semicolons; keep the English ones and add your own
+Keywords=terminal;shell;console;split;tilix;tab;pane;
 StartupNotify=true
 DBusActivatable=false
 X-GNOME-UsesNotifications=true
