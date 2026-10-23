@@ -23,6 +23,20 @@ As of 0.3.0. All shortcuts can be changed or disabled under *Einstellungen › K
   `3 ssh bender`; the number matches Ctrl+Alt+1…9. The full title set by the shell is in the
   window title and in the tab's tooltip. A tab you renamed keeps its name. Back to the shell
   title: *Einstellungen › Allgemein › Kurze Reiter-Namen* (Preferences › General › Short tab names).
+  The label follows a template below that switch, default `{n} {program} · {dir}`. Placeholders:
+  `{n}` number, `{program}` program (over SSH „ssh host“), `{dir}` last folder, `{path}` full
+  path with `~`, `{host}` host of an SSH session, `{title}` the shell's title, `{profile}`
+  profile. Empty values drop out together with their separator (` · `, ` | `, ` - `, `: `).
+
+**Moving panes:** drag a pane's title (floating title: move the pointer to the top of the pane
+first; or the title row) onto another pane of the same tab. Near an edge the pane is placed on
+that side, half the target's size; in the middle both panes swap. The zone shows while dragging.
+
+**Input to all panes** (Ctrl+Alt+I, also in the context menu and the command palette): what you
+type or paste in one pane of the tab goes to all its panes, like Tilix's "synchronize input".
+Receiving panes get an orange line at the top, the tab an icon (clicking it turns the mode
+off). *Dieser Bereich empfängt gemeinsame Eingabe* (This pane receives shared input) in the
+context menu leaves a single pane out. The mode is not saved in the session.
 - **Tab overview:** Ctrl+Shift+O; **rename:** main menu or command palette (no
   default shortcut: F2 and F10 stay with the programs in the terminal, e.g. `htop`, `mc`, `nano`).
 - **Pane title** (in split tabs): floats at the top right, but is normally hidden so it does
@@ -35,9 +49,20 @@ As of 0.3.0. All shortcuts can be changed or disabled under *Einstellungen › K
 
 Ctrl+Shift+P opens a list of all actions, tabs, panes, templates and profiles with
 fuzzy search. Prefixes narrow it down: `>` actions only, `@` tabs and panes only,
-`#` templates only. Each action shows its shortcut. Enter runs the selected entry; Ctrl+Enter
-on *Neuer Reiter mit Profil …* opens that profile in a new pane of the current tab instead.
-The palette, the layout mode and the templates are also in the main menu.
+`#` templates only, `~` bookmarks only. Each action shows its shortcut. Enter runs the selected
+entry; Ctrl+Enter on a profile or bookmark opens it in a new pane of the current tab instead,
+Alt+Enter on a bookmark types `cd` into the active pane. The palette, the layout mode, the
+templates and the bookmarks are also in the main menu.
+
+**Bookmarks:** *Aktuellen Ordner als Lesezeichen* (Current folder as bookmark; palette or main
+menu) stores the active pane's folder. Enter on a bookmark opens a new tab there. They live in
+`~/.config/parkett/bookmarks.toml` and can be renamed, sorted or removed by hand:
+
+```toml
+[[bookmark]]
+name = "Projekte"
+path = "~/05_Projekte"
+```
 
 ## Terminal
 
@@ -159,7 +184,16 @@ cursor_shape = "ibeam"   # block | ibeam | underline
 cursor_blink = "system"  # system | on | off
 bell = "mark"            # sound | mark | none
 opacity = 0.9            # 0.3–1.0
+hosts = ["bender", "*.tuxedo.de"]  # use automatically for these SSH hosts
+directories = ["~/kunde"]          # … and for these local folders (also below)
 ```
+
+**Automatic profile:** under *Automatisch verwenden* (Use automatically) a profile lists hosts
+and folders (`*` and `?` as wildcards). While a pane's SSH connection goes to such a host, or
+its local folder lies in such a folder, the pane shows that profile's color scheme, font,
+opacity and cursor; afterwards it returns to its own profile. Bell and exit behavior stay with
+the pane's own profile, and the program keeps running. Host rules win over folder rules; the
+tab tooltip names the automatic profile.
 
 ## Color schemes
 

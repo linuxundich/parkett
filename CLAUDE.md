@@ -57,5 +57,8 @@ Run `build-aux/ci.sh` before every commit. App unit tests must not call GTK func
 - Christoph's own profile still has `exit_action = "hold"`; QA-11 only changes the default.
 - Done after 0.3.0 (on `main`, not released): L1/L2, D2, Ctrl+Enter in the palette, main menu
   entries, smoke checks QA-07/QA-09 (`build-aux/vm/atspi.py`), QA-20 closed.
-- Next (0.4, see `BACKLOG.md`): synchronized input, moving panes by drag and drop, template
-  layout in the editor.
+- 0.4 features on `main` (2026-10-23, not released): synchronized input (`Tab::sync`,
+  `forward_input`), drag and drop (`Layout::move_pane`, `drop_zone`), automatic profile
+  (`profile::automatic`, `Terminal::appearance_profile`; folders via `working_directory`,
+  because the VM's bash sends no OSC 7), bookmarks (`core::bookmark`, `app/src/bookmarks.rs`),
+  title templates (`label::render`). Next: template layout in the editor, release 0.4.

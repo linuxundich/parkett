@@ -24,11 +24,14 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 ## Roadmap
 
 ### 0.4: Sessions and input
-- [ ] Send input to several panes at once (Tilix "synchronized input"), clearly marked
-- [ ] Drag and drop to move panes (Tilix-style drop zones)
-- [ ] Automatic profile switching by host or directory
-- [ ] Bookmarks for directories
-- [ ] Title templates with variables
+- [x] Send input to several panes at once (Tilix "synchronized input"), clearly marked
+      (per tab, panes can opt out; decided 2026-10-23)
+- [x] Drag and drop to move panes (drop zones: edges place beside, middle swaps; same tab only)
+- [x] Automatic profile switching by host or directory (appearance only, returns afterwards)
+- [x] Bookmarks for directories (palette `~`, main menu, `bookmarks.toml`)
+- [x] Title templates with variables (setting `tab-label-template`)
+- [ ] Later: move panes into another tab by dropping them on the tab bar; bookmarks page in the
+      preferences (rename, sort); title template per profile
 
 ### 0.5: Distribution
 - [ ] English interface (gettext), then translations; AppStream metadata and `.desktop` file in

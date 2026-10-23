@@ -5,6 +5,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Input to all panes of a tab (Ctrl+Alt+I, like Tilix's "synchronize input"): typed and pasted
+  text goes to every pane of the tab; single panes can be left out. Receiving panes get an
+  orange line, the tab an icon that turns the mode off when clicked.
+- Move panes by drag and drop: drag a pane title onto another pane of the same tab – near an
+  edge it is placed on that side, in the middle both swap.
+- Automatic profile by host or folder: profiles list SSH hosts and local folders (wildcards);
+  while one matches, a pane shows that profile's colors, font and opacity, then returns.
+- Bookmarks for folders in the command palette (prefix `~`; Enter new tab, Ctrl+Enter new pane,
+  Alt+Enter `cd` here) and the main menu, stored in `~/.config/parkett/bookmarks.toml`.
+- Title templates for the short tab labels (`{n} {program} · {dir}` by default; `{path}`,
+  `{host}`, `{title}`, `{profile}`), set under *Einstellungen › Allgemein*.
 - Command palette: Ctrl+Enter on *Neuer Reiter mit Profil …* opens the profile in a new pane
   of the current tab instead of a new tab.
 - Main menu: *Befehlspalette* (command palette), *Layout-Modus* (layout mode) and a *Vorlagen*
