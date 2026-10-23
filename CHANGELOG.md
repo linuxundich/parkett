@@ -19,6 +19,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   its own template.
 - Drop a pane title on a tab in the tab bar to move the pane there (also between windows).
 - *Einstellungen › Lesezeichen*: rename, sort, delete bookmarks and add folders.
+- File paths in the output are links: Ctrl+click opens a folder in the file manager or shows a
+  file selected in its folder (also `file.rs:42:7`, `~/…`, `./…`).
+- Template editor: split panes, remove them and equalize the dividers.
+- Windows can be as narrow as 360 px: below 600 px the split and search buttons leave the
+  header bar (QA-13); the menu of the new-tab button now also offers splitting.
 - Command palette: Ctrl+Enter on *Neuer Reiter mit Profil …* opens the profile in a new pane
   of the current tab instead of a new tab.
 - Main menu: *Befehlspalette* (command palette), *Layout-Modus* (layout mode) and a *Vorlagen*
@@ -77,6 +82,8 @@ Source on GitHub; package in the author's Arch repo `linuxundich`.
   changing its title.
 
 ### Fixed
+- The template name was selected when the template editor opened, so a key press replaced it
+  (as QA-16 for profiles).
 - Start commands of a template are typed when the shell is ready: at the first prompt with
   shell integration, otherwise once the output is quiet – and never while the terminal waits
   for a password. Before, they were typed at once and could end up in the password prompt of

@@ -39,6 +39,9 @@ As of 0.3.0. All shortcuts can be changed or disabled under *Einstellungen › K
   Receiving panes get an orange line at the top, the tab an icon (clicking it turns the mode
   off). *Dieser Bereich empfängt gemeinsame Eingabe* (This pane receives shared input) in the
   context menu leaves a single pane out. The mode is not saved in the session.
+- **Narrow windows** (below 600 px, down to 360 px): the split and search buttons leave the header
+  bar; splitting stays in the menu of the arrow next to *Neuer Reiter*, both stay on their
+  shortcuts.
 - **Tab overview:** Ctrl+Shift+O; **rename:** main menu or command palette (no
   default shortcut: F2 and F10 stay with the programs in the terminal, e.g. `htop`, `mc`, `nano`).
 - **Pane title** (in split tabs): floats at the top right, but is normally hidden so it does
@@ -75,6 +78,7 @@ path = "~/05_Projekte"
 | Search, previous/next match | Ctrl+Shift+F, Ctrl+Shift+G, Ctrl+Shift+H |
 | Font larger/smaller/normal | Ctrl++, Ctrl+-, Ctrl+0 |
 | Open link | Ctrl+click; right-clicking a link offers *Öffnen* (Open) and *Kopieren* (Copy) |
+| Open a path from the output | Ctrl+click on `/…`, `~/…`, `./…` or `../…` (also `file.rs:42:7`): folders open in the file manager, files show selected in their folder; not over SSH |
 
 The search bar shows how many matches the whole scrollback holds (up to „999+ Treffer“). The
 count is taken when the search text or its options change, not while new output arrives.
@@ -216,6 +220,8 @@ A template stores the layout of a tab with profile, start command and subdirecto
 per pane. *Aktuellen Reiter als Vorlage speichern …* (Save current tab as template …; arrow next to *Neuer Reiter* or command palette)
 picks up the running commands; *Einstellungen › Vorlagen* (Preferences › Templates) edits them. Open them via
 the same menu or the command palette (`#`). Without a fixed directory, Parkett asks when opening.
+In the template editor, the buttons next to *Bereich N* (Pane N) split a pane to the right or
+below or remove it, and *Angleichen* (Equalize) centers all dividers.
 
 Start commands are **typed** into the shell, not launched instead of the shell: after Ctrl+C
 the pane remains usable as a shell. They are typed once the shell is ready: at the first prompt with VTE's

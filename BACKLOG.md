@@ -7,19 +7,19 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 ## Next release (0.4): fixes and small improvements
 
 ### From the QA audit
-- [ ] Regression test for QA-02 (pane title hidden): AT-SPI cannot see opacity, needs a
-      screenshot comparison
+- [x] Regression test for QA-02 (pane title hidden): screenshot comparison in the smoke test
 
 ### From the code review
 
 ### Small features
-- [ ] Change the split layout of a template in the editor
+- [x] Change the split layout of a template in the editor
 
 ## Decisions needed
 
-- [ ] QA-13 Adaptive header bar below about 600 px window width (`AdwBreakpoint`)
-- [ ] File paths in the output as links, Ctrl+click opens them in the file manager (audit T-53)
-- [ ] Sixel: build and ship a VTE with Sixel support, or wait for the distributions
+- [x] QA-13 Adaptive header bar below about 600 px window width (`AdwBreakpoint`; down to 360 px)
+- [x] File paths in the output as links, Ctrl+click opens them in the file manager (audit T-53)
+- [x] Sixel: wait for the distributions to build VTE with Sixel (decided 2026-10-23); no own
+      VTE build
 
 ## Roadmap
 

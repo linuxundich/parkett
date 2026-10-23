@@ -63,7 +63,9 @@ Run `build-aux/ci.sh` before every commit. App unit tests must not call GTK func
   because the VM's bash sends no OSC 7), bookmarks (`core::bookmark`, `app/src/bookmarks.rs`),
   title templates (`label::render`); then per-profile template (`Profile::tab_label`),
   bookmarks page in the preferences, panes into other tabs via the tab bar (`Pane::owner`,
-  `Tab::take_pane`/`adopt_pane`; AdwTabBar needs an `extra-drag-value` answer). Next: template
-  layout in the editor, release 0.4.
+  `Tab::take_pane`/`adopt_pane`; AdwTabBar needs an `extra-drag-value` answer), template layout
+  editor, file paths as links (`paths::output_path`), QA-13 breakpoint (min 360 px), smoke
+  check QA-02 by screenshot (17 checks; assumes the window placement of deploy.sh).
+  Sixel: wait for the distributions (decided 2026-10-23). Next: release 0.4.
 - Commit only after `build-aux/ci.sh` exited 0 (check the exit code, not grep output): a doc
   example shift once broke `core/tests/usage.rs` on `main`.
