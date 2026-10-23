@@ -27,16 +27,14 @@ As of 0.3.0. All shortcuts can be changed or disabled under *Einstellungen › K
   `{n}` number, `{program}` program (over SSH „ssh host“), `{dir}` last folder, `{path}` full
   path with `~`, `{host}` host of an SSH session, `{title}` the shell's title, `{profile}`
   profile. Empty values drop out together with their separator (` · `, ` | `, ` - `, `: `).
-
-**Moving panes:** drag a pane's title (floating title: move the pointer to the top of the pane
-first; or the title row) onto another pane of the same tab. Near an edge the pane is placed on
-that side, half the target's size; in the middle both panes swap. The zone shows while dragging.
-
-**Input to all panes** (Ctrl+Alt+I, also in the context menu and the command palette): what you
-type or paste in one pane of the tab goes to all its panes, like Tilix's "synchronize input".
-Receiving panes get an orange line at the top, the tab an icon (clicking it turns the mode
-off). *Dieser Bereich empfängt gemeinsame Eingabe* (This pane receives shared input) in the
-context menu leaves a single pane out. The mode is not saved in the session.
+- **Moving panes:** drag a pane's title (floating title: move the pointer to the top of the pane
+  first; or the title row) onto another pane of the same tab. Near an edge the pane is placed on
+  that side, half the target's size; in the middle both panes swap. The zone shows while dragging.
+- **Input to all panes** (Ctrl+Alt+I, also in the context menu and the command palette): what you
+  type or paste in one pane of the tab goes to all its panes, like Tilix's "synchronize input".
+  Receiving panes get an orange line at the top, the tab an icon (clicking it turns the mode
+  off). *Dieser Bereich empfängt gemeinsame Eingabe* (This pane receives shared input) in the
+  context menu leaves a single pane out. The mode is not saved in the session.
 - **Tab overview:** Ctrl+Shift+O; **rename:** main menu or command palette (no
   default shortcut: F2 and F10 stay with the programs in the terminal, e.g. `htop`, `mc`, `nano`).
 - **Pane title** (in split tabs): floats at the top right, but is normally hidden so it does
