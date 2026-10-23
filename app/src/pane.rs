@@ -37,10 +37,13 @@ mod imp {
         pub dim: OnceCell<gtk::DrawingArea>,
         pub search: OnceCell<gtk::Revealer>,
         pub badge: OnceCell<gtk::Label>,
+        /// Schloss oben links bei Schreibschutz
+        pub lock: OnceCell<gtk::Image>,
         pub search_entry: OnceCell<gtk::SearchEntry>,
         pub search_count: OnceCell<gtk::Label>,
         pub search_case: OnceCell<gtk::ToggleButton>,
         pub search_regex: OnceCell<gtk::ToggleButton>,
+        pub search_word: OnceCell<gtk::ToggleButton>,
         /// Zeiger im oberen Streifen (Design V2: Titel nur dann sichtbar)
         pub hover_top: Cell<bool>,
         /// Kurz nach einem Fokuswechsel sichtbar; Quelle des Ausblende-Timers
@@ -218,6 +221,18 @@ impl Pane {
             .visible(false)
             .build();
         overlay.add_overlay(&badge);
+        let lock = gtk::Image::builder()
+            .icon_name("changes-prevent-symbolic")
+            .tooltip_text(gettext("Read only"))
+            .css_classes(["parkett-lock"])
+            .halign(gtk::Align::Start)
+            .valign(gtk::Align::End)
+            .margin_start(8)
+            .margin_bottom(8)
+            .visible(false)
+            .build();
+        overlay.add_overlay(&lock);
+        pane.imp().lock.set(lock).ok();
 
         // Suchleiste oben rechts (ersetzt dort den schwebenden Titel, solange sie offen ist)
         let entry = gtk::SearchEntry::builder().placeholder_text(gettext("Search in terminal")).width_chars(22).build();
@@ -231,6 +246,11 @@ impl Pane {
             .build();
         let case =
             gtk::ToggleButton::builder().label("Aa").tooltip_text(gettext("Match case")).css_classes(["flat"]).build();
+        let word = gtk::ToggleButton::builder()
+            .label("W")
+            .tooltip_text(gettext("Whole words only"))
+            .css_classes(["flat"])
+            .build();
         let regex = gtk::ToggleButton::builder()
             .label(".*")
             .tooltip_text(gettext("Regular expression"))
@@ -251,6 +271,7 @@ impl Pane {
             entry.upcast_ref::<gtk::Widget>(),
             count.upcast_ref(),
             case.upcast_ref(),
+            word.upcast_ref(),
             regex.upcast_ref(),
             up.upcast_ref(),
             down.upcast_ref(),
@@ -370,6 +391,7 @@ impl Pane {
         imp.search_count.set(count).ok();
         imp.search_case.set(case.clone()).ok();
         imp.search_regex.set(regex.clone()).ok();
+        imp.search_word.set(word.clone()).ok();
 
         // Suche: bei jeder Änderung neu setzen und vom Ende her den ersten Treffer suchen
         let refresh = {
@@ -384,6 +406,8 @@ impl Pane {
         entry.connect_search_changed(move |_| r1());
         let r2 = refresh.clone();
         case.connect_toggled(move |_| r2());
+        let r3 = refresh.clone();
+        word.connect_toggled(move |_| r3());
         regex.connect_toggled(move |_| refresh());
         for (button, up_dir) in [(&up, true), (&down, false)] {
             let weak = pane.downgrade();
@@ -532,6 +556,7 @@ impl Pane {
 
     /// Titel im schwebenden Feld, bei root/SSH mit farbigem Chip davor.
     fn refresh_title(&self) {
+        self.imp().lock.get().unwrap().set_visible(self.terminal().read_only());
         let t = self.terminal();
         let title = glib::markup_escape_text(&t.title().unwrap_or_else(|| "Shell".into())).to_string();
         let chip = match (t.context(), t.context_accent()) {
@@ -629,7 +654,7 @@ impl Pane {
         let search = imp.search.get().unwrap();
         search.set_reveal_child(false);
         search.set_visible(false);
-        let _ = self.terminal().set_search(None, false, false);
+        let _ = self.terminal().set_search(None, crate::terminal::SearchQuery::default());
         // schwebenden Titel wiederherstellen, falls der Reiter geteilt ist
         let _ = self.activate_action("win.refresh-panes", None);
         self.focus_terminal();
@@ -639,14 +664,18 @@ impl Pane {
         let imp = self.imp();
         let entry = imp.search_entry.get().unwrap();
         let text = entry.text().to_string();
-        let (regex, case) = (imp.search_regex.get().unwrap().is_active(), imp.search_case.get().unwrap().is_active());
+        let query = crate::terminal::SearchQuery {
+            regex: imp.search_regex.get().unwrap().is_active(),
+            case_sensitive: imp.search_case.get().unwrap().is_active(),
+            whole_words: imp.search_word.get().unwrap().is_active(),
+        };
         let count = imp.search_count.get().unwrap();
-        match self.terminal().set_search(Some(&text), regex, case) {
+        match self.terminal().set_search(Some(&text), query) {
             Ok(()) => {
                 entry.set_tooltip_text(None);
                 let found = text.is_empty() || self.terminal().search_step(true);
                 set_error(entry, !found);
-                set_count(count, self.terminal().search_count(&text, regex, case));
+                set_count(count, self.terminal().search_count(&text, query));
             }
             Err(e) => {
                 entry.set_tooltip_text(Some(&trf("Invalid expression: {error}", &[("error", &e.to_string())])));

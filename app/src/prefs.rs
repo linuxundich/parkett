@@ -91,6 +91,12 @@ fn general_page() -> adw::PreferencesPage {
     look.add(&context);
     look.add(&labels);
     look.add(&template);
+    let window_title = adw::EntryRow::builder()
+        .title(gettext("Window title template"))
+        .tooltip_text(gettext("{title} tab title · {n} tab number · {program} · {dir} · {path} · {host} · {profile}"))
+        .build();
+    settings.bind("window-title-template", &window_title, "text").build();
+    look.add(&window_title);
     look.add(&tabbar);
     page.add(&look);
 
@@ -126,6 +132,12 @@ fn general_page() -> adw::PreferencesPage {
         .build();
     settings.bind("warn-multiline-paste", &paste, "active").build();
     behaviour.add(&paste);
+    let copy_select = adw::SwitchRow::builder()
+        .title(gettext("Copy on select"))
+        .subtitle(gettext("Selected text goes to the clipboard at once"))
+        .build();
+    settings.bind("copy-on-select", &copy_select, "active").build();
+    behaviour.add(&copy_select);
     let restore = adw::SwitchRow::builder()
         .title(gettext("Restore last session"))
         .subtitle(gettext("Windows, tabs, splits and directories – without the programs in them"))
@@ -501,6 +513,60 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
         }
     });
     look.add(&scrollbar);
+    // Textoptionen (Tilix: Fett als hell, Abstände, Bildlauf)
+    let switch = |title: &str, subtitle: &str, on: bool, set: fn(&mut Profile, bool)| {
+        let row = adw::SwitchRow::builder().title(title).subtitle(subtitle).active(on).build();
+        let d = dialog.downgrade();
+        let i = id.clone();
+        row.connect_active_notify(move |row| {
+            if let Some(d) = d.upgrade() {
+                let on = row.is_active();
+                update(&d, &i, |p| set(p, on));
+            }
+        });
+        row
+    };
+    look.add(&switch(
+        &gettext("Bold is bright"),
+        &gettext("Draw bold text in the bright colors"),
+        profile.bold_is_bright,
+        |p, on| p.bold_is_bright = on,
+    ));
+    for (title, value, set) in [
+        (
+            gettext("Line spacing"),
+            profile.line_spacing,
+            (|p: &mut Profile, v: f64| p.line_spacing = v) as fn(&mut Profile, f64),
+        ),
+        (gettext("Letter spacing"), profile.letter_spacing, |p: &mut Profile, v: f64| p.letter_spacing = v),
+    ] {
+        let row = adw::SpinRow::builder()
+            .title(title.as_str())
+            .adjustment(&gtk::Adjustment::new(Profile::spacing(value), 1.0, 2.0, 0.05, 0.1, 0.0))
+            .digits(2)
+            .build();
+        let d = dialog.downgrade();
+        let i = id.clone();
+        row.connect_value_notify(move |row| {
+            if let Some(d) = d.upgrade() {
+                let v = row.value();
+                update(&d, &i, |p| set(p, v));
+            }
+        });
+        look.add(&row);
+    }
+    look.add(&switch(
+        &gettext("Scroll on output"),
+        &gettext("Jump to the end when a program writes"),
+        profile.scroll_on_output,
+        |p, on| p.scroll_on_output = on,
+    ));
+    look.add(&switch(
+        &gettext("Scroll on keystroke"),
+        &gettext("Jump to the end when typing"),
+        profile.scroll_on_keystroke,
+        |p, on| p.scroll_on_keystroke = on,
+    ));
     let shapes = [CursorShape::Block, CursorShape::Ibeam, CursorShape::Underline];
     look.add(&choice_row(
         dialog,
@@ -613,6 +679,8 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
     auto.add(&hosts);
     auto.add(&dirs);
     page.add(&auto);
+
+    page.add(&custom_links_group(dialog, &id));
 
     // eigene Vorlage für den Reiter-Namen (leer = Einstellung unter Allgemein)
     let tab_label = adw::EntryRow::builder()
@@ -895,16 +963,166 @@ fn capture_shortcut(prefs: &adw::PreferencesDialog, action: &'static str) {
 /// Funktion, die eine Liste neu aufbaut; von ihren eigenen Knöpfen aus aufrufbar.
 type Refill = Rc<RefCell<Option<Rc<dyn Fn()>>>>;
 
+/// Eigene Links des Profils (Tilix „Custom Hyperlinks“): je Eintrag Ausdruck und Ziel.
+/// Jede Änderung wird sofort gespeichert; Hinzufügen und Löschen bauen die Liste neu auf.
+fn custom_links_group(dialog: &adw::PreferencesDialog, id: &str) -> adw::PreferencesGroup {
+    let add = gtk::Button::builder()
+        .icon_name("list-add-symbolic")
+        .tooltip_text(gettext("Add link"))
+        .css_classes(["flat"])
+        .valign(gtk::Align::Center)
+        .build();
+    let group = adw::PreferencesGroup::builder()
+        .title(gettext("Custom links"))
+        .description(gettext("Text matching a regular expression becomes a link (Ctrl+click). The target is an address or a command; $0 is the whole match, $1 to $9 the groups."))
+        .header_suffix(&add)
+        .build();
+    let rows: Rc<RefCell<Vec<gtk::Widget>>> = Rc::default();
+    let fill: Refill = Rc::default();
+    let f = {
+        let group = group.downgrade();
+        let dialog = dialog.downgrade();
+        let rows = rows.clone();
+        let fill = fill.clone();
+        let id = id.to_string();
+        move || {
+            let (Some(group), Some(dialog)) = (group.upgrade(), dialog.upgrade()) else { return };
+            for r in rows.borrow_mut().drain(..) {
+                group.remove(&r);
+            }
+            let links = ProfileManager::get().profile(&id).links;
+            for (n, link) in links.iter().enumerate() {
+                let pattern = adw::EntryRow::builder()
+                    .title(gettext("Regular expression (e.g. \\bPARK-(\\d+))"))
+                    .text(link.pattern.as_str())
+                    .build();
+                let target = adw::EntryRow::builder()
+                    .title(gettext("Target (e.g. https://tracker.example/$1)"))
+                    .text(link.target.as_str())
+                    .build();
+                let valid = |text: &str| {
+                    text.is_empty()
+                        || glib::Regex::new(text, glib::RegexCompileFlags::empty(), glib::RegexMatchFlags::empty())
+                            .is_ok_and(|r| r.is_some())
+                };
+                if !valid(&link.pattern) {
+                    pattern.add_css_class("error");
+                }
+                let remove = gtk::Button::builder()
+                    .icon_name("user-trash-symbolic")
+                    .tooltip_text(gettext("Remove link"))
+                    .css_classes(["flat"])
+                    .valign(gtk::Align::Center)
+                    .build();
+                pattern.add_suffix(&remove);
+                for (row, is_pattern) in [(&pattern, true), (&target, false)] {
+                    let d = dialog.downgrade();
+                    let i = id.clone();
+                    row.connect_changed(move |e| {
+                        let Some(d) = d.upgrade() else { return };
+                        let text = e.text().to_string();
+                        if is_pattern {
+                            if valid(&text) {
+                                e.remove_css_class("error");
+                            } else {
+                                e.add_css_class("error");
+                            }
+                        }
+                        update(&d, &i, |p| {
+                            if let Some(l) = p.links.get_mut(n) {
+                                if is_pattern {
+                                    l.pattern = text;
+                                } else {
+                                    l.target = text;
+                                }
+                            }
+                        });
+                    });
+                }
+                let d = dialog.downgrade();
+                let i = id.clone();
+                let fill = fill.clone();
+                remove.connect_clicked(move |_| {
+                    let Some(d) = d.upgrade() else { return };
+                    update(&d, &i, |p| {
+                        if n < p.links.len() {
+                            p.links.remove(n);
+                        }
+                    });
+                    // nach dem Klick neu aufbauen, nicht mitten im Signal des Knopfs
+                    let fill = fill.clone();
+                    glib::idle_add_local_once(move || {
+                        if let Some(f) = fill.borrow().clone() {
+                            f();
+                        }
+                    });
+                });
+                // Abstand zwischen den Einträgen: jedes Paar in einer eigenen Liste
+                let pair = gtk::ListBox::builder()
+                    .css_classes(["boxed-list"])
+                    .selection_mode(gtk::SelectionMode::None)
+                    .margin_bottom(if n + 1 < links.len() { 12 } else { 0 })
+                    .build();
+                pair.append(&pattern);
+                pair.append(&target);
+                group.add(&pair);
+                rows.borrow_mut().push(pair.upcast());
+            }
+        }
+    };
+    let f: Rc<dyn Fn()> = Rc::new(f);
+    *fill.borrow_mut() = Some(f.clone());
+    let d = dialog.downgrade();
+    let i = id.to_string();
+    add.connect_clicked(move |_| {
+        let Some(d) = d.upgrade() else { return };
+        update(&d, &i, |p| p.links.push(Default::default()));
+        f();
+        // Fokus ins neue Feld
+        if let Some(pair) = rows.borrow().last().and_then(|w| w.first_child()) {
+            pair.grab_focus();
+        }
+    });
+    if let Some(f) = fill.borrow().clone() {
+        f();
+    }
+    // fill hält sich über die Knöpfe selbst fest; mit der Gruppe auflösen
+    group.connect_destroy(move |_| {
+        fill.borrow_mut().take();
+    });
+    group
+}
+
 /// Lesezeichen umbenennen, sortieren, löschen und Ordner hinzufügen. Jede Änderung wird
 /// sofort gespeichert; die Liste wird danach neu aufgebaut.
 fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
     let page = adw::PreferencesPage::builder().title(gettext("Bookmarks")).icon_name("user-bookmarks-symbolic").build();
-    let add =
-        gtk::Button::builder().label(gettext("Add folder…")).css_classes(["flat"]).valign(gtk::Align::Center).build();
+    // ein „+“ mit Auswahl: zwei Knöpfe nebeneinander ließen der Beschreibung kaum Platz
+    let add = gtk::Button::builder().label(gettext("Add folder…")).css_classes(["flat"]).build();
+    let add_command = gtk::Button::builder().label(gettext("Add command…")).css_classes(["flat"]).build();
+    let choices = gtk::Box::builder().orientation(gtk::Orientation::Vertical).build();
+    choices.append(&add);
+    choices.append(&add_command);
+    let popover = gtk::Popover::builder().child(&choices).build();
+    for b in [&add, &add_command] {
+        let popover = popover.downgrade();
+        b.connect_clicked(move |_| {
+            if let Some(p) = popover.upgrade() {
+                p.popdown();
+            }
+        });
+    }
+    let buttons = gtk::MenuButton::builder()
+        .icon_name("list-add-symbolic")
+        .tooltip_text(gettext("Add bookmark"))
+        .popover(&popover)
+        .css_classes(["flat"])
+        .valign(gtk::Align::Center)
+        .build();
     let group = adw::PreferencesGroup::builder()
         .title(gettext("Bookmarks"))
-        .description(gettext("Folders for the command palette (~) and the main menu: Enter opens a new tab, Ctrl+Enter a new pane, Alt+Enter switches to it in the active pane."))
-        .header_suffix(&add)
+        .description(gettext("Folders, commands and SSH hosts for the command palette (~) and the main menu: Enter opens a new tab, Ctrl+Enter a new pane, Alt+Enter uses the active pane. Commands are typed into the shell."))
+        .header_suffix(&buttons)
         .build();
     page.add(&group);
     let rows: Rc<RefCell<Vec<gtk::Widget>>> = Rc::default();
@@ -946,8 +1164,10 @@ fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
             }
             let n = list.len();
             for (i, b) in list.iter().enumerate() {
-                // Name bearbeitbar, Pfad als Überschrift
-                let row = adw::EntryRow::builder().title(b.path.as_str()).text(b.name.as_str()).build();
+                // Name bearbeitbar, Pfad bzw. Befehl als Überschrift
+                let row =
+                    adw::EntryRow::builder().title(crate::bookmarks::detail(b).as_str()).text(b.name.as_str()).build();
+                row.add_prefix(&gtk::Image::from_icon_name(crate::bookmarks::icon(b)));
                 let store_name = store.clone();
                 row.connect_changed(move |e| {
                     let mut list = crate::bookmarks::load();
@@ -1009,6 +1229,13 @@ fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
         fill.borrow_mut().take();
     });
     let d = dialog.downgrade();
+    let refill = f.clone();
+    add_command.connect_clicked(move |_| {
+        if let Some(d) = d.upgrade() {
+            add_command_bookmark(&d, refill.clone());
+        }
+    });
+    let d = dialog.downgrade();
     add.connect_clicked(move |button| {
         let Some(d) = d.upgrade() else { return };
         let chooser = gtk::FileDialog::builder().title(gettext("Folder as bookmark")).modal(true).build();
@@ -1028,6 +1255,72 @@ fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
         });
     });
     page
+}
+
+/// Befehl oder SSH-Ziel als Lesezeichen: Art, Name, Befehl bzw. Ziel.
+fn add_command_bookmark(prefs: &adw::PreferencesDialog, refill: Rc<dyn Fn()>) {
+    let kind = adw::ComboRow::builder()
+        .title(gettext("Type"))
+        .model(&gtk::StringList::new(&[gettext("Command").as_str(), gettext("SSH host").as_str()]))
+        .build();
+    let name = adw::EntryRow::builder().title(gettext("Name")).build();
+    let line = adw::EntryRow::builder().title(gettext("Command (e.g. journalctl -f)")).build();
+    kind.connect_selected_notify({
+        let line = line.clone();
+        move |k| {
+            line.set_title(&if k.selected() == 1 {
+                gettext("Host, with options if needed (e.g. -p 2222 toff@bender)")
+            } else {
+                gettext("Command (e.g. journalctl -f)")
+            });
+        }
+    });
+    let list = gtk::ListBox::builder().css_classes(["boxed-list"]).selection_mode(gtk::SelectionMode::None).build();
+    list.append(&kind);
+    list.append(&name);
+    list.append(&line);
+    let dialog = adw::AlertDialog::new(Some(&gettext("Add command")), None);
+    dialog.set_extra_child(Some(&list));
+    dialog.add_responses(&[("cancel", &gettext("Cancel")), ("add", &gettext("Add"))]);
+    dialog.set_response_appearance("add", adw::ResponseAppearance::Suggested);
+    dialog.set_response_enabled("add", false);
+    dialog.set_default_response(Some("add"));
+    dialog.set_close_response("cancel");
+    let d = dialog.downgrade();
+    line.connect_changed(move |e| {
+        if let Some(d) = d.upgrade() {
+            d.set_response_enabled("add", !e.text().trim().is_empty());
+        }
+    });
+    let p = prefs.downgrade();
+    dialog.connect_response(Some("add"), move |_, _| {
+        let text = line.text().trim().to_string();
+        let remote = kind.selected() == 1;
+        let label = name.text().trim().to_string();
+        let mut b = parkett_core::bookmark::Bookmark {
+            name: if label.is_empty() { text.clone() } else { label },
+            ..Default::default()
+        };
+        if remote {
+            b.host = text;
+        } else {
+            b.command = text;
+        }
+        let mut all = crate::bookmarks::load();
+        all.push(b);
+        match crate::bookmarks::save(&all) {
+            Ok(()) => refill(),
+            Err(e) => {
+                if let Some(p) = p.upgrade() {
+                    p.add_toast(crate::window::plain_toast(&trf(
+                        "Bookmarks not saved: {error}",
+                        &[("error", &e.to_string())],
+                    )));
+                }
+            }
+        }
+    });
+    dialog.present(Some(prefs));
 }
 
 fn templates_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {

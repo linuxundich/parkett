@@ -89,6 +89,17 @@ pub struct Profile {
     pub tab_label: String,
     /// Bildlaufleiste zeigen (überlagernd wie bei GNOME); aus: Scrollen geht weiter
     pub scrollbar: bool,
+    /// Fetten Text in den hellen Farben 8–15 zeichnen (alte Terminals)
+    pub bold_is_bright: bool,
+    /// Zeilen- und Zeichenabstand, 1.0 = normal (siehe [`Profile::spacing`])
+    pub line_spacing: f64,
+    pub letter_spacing: f64,
+    /// Bei neuer Ausgabe ans Ende springen
+    pub scroll_on_output: bool,
+    /// Bei einem Tastendruck ans Ende springen
+    pub scroll_on_keystroke: bool,
+    /// Eigene Links (Regex → Adresse oder Befehl), siehe `link`
+    pub links: Vec<crate::link::CustomLink>,
 }
 
 /// Kleinste erlaubte Deckkraft: darunter ist Text auf unruhigem Hintergrund kaum lesbar.
@@ -114,6 +125,12 @@ impl Default for Profile {
             directories: Vec::new(),
             tab_label: String::new(),
             scrollbar: true,
+            bold_is_bright: false,
+            line_spacing: 1.0,
+            letter_spacing: 1.0,
+            scroll_on_output: false,
+            scroll_on_keystroke: true,
+            links: Vec::new(),
         }
     }
 }
@@ -180,6 +197,15 @@ impl Profile {
         let mut p: Profile = toml::from_str(text)?;
         p.id = id.to_string();
         Ok(p)
+    }
+
+    /// Abstand im erlaubten Bereich 1.0–2.0 (VTE: Zellhöhe bzw. -breite als Vielfaches).
+    pub fn spacing(v: f64) -> f64 {
+        if v.is_finite() {
+            v.clamp(1.0, 2.0)
+        } else {
+            1.0
+        }
     }
 
     /// Deckkraft im erlaubten Bereich (Handbearbeitung kann alles hineinschreiben).
@@ -453,5 +479,26 @@ mod tests {
     fn old_profiles_without_rules_still_load() {
         let p = Profile::from_toml("alt", "name = \"Alt\"\n").unwrap();
         assert!(p.hosts.is_empty() && p.directories.is_empty());
+    }
+
+    #[test]
+    fn text_options_defaults_and_limits() {
+        let p = Profile::from_toml("alt", "name = \"Alt\"\n").unwrap();
+        assert!(!p.bold_is_bright && p.scroll_on_keystroke && !p.scroll_on_output);
+        assert_eq!((p.line_spacing, p.letter_spacing), (1.0, 1.0));
+        assert_eq!(Profile::spacing(0.5), 1.0);
+        assert_eq!(Profile::spacing(1.3), 1.3);
+        assert_eq!(Profile::spacing(9.0), 2.0);
+        assert_eq!(Profile::spacing(f64::NAN), 1.0);
+    }
+
+    #[test]
+    fn custom_links_round_trip() {
+        let mut p = Profile { id: "x".into(), ..Default::default() };
+        p.links
+            .push(crate::link::CustomLink { pattern: r"\bPARK-(\d+)".into(), target: "https://t.example/$1".into() });
+        let text = p.to_toml();
+        assert!(text.contains("[[links]]"), "{text}");
+        assert_eq!(Profile::from_toml("x", &text).unwrap().links, p.links);
     }
 }

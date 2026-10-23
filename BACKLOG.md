@@ -49,17 +49,17 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [x] Drop files onto the terminal (quoted paths)
 - [x] Save output to a file
 - [x] Monitor activity and silence per pane
-- [ ] Copy on select (setting)
-- [ ] Read-only terminal (`set_input_enabled`)
-- [ ] Copy as HTML
-- [ ] Advanced paste: edit before pasting, convert tabs to spaces, CRLF
-- [ ] Bookmarks for commands and SSH targets (Tilix has folder, path, command, remote)
-- [ ] Command line: `--split-right`/`--split-down` for a call to a running instance
-- [ ] Custom links per profile (regex → command, e.g. `#123` → issue in the browser)
-- [ ] Double-click on a divider equalizes
-- [ ] Text options per profile: bold is bright, cell spacing, scroll on output/keystroke
-- [ ] Search: whole words only
-- [ ] Window title template
+- [x] Copy on select (setting)
+- [x] Read-only terminal (`set_input_enabled`)
+- [x] Copy as HTML
+- [x] Advanced paste: edit before pasting, convert tabs to spaces, CRLF
+- [x] Bookmarks for commands and SSH targets (Tilix has folder, path, command, remote)
+- [x] Command line: `--split-right`/`--split-down` for a call to a running instance
+- [x] Custom links per profile (regex → command, e.g. `#123` → issue in the browser)
+- [x] Double-click on a divider equalizes
+- [x] Text options per profile: bold is bright, cell spacing, scroll on output/keystroke
+- [x] Search: whole words only
+- [x] Window title template
 - Deliberately not (ANALYSIS.md): triggers, badges, password manager, background image,
   sidebar with thumbnails (tab overview instead)
 

@@ -12,7 +12,7 @@ As of 0.4.0. All shortcuts can be changed or disabled under *Einstellungen › K
   of the header bar, Ctrl+Alt+R, Ctrl+Alt+D or Ctrl+Alt+A (splits along the longer side). If there
   is not enough room (less than 20 × 5 characters per half), Parkett says so instead of splitting.
 - **Move focus:** Alt+arrow; **move divider:** Shift+Alt+arrow;
-  **equalize sizes:** Ctrl+Alt+=; **maximize pane:** Ctrl+Shift+X.
+  **equalize sizes:** Ctrl+Alt+= or a double-click on a divider; **maximize pane:** Ctrl+Shift+X.
 - **Layout mode** (Ctrl+Shift+L): panes show numbers. Digit = focus,
   arrows = focus, Shift+arrow = move divider, *M* followed by an arrow = swap with the
   neighbor, *R*/*D*/*A* = split, *Z* = maximize, *=* = equalize,
@@ -29,7 +29,8 @@ As of 0.4.0. All shortcuts can be changed or disabled under *Einstellungen › K
   path with `~`, `{host}` host of an SSH session, `{title}` the shell's title, `{profile}`
   profile. Empty values drop out together with their separator (` · `, ` | `, ` - `, `: `).
   A profile can have its own template (profile editor, *Reiter*; `tab_label` in the TOML file),
-  which wins over the setting.
+  which wins over the setting. The window title has its own template (*Vorlage für den
+  Fenstertitel*, default `{title}`) with the same placeholders, e.g. `{n}: {title}`.
 - **Moving panes:** drag a pane's title (floating title: move the pointer to the top of the pane
   first; or the title row) onto another pane of the same tab. Near an edge the pane is placed on
   that side, half the target's size; in the middle both panes swap. The zone shows while dragging.
@@ -59,18 +60,30 @@ Ctrl+Shift+P opens a list of all actions, tabs, panes, templates and profiles wi
 fuzzy search. Prefixes narrow it down: `>` actions only, `@` tabs and panes only,
 `#` templates only, `~` bookmarks only. Each action shows its shortcut. Enter runs the selected
 entry; Ctrl+Enter on a profile or bookmark opens it in a new pane of the current tab instead,
-Alt+Enter on a bookmark types `cd` into the active pane. The palette, the layout mode, the
+Alt+Enter on a bookmark uses the active pane (`cd` for a folder). The palette, the layout mode, the
 templates and the bookmarks are also in the main menu.
 
 **Bookmarks:** *Aktuellen Ordner als Lesezeichen* (Current folder as bookmark; palette or main
-menu) stores the active pane's folder. Enter on a bookmark opens a new tab there. They live in
-`~/.config/parkett/bookmarks.toml`; *Einstellungen › Lesezeichen* (Preferences › Bookmarks)
-renames, sorts and removes them and adds folders, or edit the file by hand:
+menu) stores the active pane's folder. Enter on a bookmark opens a new tab there. Besides
+folders, a bookmark can be a command or an SSH host (like Tilix): it is typed into the shell of
+the new tab, the new pane or the active pane, so the shell stays usable after the command or
+the connection ends. They live in `~/.config/parkett/bookmarks.toml`; *Einstellungen ›
+Lesezeichen* (Preferences › Bookmarks) renames, sorts and removes them and adds folders,
+commands and SSH hosts (the *+* button), or edit the file by hand:
 
 ```toml
 [[bookmark]]
 name = "Projekte"
 path = "~/05_Projekte"
+
+[[bookmark]]
+name = "Logs"
+command = "journalctl -f"
+path = "/var/log"        # optional: start folder
+
+[[bookmark]]
+name = "bender"
+host = "-p 2222 toff@bender"   # everything after "ssh"
 ```
 
 ## Terminal
@@ -78,15 +91,21 @@ path = "~/05_Projekte"
 | What | Shortcut |
 |---|---|
 | Copy / Paste | Ctrl+Shift+C / Ctrl+Shift+V, Shift+Insert |
+| Paste special | Ctrl+Shift+Alt+V: edit the text first, convert tabs to spaces, Windows line endings (CRLF) to LF |
+| Copy as HTML | context menu (keeps colors and bold, e.g. for an e-mail or a document) |
 | Search, previous/next match | Ctrl+Shift+F, Ctrl+Shift+G, Ctrl+Shift+H |
 | Font larger/smaller/normal | Ctrl++, Ctrl+-, Ctrl+0 |
 | Open link | Ctrl+click; right-clicking a link offers *Öffnen* (Open) and *Kopieren* (Copy) |
 | Insert file paths | drag files from the file manager onto the terminal (quoted, not executed) |
-| Save output, reset, monitor | context menu › *Terminal*: *Ausgabe speichern …* (Save output…), *Zurücksetzen* (Reset), *Zurücksetzen und leeren* (Reset and clear), *Aktivität überwachen* (Monitor activity: notifies when the pane, while not in view, gets new output) and *Stille überwachen* (Monitor silence: notifies after 10 s without output) |
+| Save output, reset, read only, monitor | context menu › *Terminal*: *Ausgabe speichern …* (Save output…), *Zurücksetzen* (Reset), *Zurücksetzen und leeren* (Reset and clear), *Schreibgeschützt* (Read only: keys and pasting no longer reach the program, a lock shows at the bottom left), *Aktivität überwachen* (Monitor activity: notifies when the pane, while not in view, gets new output) and *Stille überwachen* (Monitor silence: notifies after 10 s without output) |
 | Open a path from the output | Ctrl+click on `/…`, `~/…`, `./…` or `../…` (also `file.rs:42:7`): folders open in the file manager, files show selected in their folder; not over SSH |
 
 The search bar shows how many matches the whole scrollback holds (up to „999+ Treffer“). The
 count is taken when the search text or its options change, not while new output arrives.
+Options: *Aa* case sensitive, *W* whole words only, *.\** regular expression.
+
+**Copy on select** (*Einstellungen › Allgemein*, off by default): selected text goes to the
+clipboard right away, as in Tilix; the primary selection (middle click) works either way.
 
 Text containing a line break (even a single line with a break at the end) first shows a preview
 when pasted via Ctrl+Shift+V, Shift+Insert or the context menu, because a shell without
@@ -121,13 +140,16 @@ parkett [OPTIONEN] [-- BEFEHL [ARGUMENTE …]]
   -p, --profile=ID              Profil (Dateiname ohne .toml)
   -t, --title=TITEL             Titel des Reiters
       --tab                     als Reiter im aktiven Fenster statt neuem Fenster
+      --split-right             aktiven Bereich des aktiven Fensters rechts teilen
+      --split-down              aktiven Bereich des aktiven Fensters unten teilen
 ```
 
 In English: `-d` sets the start directory (given several times, one tab per directory); `-e`,
 `-x` or `--` run the rest of the line instead of the shell (a single argument after `-e`, as in
 `parkett -e "htop -d 5"`, is split like a shell would, as in GNOME Terminal); `-p` selects a profile (file name
 without `.toml`); `-t` sets the tab title; `--tab` opens a tab in the active window instead of
-a new window.
+a new window; `--split-right` and `--split-down` split the active pane of the active window
+instead (with `-d`, `-p` and a command as for a tab; without a window Parkett opens one).
 
 Examples: `parkett -d ~/src --tab` opens a tab in `~/src`, `parkett -t Logs --
 journalctl -f` a window with `journalctl` running. If Parkett is already running, the
@@ -197,9 +219,24 @@ cursor_blink = "system"  # system | on | off
 bell = "mark"            # sound | mark | none
 opacity = 0.9            # 0.3–1.0
 scrollbar = true         # thin overlay scrollbar at the right edge
+bold_is_bright = false   # draw bold text in the bright colors 8–15
+line_spacing = 1.2       # 1.0–2.0, also letter_spacing
+scroll_on_output = false # jump to the end on new output
+scroll_on_keystroke = true
 hosts = ["bender", "*.tuxedo.de"]  # use automatically for these SSH hosts
 directories = ["~/kunde"]          # … and for these local folders (also below)
+
+[[links]]                # custom link, see below
+pattern = '\bPARK-(\d+)\b'
+target = "https://tracker.example/issue/$1"
 ```
+
+**Custom links** (profile editor, *Eigene Links*; like Tilix's custom hyperlinks): text matching
+a regular expression (PCRE2, as in the search) becomes a link for Ctrl+click and the context
+menu. The target is an address (with a scheme such as `https:`) or a command, run in the pane's
+folder; `$0` is the whole match, `$1`…`$9` the groups. Output can come from anyone (`cat`, SSH),
+so the groups are percent-encoded in addresses and quoted in commands, never inserted raw.
+Example for an editor: pattern `([\w./-]+\.rs):(\d+)`, target `code --goto $1:$2`.
 
 **Automatic profile:** under *Automatisch verwenden* (Use automatically) a profile lists hosts
 and folders (`*` and `?` as wildcards). While a pane's SSH connection goes to such a host, or

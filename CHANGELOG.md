@@ -16,6 +16,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   view gets new output, or none for 10 s.
 - English interface; German is a translation now (`po/de.po`), chosen by the system language.
   The desktop file, the metainfo and the GSettings descriptions are translated too.
+- Copy on select (setting, off by default).
+- Read-only terminal (context menu › *Terminal*): keys and pasting no longer reach the
+  program; a lock shows in the pane.
+- Copy as HTML (context menu), keeping colors and bold.
+- Paste special (Ctrl+Shift+Alt+V): edit the text before pasting, convert tabs to spaces and
+  Windows line endings to LF.
+- Bookmarks for commands and SSH hosts besides folders, typed into the shell of a new tab, a
+  new pane or the active pane; added under *Einstellungen › Lesezeichen* (*+*).
+- Command line: `--split-right` and `--split-down` split the active pane of the running
+  instance.
+- Custom links per profile: a regular expression makes text clickable, the target is an
+  address or a command with `$0`…`$9`; groups are encoded or quoted, never inserted raw.
+- Double-click on a divider equalizes all sizes.
+- Text options per profile: bold is bright, line and letter spacing, scroll on output and on
+  keystroke.
+- Search for whole words only (*W* in the search bar).
+- Template for the window title (*Einstellungen › Allgemein*, default `{title}`).
 
 ## [0.4.0] - 2026-10-23
 

@@ -231,6 +231,23 @@ fn open(app: &adw::Application, cmdline: &gio::ApplicationCommandLine, cli: park
         .then(|| cmdline.environ().into_iter().map(|e| e.to_string_lossy().into_owned()).collect::<Vec<_>>())
         .filter(|env| env.iter().any(|e| e.starts_with("PATH=")));
     let launch = terminal::Launch { command: cli.command.clone(), environment };
+    // --split-right/-down: aktiven Bereich des aktiven Fensters teilen; ohne Fenster wie ein
+    // normaler Aufruf
+    if let Some(split) = cli.split {
+        let active = app.active_window().and_downcast::<window::Window>();
+        if let Some((win, tab)) = active.and_then(|w| w.current_tab().map(|t| (w, t))) {
+            let o = match split {
+                parkett_core::cli::Split::Right => parkett_core::layout::Orientation::Horizontal,
+                parkett_core::cli::Split::Down => parkett_core::layout::Orientation::Vertical,
+            };
+            let profile = cli.profile.as_ref().map(|_| profile.as_str());
+            if !tab.split_with(Some(o), profile, dirs.into_iter().next().flatten(), launch) {
+                win.toast(&i18n::gettext("Not enough room to split"));
+            }
+            win.present();
+            return glib::ExitCode::SUCCESS;
+        }
+    }
     let target = if cli.tab { app.active_window().and_downcast::<window::Window>() } else { None };
     let win = target.unwrap_or_else(|| window::Window::empty(app));
     // ein Reiter je Verzeichnis (Nautilus: mehrere Ordner markiert), der erste bleibt gewählt

@@ -195,7 +195,7 @@ impl Window {
         (0..view.n_pages()).filter_map(|i| view.nth_page(i).child().downcast::<Tab>().ok()).collect()
     }
 
-    fn current_tab(&self) -> Option<Tab> {
+    pub fn current_tab(&self) -> Option<Tab> {
         self.tab_view().selected_page().and_then(|p| p.child().downcast::<Tab>().ok())
     }
 
@@ -235,11 +235,12 @@ impl Window {
         });
         let weak = self.downgrade();
         let labels = settings.connect_changed(None, move |_, key| {
-            if key != "short-tab-labels" && key != "tab-label-template" {
+            if !matches!(key, "short-tab-labels" | "tab-label-template" | "window-title-template") {
                 return;
             }
             if let Some(w) = weak.upgrade() {
                 w.update_labels();
+                w.update_title();
             }
         });
         let handlers = std::cell::RefCell::new(vec![dim, labels]);
@@ -748,7 +749,10 @@ impl Window {
         let title = self.imp().title.get().unwrap();
         match self.current_tab() {
             Some(tab) => {
-                let t = tab.title();
+                // Vorlage aus den Einstellungen; {title} ist der Reitertitel (eigener Name oder
+                // der der Shell)
+                let position = self.page_of(&tab).map(|p| self.tab_view().page_position(&p) as usize + 1);
+                let t = tab.render_label(&crate::settings::window_title_template(), position, Some(tab.title()));
                 title.set_title(&t);
                 if self.imp().layout_mode.get() {
                     title.set_subtitle(&gettext("Layout mode · Esc to exit"));
@@ -931,7 +935,9 @@ impl Window {
         a.connect_activate(move |_, param| {
             let (Some(w), Some(id)) = (weak.upgrade(), param.and_then(|p| p.get::<String>())) else { return };
             match w.current_tab() {
-                Some(tab) if !tab.split_with(None, Some(&id), None) => w.toast(&gettext("Not enough room to split")),
+                Some(tab) if !tab.split_with(None, Some(&id), None, Default::default()) => {
+                    w.toast(&gettext("Not enough room to split"))
+                }
                 Some(_) => {}
                 None => {
                     w.add_tab_with_profile(None, &id);
@@ -954,7 +960,7 @@ impl Window {
         a.connect_activate(move |_, param| {
             let (Some(w), Some(dir)) = (weak.upgrade(), param.and_then(|p| p.get::<String>())) else { return };
             if let Some(tab) = w.current_tab() {
-                if !tab.split_with(None, None, Some(dir)) {
+                if !tab.split_with(None, None, Some(dir), Default::default()) {
                     w.toast(&gettext("Not enough room to split"));
                 }
             }
@@ -967,6 +973,40 @@ impl Window {
             if let Some(tab) = w.current_tab() {
                 let quoted = glib::shell_quote(&dir).to_string_lossy().into_owned();
                 tab.focused_pane().terminal().type_command(&format!("cd {quoted}"));
+            }
+        });
+        self.add_action(&a);
+        // Befehl oder SSH-Ziel: (Ort, Ordner, Befehl); Ort „tab“, „pane“ oder „here“. Getippt
+        // statt als Befehl gestartet – nach `exit` bleibt die Shell (wie Tilix).
+        let a = gio::SimpleAction::new("bookmark-command", Some(glib::VariantTy::new("(sss)").unwrap()));
+        let weak = self.downgrade();
+        a.connect_activate(move |_, param| {
+            let (Some(w), Some((place, dir, line))) =
+                (weak.upgrade(), param.and_then(|p| p.get::<(String, String, String)>()))
+            else {
+                return;
+            };
+            let dir = Some(dir).filter(|d| !d.is_empty());
+            let terminal = match place.as_str() {
+                "tab" => {
+                    let tab = w.add_tab_with_profile(dir, &ProfileManager::get().default_id());
+                    w.select(&tab);
+                    Some(tab.focused_pane().terminal().clone())
+                }
+                "pane" => match w.current_tab() {
+                    Some(tab) if tab.split_with(None, None, dir, Default::default()) => {
+                        Some(tab.focused_pane().terminal().clone())
+                    }
+                    Some(_) => {
+                        w.toast(&gettext("Not enough room to split"));
+                        None
+                    }
+                    None => None,
+                },
+                _ => w.current_tab().map(|t| t.focused_pane().terminal().clone()),
+            };
+            if let Some(t) = terminal {
+                t.type_command(&line);
             }
         });
         self.add_action(&a);
@@ -1417,7 +1457,8 @@ fn fill_bookmark_menu(menu: &gio::Menu) {
     menu.remove_all();
     for b in crate::bookmarks::load() {
         let item = gio::MenuItem::new(Some(&b.name), None);
-        item.set_action_and_target_value(Some("win.open-bookmark"), Some(&crate::bookmarks::resolve(&b).to_variant()));
+        let (action, target) = crate::bookmarks::action(&b, "tab");
+        item.set_action_and_target_value(Some(action), Some(&target));
         menu.append_item(&item);
     }
     menu.append(Some(&gettext("Bookmark current folder")), Some("win.add-bookmark"));

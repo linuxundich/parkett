@@ -17,9 +17,27 @@ pub fn check(text: &str) -> Check<'_> {
     Check { lines, executes }
 }
 
+/// Erweitertes Einfügen (Tilix „Advanced Paste“): Tabulatoren durch `tab_width` Leerzeichen
+/// ersetzen (z. B. für Python im Editor, wo ein Tab sonst die Vervollständigung auslöst) und
+/// Windows-Zeilenenden (`\r\n`, auch einzelne `\r`) zu `\n` machen.
+pub fn transform(text: &str, tab_width: Option<usize>, unix_newlines: bool) -> String {
+    let mut out = if unix_newlines { text.replace("\r\n", "\n").replace('\r', "\n") } else { text.to_string() };
+    if let Some(n) = tab_width {
+        out = out.replace('\t', &" ".repeat(n));
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn transform_tabs_and_newlines() {
+        assert_eq!(transform("a\tb\r\nc\rd", Some(4), true), "a    b\nc\nd");
+        assert_eq!(transform("a\tb\r\n", None, false), "a\tb\r\n");
+        assert_eq!(transform("\t", Some(2), false), "  ");
+    }
 
     #[test]
     fn single_line_without_newline_is_harmless() {

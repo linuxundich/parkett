@@ -29,6 +29,9 @@ fn profil_beispiel() {
     assert_eq!(p.opacity(), 0.9);
     assert_eq!(p.hosts, ["bender", "*.tuxedo.de"]);
     assert_eq!(p.directories, ["~/kunde"]);
+    assert_eq!(p.line_spacing, 1.2);
+    assert_eq!(p.links.len(), 1);
+    assert_eq!(p.links[0].pattern, r"\bPARK-(\d+)\b");
 }
 
 #[test]
@@ -42,6 +45,8 @@ fn vorlagen_beispiel() {
 #[test]
 fn lesezeichen_beispiel() {
     let list = parkett_core::bookmark::parse(&block_with("[[bookmark]]")).expect("Lesezeichen-Beispiel");
-    assert_eq!(list.len(), 1);
+    assert_eq!(list.len(), 3);
     assert_eq!(list[0].path, "~/05_Projekte");
+    assert_eq!(list[1].shell_line().as_deref(), Some("journalctl -f"));
+    assert_eq!(list[2].shell_line().as_deref(), Some("ssh -p 2222 toff@bender"));
 }

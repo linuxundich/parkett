@@ -54,6 +54,16 @@ pub fn tab_label_template() -> String {
     }
 }
 
+/// Vorlage für den Fenstertitel; leer = „{title}“.
+pub fn window_title_template() -> String {
+    let t = settings().string("window-title-template").trim().to_string();
+    if t.is_empty() {
+        "{title}".to_string()
+    } else {
+        t
+    }
+}
+
 pub fn context_colors() -> bool {
     settings().boolean("context-colors")
 }

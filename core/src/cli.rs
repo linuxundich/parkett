@@ -6,11 +6,18 @@
 use crate::i18n::{gettext, trf, N_};
 
 /// Hilfetext für `--help` (englischer msgid, übersetzt mit `help()`).
-pub const HELP: &str = N_("Usage: parkett [OPTIONS] [-- COMMAND [ARGUMENTS …]]\n\n  -d, --working-directory=DIR   Start directory; repeat for one tab per directory\n  -e, -x, --                    Run the rest of the line instead of the shell\n                                (-e with a single argument: split like a shell)\n  -p, --profile=ID              Profile (file name without .toml)\n  -t, --title=TITLE             Tab title\n      --tab                     Open as a tab in the active window instead of a new window\n  -h, --help                    Show this help\n      --version                 Show version\n");
+pub const HELP: &str = N_("Usage: parkett [OPTIONS] [-- COMMAND [ARGUMENTS …]]\n\n  -d, --working-directory=DIR   Start directory; repeat for one tab per directory\n  -e, -x, --                    Run the rest of the line instead of the shell\n                                (-e with a single argument: split like a shell)\n  -p, --profile=ID              Profile (file name without .toml)\n  -t, --title=TITLE             Tab title\n      --tab                     Open as a tab in the active window instead of a new window\n      --split-right             Split the active pane of the active window to the right\n      --split-down              Split the active pane of the active window downwards\n  -h, --help                    Show this help\n      --version                 Show version\n");
 
 /// Übersetzter Hilfetext.
 pub fn help() -> String {
     gettext(HELP)
+}
+
+/// `--split-right`/`--split-down`: statt eines Reiters den aktiven Bereich teilen.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Split {
+    Right,
+    Down,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -25,6 +32,7 @@ pub struct Cli {
     pub profile: Option<String>,
     pub title: Option<String>,
     pub tab: bool,
+    pub split: Option<Split>,
     pub help: bool,
     pub version: bool,
 }
@@ -32,7 +40,11 @@ pub struct Cli {
 impl Cli {
     /// Gab es irgendeine Vorgabe? Ohne Vorgabe darf die letzte Sitzung zurückkommen.
     pub fn is_plain(&self) -> bool {
-        self.working_directories.is_empty() && self.command.is_none() && self.profile.is_none() && self.title.is_none()
+        self.working_directories.is_empty()
+            && self.command.is_none()
+            && self.profile.is_none()
+            && self.title.is_none()
+            && self.split.is_none()
     }
 }
 
@@ -84,6 +96,11 @@ pub fn parse<S: AsRef<str>>(args: &[S]) -> Result<Cli, String> {
             "-t" | "--title" => cli.title = Some(value("--title")?),
             "--tab" => flag(&mut cli.tab, true)?,
             "--new-window" => flag(&mut cli.tab, false)?,
+            "--split-right" | "--split-down" => {
+                let mut on = false;
+                flag(&mut on, true)?;
+                cli.split = Some(if name == "--split-right" { Split::Right } else { Split::Down });
+            }
             "-h" | "--help" => flag(&mut cli.help, true)?,
             "--version" => flag(&mut cli.version, true)?,
             _ => return Err(trf("Unknown option “{argument}” (see parkett --help)", &[("argument", arg)])),
@@ -181,6 +198,15 @@ mod tests {
         assert!(parse(&["--tab=x"]).is_err(), "R-10");
         assert!(parse(&["--help=1"]).is_err());
         assert!(parse(&["-e=htop"]).is_err());
+    }
+
+    #[test]
+    fn split() {
+        let cli = parse(&["--split-right", "-d", "/tmp"]).unwrap();
+        assert_eq!(cli.split, Some(Split::Right));
+        assert!(!cli.is_plain());
+        assert_eq!(parse(&["--split-down", "--", "htop"]).unwrap().split, Some(Split::Down));
+        assert!(parse(&["--split-down=1"]).is_err());
     }
 
     #[test]

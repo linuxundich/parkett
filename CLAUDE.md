@@ -72,8 +72,12 @@ Run `build-aux/ci.sh` before every commit. App unit tests must not call GTK func
   Sixel: wait for the distributions (decided 2026-10-23). Released as 0.4.0 (tag `v0.4.0`).
 - After 0.4.0 on `main`: English interface (gettext, `po/de.po`); Tilix parity: tab into a new
   window, scrollbar (`ScrolledWindow` around VTE, profile `scrollbar`), reset, file drop, save
-  output, monitor activity/silence (context menu › Terminal submenu). Smaller Tilix gaps in
-  `BACKLOG.md` (*Tilix parity*).
+  output, monitor activity/silence (context menu › Terminal submenu). Then the smaller Tilix
+  gaps (all done): copy on select, read only, copy as HTML, paste special
+  (`paste::transform`), command/SSH bookmarks (`Bookmark::kind`, action `win.bookmark-command`),
+  `--split-right/-down`, custom links (`core::link`, groups encoded/quoted), divider double-click
+  (counted by event time: GtkPaned's drag gesture cancels `n_press`), text options, whole-word
+  search, window title template.
 - Next (0.5, see `BACKLOG.md`): AUR/COPR, Debian package.
 - Commit only after `build-aux/ci.sh` exited 0 (check the exit code, not grep output): a doc
   example shift once broke `core/tests/usage.rs` on `main`.

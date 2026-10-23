@@ -10,6 +10,7 @@ pub mod fuzzy;
 pub mod i18n;
 pub mod label;
 pub mod layout;
+pub mod link;
 pub mod palette;
 pub mod paste;
 pub mod paths;

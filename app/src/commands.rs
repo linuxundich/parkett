@@ -102,21 +102,21 @@ fn collect(win: &Window) -> Vec<Item> {
         }
     }
     for b in crate::bookmarks::load() {
-        let dir = crate::bookmarks::resolve(&b);
-        let act = |name: &'static str, dir: String| -> Run {
+        let act = |place: &str| -> Run {
+            let (name, target) = crate::bookmarks::action(&b, place);
             Rc::new(move |w: &Window| {
-                let _ = WidgetExt::activate_action(w, name, Some(&dir.to_variant()));
+                let _ = WidgetExt::activate_action(w, name, Some(&target));
             })
         };
         items.push(Item {
             group: Group::Bookmarks,
             title: b.name.clone(),
-            subtitle: b.path.clone(),
+            subtitle: crate::bookmarks::detail(&b),
             accel: String::new(),
-            icon: "folder-symbolic",
-            run: act("win.open-bookmark", dir.clone()),
-            alt: Some(act("win.bookmark-pane", dir.clone())),
-            here: Some(act("win.bookmark-cd", dir)),
+            icon: crate::bookmarks::icon(&b),
+            run: act("tab"),
+            alt: Some(act("pane")),
+            here: Some(act("here")),
         });
     }
     for t in ProfileManager::get().templates() {

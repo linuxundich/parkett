@@ -15,6 +15,7 @@ use gtk::{gio, glib, pango};
 use vte::prelude::*;
 
 use parkett_core::context::{self, Context};
+use parkett_core::link::{Action as LinkAction, CustomLink};
 use parkett_core::palette::Rgb;
 use parkett_core::profile::{Bell, CursorBlink, CursorShape, ExitAction, Profile};
 
@@ -44,6 +45,10 @@ struct Inner {
     on_colors_changed: RefCell<Vec<Callback>>,
     /// Link unter dem Zeiger beim Rechtsklick (für „Link öffnen/kopieren“ im Kontextmenü)
     menu_link: RefCell<Option<String>>,
+    /// eigener Link des Profils unter dem Zeiger beim Rechtsklick
+    menu_custom: RefCell<Option<LinkAction>>,
+    /// eigene Links des Profils mit ihrem VTE-Tag
+    custom_links: RefCell<Vec<(i32, CustomLink)>>,
     actions: gio::SimpleActionGroup,
     shortcut_controller: RefCell<Option<gtk::ShortcutController>>,
     /// Text, der nach dem Start in die Shell getippt wird (Startbefehl einer Vorlage)
@@ -182,6 +187,8 @@ impl Terminal {
             background: Cell::new(Rgb { r: 255, g: 255, b: 255 }),
             on_colors_changed: RefCell::default(),
             menu_link: RefCell::new(None),
+            menu_custom: RefCell::new(None),
+            custom_links: RefCell::default(),
             actions: gio::SimpleActionGroup::new(),
             shortcut_controller: RefCell::new(None),
             pending_input: RefCell::new(None),
@@ -254,6 +261,11 @@ impl Terminal {
         if self.0.exit.get().is_none() {
             self.0.vte.feed_child(text.as_bytes());
         }
+    }
+
+    /// Schreibgeschützt (Eingaben gesperrt)?
+    pub fn read_only(&self) -> bool {
+        !self.0.vte.is_input_enabled()
     }
 
     pub fn sync_excluded(&self) -> bool {
@@ -832,6 +844,13 @@ impl Terminal {
             }
         });
 
+        // Beim Markieren kopieren (Einstellung, wie Tilix)
+        self.0.vte.connect_selection_changed(|v| {
+            if v.has_selection() && crate::settings::settings().boolean("copy-on-select") {
+                v.copy_clipboard_format(vte::Format::Text);
+            }
+        });
+
         // Zeitpunkt der letzten Ausgabe für den Startbefehl (R-09)
         let weak = Rc::downgrade(&self.0);
         self.0.vte.connect_contents_changed(move |_| {
@@ -940,6 +959,13 @@ impl Terminal {
         // Schrift und Cursor aus dem Profil fürs Aussehen, Glocke aus dem eigenen
         let font = if look.font.trim().is_empty() { sm.monospace_font_name() } else { look.font.trim().into() };
         vte.set_font(Some(&pango::FontDescription::from_string(&font)));
+        vte.set_bold_is_bright(look.bold_is_bright);
+        vte.set_cell_height_scale(Profile::spacing(look.line_spacing));
+        vte.set_cell_width_scale(Profile::spacing(look.letter_spacing));
+        let own = manager.profile(&self.profile_id());
+        vte.set_scroll_on_output(own.scroll_on_output);
+        vte.set_scroll_on_keystroke(own.scroll_on_keystroke);
+        self.apply_links(&own.links);
         vte.set_cursor_shape(match look.cursor_shape {
             CursorShape::Block => vte::CursorShape::Block,
             CursorShape::Ibeam => vte::CursorShape::Ibeam,
@@ -1012,7 +1038,10 @@ impl Terminal {
                 return;
             }
             let t = Terminal(inner);
-            if let Some(uri) = t.link_at(x, y) {
+            if let Some(action) = t.custom_link_at(x, y) {
+                g.set_state(gtk::EventSequenceState::Claimed);
+                t.run_link(action);
+            } else if let Some(uri) = t.link_at(x, y) {
                 g.set_state(gtk::EventSequenceState::Claimed);
                 t.open_link(&uri);
             }
@@ -1024,13 +1053,15 @@ impl Terminal {
         right.connect_pressed(move |_, _, x, y| {
             if let Some(inner) = weak.upgrade() {
                 let t = Terminal(inner);
-                let link = t.link_at(x, y);
+                let custom = t.custom_link_at(x, y);
+                let link = if custom.is_some() { None } else { t.link_at(x, y) };
                 for name in ["open-link", "copy-link"] {
                     if let Some(a) = t.0.actions.lookup_action(name).and_downcast::<gio::SimpleAction>() {
-                        a.set_enabled(link.is_some());
+                        a.set_enabled(link.is_some() || custom.is_some());
                     }
                 }
                 *t.0.menu_link.borrow_mut() = link;
+                *t.0.menu_custom.borrow_mut() = custom;
             }
         });
         vte.add_controller(right);
@@ -1041,6 +1072,14 @@ impl Terminal {
             a.connect_activate(move |_, _| {
                 let Some(inner) = weak.upgrade() else { return };
                 let t = Terminal(inner);
+                let custom = t.0.menu_custom.borrow().clone();
+                if let Some(action) = custom {
+                    match (open, action) {
+                        (true, action) => t.run_link(action),
+                        (false, LinkAction::Open(text) | LinkAction::Run(text)) => t.0.vte.clipboard().set_text(&text),
+                    }
+                    return;
+                }
                 let Some(uri) = t.0.menu_link.borrow().clone() else { return };
                 if open {
                     t.open_link(&uri);
@@ -1058,6 +1097,66 @@ impl Terminal {
             vte.set_tooltip_text(uri.as_deref());
             None
         });
+    }
+
+    /// Eigene Links des Profils neu anmelden, wenn sie sich geändert haben.
+    fn apply_links(&self, links: &[CustomLink]) {
+        let wanted: Vec<&CustomLink> = links.iter().filter(|l| l.is_usable()).collect();
+        let mut current = self.0.custom_links.borrow_mut();
+        if current.len() == wanted.len() && current.iter().zip(&wanted).all(|((_, a), b)| a == *b) {
+            return;
+        }
+        for (tag, _) in current.drain(..) {
+            self.0.vte.match_remove(tag);
+        }
+        for link in wanted {
+            match vte::Regex::for_match(&link.pattern, PCRE2_FLAGS) {
+                Ok(re) => {
+                    let tag = self.0.vte.match_add_regex(&re, 0);
+                    self.0.vte.match_set_cursor_name(tag, "pointer");
+                    current.push((tag, link.clone()));
+                }
+                Err(e) => glib::g_warning!("parkett", "Custom link “{}”: {e}", link.pattern),
+            }
+        }
+    }
+
+    /// Eigener Link des Profils an der Position, mit eingesetzten Gruppen.
+    fn custom_link_at(&self, x: f64, y: f64) -> Option<LinkAction> {
+        let (text, tag) = self.0.vte.check_match_at(x, y);
+        let text = text?;
+        let links = self.0.custom_links.borrow();
+        let link = links.iter().find(|(t, _)| *t == tag).map(|(_, l)| l)?;
+        // VTE liefert nur den ganzen Treffer; die Gruppen holt derselbe Ausdruck noch einmal
+        let re = glib::Regex::new(&link.pattern, glib::RegexCompileFlags::empty(), glib::RegexMatchFlags::empty())
+            .ok()
+            .flatten()?;
+        let info = re.match_(text.as_gstr(), glib::RegexMatchFlags::empty()).ok().filter(|i| i.matches())?;
+        let groups: Vec<Option<glib::GString>> = (0..10).map(|i| info.fetch(i)).collect();
+        let groups: Vec<Option<&str>> = groups.iter().map(|g| g.as_deref()).collect();
+        Some(parkett_core::link::expand(&link.target, &groups))
+    }
+
+    /// Ziel eines eigenen Links: Adresse öffnen oder Befehl im Ordner des Bereichs starten.
+    fn run_link(&self, action: LinkAction) {
+        let line = match action {
+            LinkAction::Open(uri) => return self.open_link(&uri),
+            LinkAction::Run(line) => line,
+        };
+        let result = glib::shell_parse_argv(&line).map_err(|e| e.to_string()).and_then(|argv| {
+            let launcher = gio::SubprocessLauncher::new(gio::SubprocessFlags::NONE);
+            if let Some(dir) = self.working_directory() {
+                launcher.set_cwd(&dir);
+            }
+            let argv: Vec<&std::ffi::OsStr> = argv.iter().map(|a| a.as_os_str()).collect();
+            launcher.spawn(&argv).map(|_| ()).map_err(|e| e.to_string())
+        });
+        if let Err(e) = result {
+            glib::g_warning!("parkett", "Custom link command failed: {e}");
+            if let Some(w) = self.0.vte.root().and_downcast::<crate::window::Window>() {
+                w.toast(&trf("Command failed: {error}", &[("error", &e)]));
+            }
+        }
     }
 
     /// OSC-8-Link oder erkannte Adresse an der Position (Widget-Koordinaten).
@@ -1151,15 +1250,15 @@ impl Terminal {
     }
 
     /// Setzt das Suchmuster; `None` hebt die Suche auf. Gibt einen Fehler bei ungültigem Regex.
-    pub fn set_search(&self, text: Option<&str>, regex: bool, case_sensitive: bool) -> Result<(), String> {
+    pub fn set_search(&self, text: Option<&str>, query: SearchQuery) -> Result<(), String> {
         let vte = &self.0.vte;
         let Some(text) = text.filter(|t| !t.is_empty()) else {
             vte.search_set_regex(None, 0);
             vte.unselect_all();
             return Ok(());
         };
-        let pattern = if regex { text.to_string() } else { glib::Regex::escape_string(text).to_string() };
-        let flags = PCRE2_FLAGS | if case_sensitive { 0 } else { PCRE2_CASELESS };
+        let pattern = query.pattern(text);
+        let flags = PCRE2_FLAGS | if query.case_sensitive { 0 } else { PCRE2_CASELESS };
         let re = vte::Regex::for_search(&pattern, flags).map_err(|e| e.message().to_string())?;
         vte.search_set_regex(Some(&re), 0);
         vte.search_set_wrap_around(true);
@@ -1169,13 +1268,13 @@ impl Terminal {
     /// Treffer im ganzen Verlauf (QA-19), höchstens `SEARCH_COUNT_MAX`. VTE zählt selbst
     /// nicht; gezählt wird mit GRegex, das wie VTE auf PCRE2 baut. Umbrochene Zeilen liefert
     /// VTE zusammenhängend, ein Treffer über den Umbruch zählt also mit.
-    pub fn search_count(&self, text: &str, regex: bool, case_sensitive: bool) -> Option<usize> {
+    pub fn search_count(&self, text: &str, query: SearchQuery) -> Option<usize> {
         if text.is_empty() {
             return None;
         }
-        let pattern = if regex { text.to_string() } else { glib::Regex::escape_string(text).to_string() };
+        let pattern = query.pattern(text);
         let mut flags = glib::RegexCompileFlags::MULTILINE | glib::RegexCompileFlags::OPTIMIZE;
-        if !case_sensitive {
+        if !query.case_sensitive {
             flags |= glib::RegexCompileFlags::CASELESS;
         }
         let re = glib::Regex::new(&pattern, flags, glib::RegexMatchFlags::empty()).ok()??;
@@ -1288,15 +1387,34 @@ impl Terminal {
         // Einfügen über Parkett: mehrzeiliger Text wird vorher gezeigt (Funktionsmatrix P0) –
         // ohne Bracketed Paste der Shell würden die Zeilen sonst sofort ausgeführt
         add("paste", Box::new(paste_with_check));
+        add("paste-advanced", Box::new(paste_advanced));
         add("select-all", Box::new(|v| v.select_all()));
         add("zoom-in", Box::new(|v| v.set_font_scale((v.font_scale() * 1.1).min(4.0))));
         add("zoom-out", Box::new(|v| v.set_font_scale((v.font_scale() / 1.1).max(0.3))));
         add("zoom-reset", Box::new(|v| v.set_font_scale(1.0)));
         // Zurücksetzen wie in Tilix: nach kaputten Steuersequenzen (z. B. `cat` einer
         // Binärdatei); „leeren“ verwirft auch den Verlauf
+        add("copy-html", Box::new(|v| v.copy_clipboard_format(vte::Format::Html)));
         add("reset", Box::new(|v| v.reset(true, false)));
         add("reset-clear", Box::new(|v| v.reset(true, true)));
         add("save-output", Box::new(save_output));
+        // Schreibschutz (Tilix „Nur lesen“): Tasten und Einfügen erreichen den Prozess nicht
+        let a = gio::SimpleAction::new_stateful("read-only", None, &false.to_variant());
+        let weak = Rc::downgrade(&self.0);
+        a.connect_activate(move |a, _| {
+            let Some(inner) = weak.upgrade() else { return };
+            let on = !a.state().and_then(|v| v.get::<bool>()).unwrap_or(false);
+            a.set_state(&on.to_variant());
+            inner.vte.set_input_enabled(!on);
+            // VTE verwirft eingefügten Text dann ohnehin; ohne Rückfrage-Dialog davor
+            for name in ["paste", "paste-advanced"] {
+                if let Some(p) = inner.actions.lookup_action(name).and_downcast::<gio::SimpleAction>() {
+                    p.set_enabled(!on);
+                }
+            }
+            Terminal(inner).emit_state_changed();
+        });
+        group.add_action(&a);
         // Überwachen: Schalter mit Zustand für den Haken im Kontextmenü
         for name in ["monitor-activity", "monitor-silence"] {
             let a = gio::SimpleAction::new_stateful(name, None, &false.to_variant());
@@ -1366,7 +1484,9 @@ impl Terminal {
         menu.append_section(None, &link);
         let edit = gio::Menu::new();
         item(&edit, &gettext("Copy"), "term.copy");
+        item(&edit, &gettext("Copy as HTML"), "term.copy-html");
         item(&edit, &gettext("Paste"), "term.paste");
+        item(&edit, &gettext("Paste special…"), "term.paste-advanced");
         item(&edit, &gettext("Select all"), "term.select-all");
         menu.append_section(None, &edit);
         let zoom = gio::Menu::new();
@@ -1391,6 +1511,7 @@ impl Terminal {
         item(&output, &gettext("Save output…"), "term.save-output");
         item(&output, &gettext("Reset"), "term.reset");
         item(&output, &gettext("Reset and clear"), "term.reset-clear");
+        item(&output, &gettext("Read only"), "term.read-only");
         more.append_section(None, &output);
         let monitor = gio::Menu::new();
         item(&monitor, &gettext("Monitor activity"), "term.monitor-activity");
@@ -1428,6 +1549,27 @@ const URL_PATTERNS: &[&str] = &[
 /// `VTE_SPAWN_NO_PARENT_ENVV` (vtepty.h): nur `envv` statt der Umgebung von Parkett; TERM,
 /// COLORTERM und VTE_VERSION setzt VTE trotzdem. Fehlt in vte4-rs.
 const VTE_SPAWN_NO_PARENT_ENVV: u32 = 1 << 25;
+
+/// Wie gesucht wird (Schalter der Suchleiste).
+#[derive(Clone, Copy, Default)]
+pub struct SearchQuery {
+    pub regex: bool,
+    pub case_sensitive: bool,
+    /// nur ganze Wörter (Tilix „Ganzes Wort“): Muster in \b…\b
+    pub whole_words: bool,
+}
+
+impl SearchQuery {
+    /// PCRE-Muster für VTE und das Zählen (beides PCRE2)
+    pub fn pattern(&self, text: &str) -> String {
+        let p = if self.regex { text.to_string() } else { glib::Regex::escape_string(text).to_string() };
+        if self.whole_words {
+            format!("\\b(?:{p})\\b")
+        } else {
+            p
+        }
+    }
+}
 
 /// Darüber zeigt die Suche „999+“: Zählen kostet bei langem Verlauf sonst spürbar Zeit.
 pub const SEARCH_COUNT_MAX: usize = 999;
@@ -1519,6 +1661,67 @@ fn paste_with_check(vte: &vte::Terminal) {
         let v2 = vte.clone();
         dialog.connect_response(Some("paste"), move |_, _| v2.paste_text(&text));
         dialog.present(Some(&vte));
+    });
+}
+
+/// Erweitertes Einfügen: Text aus der Zwischenablage vorher bearbeiten, Tabulatoren und
+/// Zeilenenden umwandeln (Tilix „Advanced Paste“). Ersetzt die Rückfrage bei Umbrüchen –
+/// der Text steht ja schon vollständig im Dialog.
+fn paste_advanced(vte: &vte::Terminal) {
+    let vte = vte.clone();
+    vte.clipboard().read_text_async(gio::Cancellable::NONE, move |res| {
+        let text = match res {
+            Ok(Some(t)) => t.to_string(),
+            _ => String::new(),
+        };
+        let buffer = gtk::TextBuffer::new(None);
+        buffer.set_text(&text);
+        let view = gtk::TextView::builder()
+            .buffer(&buffer)
+            .monospace(true)
+            .wrap_mode(gtk::WrapMode::WordChar)
+            .top_margin(8)
+            .bottom_margin(8)
+            .left_margin(10)
+            .right_margin(10)
+            .build();
+        let scroll = gtk::ScrolledWindow::builder()
+            .child(&view)
+            .min_content_height(160)
+            .max_content_height(360)
+            .propagate_natural_height(true)
+            .min_content_width(420)
+            .build();
+        let frame = gtk::Frame::builder().child(&scroll).build();
+        let tabs = gtk::CheckButton::with_label(&gettext("Convert tabs to spaces"));
+        let width = gtk::SpinButton::with_range(1.0, 8.0, 1.0);
+        width.set_value(4.0);
+        width.set_tooltip_text(Some(&gettext("Spaces per tab")));
+        tabs.bind_property("active", &width, "sensitive").sync_create().build();
+        let tab_row = gtk::Box::builder().spacing(8).build();
+        tab_row.append(&tabs);
+        tab_row.append(&width);
+        let crlf = gtk::CheckButton::with_label(&gettext("Convert Windows line endings (CRLF) to LF"));
+        crlf.set_active(text.contains('\r'));
+        let content = gtk::Box::builder().orientation(gtk::Orientation::Vertical).spacing(8).build();
+        content.append(&frame);
+        content.append(&tab_row);
+        content.append(&crlf);
+        let dialog = adw::AlertDialog::new(Some(&gettext("Paste special")), None);
+        dialog.set_extra_child(Some(&content));
+        dialog.add_responses(&[("cancel", &gettext("Cancel")), ("paste", &gettext("Paste"))]);
+        dialog.set_response_appearance("paste", adw::ResponseAppearance::Suggested);
+        dialog.set_default_response(Some("paste"));
+        dialog.set_close_response("cancel");
+        let v2 = vte.clone();
+        dialog.connect_response(Some("paste"), move |_, _| {
+            let (start, end) = buffer.bounds();
+            let raw = buffer.text(&start, &end, false);
+            let width = tabs.is_active().then(|| width.value_as_int().max(1) as usize);
+            v2.paste_text(&parkett_core::paste::transform(&raw, width, crlf.is_active()));
+        });
+        dialog.present(Some(&vte));
+        view.grab_focus();
     });
 }
 

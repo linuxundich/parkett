@@ -44,6 +44,11 @@
       <summary>Confirm before closing</summary>
       <description>Ask before closing a pane, tab or window in which a program is still running.</description>
     </key>
+    <key name="copy-on-select" type="b">
+      <default>false</default>
+      <summary>Copy on select</summary>
+      <description>Selected text goes to the clipboard at once, like in Tilix; the primary selection (middle click) works anyway.</description>
+    </key>
     <key name="warn-multiline-paste" type="b">
       <default>true</default>
       <summary>Warn before multi-line paste</summary>
@@ -73,6 +78,11 @@
       <default>"{n} {program} · {dir}"</default>
       <summary>Template for short tab names</summary>
       <description>Placeholders: {n} number, {program} program, {dir} folder, {path} full path, {host} host for SSH, {title} shell title, {profile} profile. Empty values are dropped together with their separator.</description>
+    </key>
+    <key name="window-title-template" type="s">
+      <default>"{title}"</default>
+      <summary>Window title template</summary>
+      <description>Placeholders as for tab names, {title} is the tab title (own name or the shell's title).</description>
     </key>
     <key name="short-tab-labels" type="b">
       <default>true</default>

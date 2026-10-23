@@ -70,6 +70,9 @@ pub const ENTRIES: &[Entry] = &[
     e("term.paste", N_("Terminal"), N_("Paste"), &["<Control><Shift>v", "<Shift>Insert"]),
     e("term.select-all", N_("Terminal"), N_("Select all"), &["<Control><Shift>a"]),
     e("term.save-output", N_("Terminal"), N_("Save output…"), &[]),
+    e("term.paste-advanced", N_("Terminal"), N_("Paste special…"), &["<Control><Shift><Alt>v"]),
+    e("term.copy-html", N_("Terminal"), N_("Copy as HTML"), &[]),
+    e("term.read-only", N_("Terminal"), N_("Read only"), &[]),
     e("term.reset", N_("Terminal"), N_("Reset"), &[]),
     e("term.reset-clear", N_("Terminal"), N_("Reset and clear"), &[]),
     e(

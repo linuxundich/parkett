@@ -385,6 +385,16 @@ impl Tab {
                 None => format!("{custom}{zoom}"),
             };
         }
+        let own = crate::profiles::ProfileManager::get().profile(&self.focused_pane().terminal().profile_id());
+        // Vorlage des Profils vor der Einstellung
+        let template =
+            if own.tab_label.trim().is_empty() { crate::settings::tab_label_template() } else { own.tab_label.clone() };
+        format!("{}{zoom}", self.render_label(&template, number, None))
+    }
+
+    /// Text nach einer Vorlage (`core::label::render`) mit den Werten des aktiven Bereichs,
+    /// für Reiter-Namen und Fenstertitel. `title`: statt des Shell-Titels einsetzen.
+    pub fn render_label(&self, template: &str, number: Option<usize>, title: Option<String>) -> String {
         let pane = self.focused_pane();
         let t = pane.terminal();
         // In einer SSH-Sitzung ist das lokale Verzeichnis (das der ssh) bedeutungslos
@@ -393,12 +403,8 @@ impl Tab {
             _ => (t.working_directory(), None),
         };
         let program = t.label_program();
-        let title = t.title();
-        let own = crate::profiles::ProfileManager::get().profile(&t.profile_id());
-        let profile = own.name.clone();
-        // Vorlage des Profils vor der Einstellung
-        let template =
-            if own.tab_label.trim().is_empty() { crate::settings::tab_label_template() } else { own.tab_label.clone() };
+        let title = title.or_else(|| t.title());
+        let profile = crate::profiles::ProfileManager::get().profile(&t.profile_id()).name;
         let vars = parkett_core::label::Vars {
             number,
             program: program.as_deref(),
@@ -407,8 +413,7 @@ impl Tab {
             title: title.as_deref(),
             profile: Some(&profile),
         };
-        let label = parkett_core::label::render(&template, &vars, &glib::home_dir());
-        format!("{label}{zoom}")
+        parkett_core::label::render(template, &vars, &glib::home_dir())
     }
 
     pub fn cwd(&self) -> Option<String> {
@@ -494,12 +499,18 @@ impl Tab {
     /// Teilt den fokussierten Bereich; `None` = entlang der längeren Seite.
     /// `false`, wenn ein Teil kleiner als die Mindestgröße würde.
     pub fn split(&self, orientation: Option<Orientation>) -> bool {
-        self.split_with(orientation, None, None)
+        self.split_with(orientation, None, None, Launch::default())
     }
 
     /// Teilt den aktiven Bereich; der neue bekommt `profile` (sonst das des aktiven) und
-    /// startet in `cwd` (sonst nach Einstellung „Verzeichnis neuer Terminals“).
-    pub fn split_with(&self, orientation: Option<Orientation>, profile: Option<&str>, cwd: Option<String>) -> bool {
+    /// startet in `cwd` (sonst nach Einstellung „Verzeichnis neuer Terminals“) mit `launch`.
+    pub fn split_with(
+        &self,
+        orientation: Option<Orientation>,
+        profile: Option<&str>,
+        cwd: Option<String>,
+        launch: Launch,
+    ) -> bool {
         let layout = self.layout();
         let focus = layout.focus();
         let (w, h) = self.size();
@@ -520,7 +531,7 @@ impl Tab {
         // neuer Bereich erbt das Profil des aktiven
         let profile = profile.map(String::from).unwrap_or_else(|| self.focused_pane().terminal().profile_id());
         let Some((next, id)) = layout.split(focus, o) else { return false };
-        self.add_pane(id, cwd, &profile);
+        self.add_pane_with(id, cwd, &profile, launch);
         self.set_layout(next);
         true
     }
@@ -731,6 +742,32 @@ impl Tab {
                 paned.set_start_child(Some(&self.build_node(first, p1)));
                 paned.set_end_child(Some(&self.build_node(second, p2)));
                 self.sync_ratio(&paned, path);
+                // Doppelklick auf den Trenner gleicht alle Größen an (wie Tilix). Capture-Phase,
+                // weil VTE Klicks sonst selbst nimmt; nur nahe am Trenner zählt. Die Klicks
+                // zählen wir selbst: GtkPaned beansprucht den Druck auf dem Griff für seine
+                // Zieh-Geste, das bricht diese Geste ab und `n_press` bleibt bei 1 (VM-Test).
+                let click =
+                    gtk::GestureClick::builder().button(1).propagation_phase(gtk::PropagationPhase::Capture).build();
+                let weak = self.downgrade();
+                let last = std::cell::Cell::new(0u32);
+                click.connect_pressed(move |g, _, x, y| {
+                    let Some(paned) = g.widget().and_downcast::<gtk::Paned>() else { return };
+                    let at = if paned.orientation() == gtk::Orientation::Horizontal { x } else { y };
+                    if (at - paned.position() as f64).abs() > 6.0 {
+                        return;
+                    }
+                    let now = g.current_event_time();
+                    let limit = gtk::Settings::default().map_or(400, |s| s.gtk_double_click_time()) as u32;
+                    let double = last.get() != 0 && now.wrapping_sub(last.get()) <= limit;
+                    last.set(if double { 0 } else { now });
+                    if double {
+                        if let Some(tab) = weak.upgrade() {
+                            tab.equalize();
+                            crate::session::schedule_save();
+                        }
+                    }
+                });
+                paned.add_controller(click);
                 paned.upcast()
             }
         }
