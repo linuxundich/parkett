@@ -66,6 +66,7 @@ Run `build-aux/ci.sh` before every commit. App unit tests must not call GTK func
   `Tab::take_pane`/`adopt_pane`; AdwTabBar needs an `extra-drag-value` answer), template layout
   editor, file paths as links (`paths::output_path`), QA-13 breakpoint (min 360 px), smoke
   check QA-02 by screenshot (17 checks; assumes the window placement of deploy.sh).
-  Sixel: wait for the distributions (decided 2026-10-23). Next: release 0.4.
+  Sixel: wait for the distributions (decided 2026-10-23). Released as 0.4.0 (tag `v0.4.0`).
+- Next (0.5, see `BACKLOG.md`): English interface (gettext), AUR/COPR, Debian package.
 - Commit only after `build-aux/ci.sh` exited 0 (check the exit code, not grep output): a doc
   example shift once broke `core/tests/usage.rs` on `main`.

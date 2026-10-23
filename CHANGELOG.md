@@ -4,6 +4,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-23
+
+Tilix features: input to all panes of a tab, moving panes by drag and drop (also into other
+tabs), automatic profile by host or folder, bookmarks, title templates; file paths as links,
+template layout editor, windows down to 360 px. Source on GitHub; package in the author's Arch
+repo `linuxundich`.
+
 ### Added
 - Input to all panes of a tab (Ctrl+Alt+I, like Tilix's "synchronize input"): typed and pasted
   text goes to every pane of the tab; single panes can be left out. Receiving panes get an
@@ -34,6 +41,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   when the dialog closes; drawing functions of a pane hold the terminal weakly (L1/L2).
 - The foreground process is read once per poll for context color, tab label and notification
   (D2).
+
+### Fixed
+- The template name was selected when the template editor opened, so a key press replaced it
+  (as QA-16 for profiles).
 
 ## [0.3.0] - 2026-10-23
 
@@ -82,8 +93,6 @@ Source on GitHub; package in the author's Arch repo `linuxundich`.
   changing its title.
 
 ### Fixed
-- The template name was selected when the template editor opened, so a key press replaced it
-  (as QA-16 for profiles).
 - Start commands of a template are typed when the shell is ready: at the first prompt with
   shell integration, otherwise once the output is quiet – and never while the terminal waits
   for a password. Before, they were typed at once and could end up in the password prompt of

@@ -4,7 +4,7 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 [QA audit of 2026-10-19](qa/2026-10-19/QA-REPORT.md) (IDs QA-xx and R-xx), the
 [code review of phase 6](docs/QA.md) (IDs L, D, G) and notes from testing.
 
-## Next release (0.4): fixes and small improvements
+## Next release (0.5): fixes and small improvements
 
 ### From the QA audit
 - [x] Regression test for QA-02 (pane title hidden): screenshot comparison in the smoke test
@@ -23,7 +23,7 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 
 ## Roadmap
 
-### 0.4: Sessions and input
+### 0.4: Sessions and input (released 2026-10-23)
 - [x] Send input to several panes at once (Tilix "synchronized input"), clearly marked
       (per tab, panes can opt out; decided 2026-10-23)
 - [x] Drag and drop to move panes (drop zones: edges place beside, middle swaps; same tab only)

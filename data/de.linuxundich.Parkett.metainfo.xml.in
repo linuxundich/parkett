@@ -41,6 +41,11 @@
     <category>TerminalEmulator</category>
   </categories>
   <releases>
+    <release version="0.4.0" date="2026-10-23" type="stable">
+      <description>
+        <p>Eingabe an alle Bereiche eines Reiters, Bereiche per Ziehen verschieben (auch in andere Reiter), Profil automatisch nach Rechner oder Ordner, Lesezeichen für Ordner, Vorlagen für Reiter-Namen, Dateipfade in der Ausgabe als Links, Aufteilung von Vorlagen bearbeiten und schmale Fenster bis 360 Pixel.</p>
+      </description>
+    </release>
     <release version="0.3.0" date="2026-10-23" type="stable">
       <description>
         <p>Ein zweiter Aufruf gibt seine Umgebung an die neue Shell weiter, Startbefehle von Vorlagen kommen erst nach dem Prompt und nie in eine Passwortabfrage, kurze Reiter-Namen, Trefferzahl in der Suche, Auswahl in der Akzentfarbe, Farbschema „Hoher Kontrast“ automatisch bei hohem Kontrast, ein normales Ende mit Exit-Code 0 schließt den Bereich, weniger Rechenlast im Hintergrund sowie zahlreiche Korrekturen.</p>
