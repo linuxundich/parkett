@@ -389,7 +389,11 @@ impl Tab {
         };
         let program = t.label_program();
         let title = t.title();
-        let profile = crate::profiles::ProfileManager::get().profile(&t.profile_id()).name;
+        let own = crate::profiles::ProfileManager::get().profile(&t.profile_id());
+        let profile = own.name.clone();
+        // Vorlage des Profils vor der Einstellung
+        let template =
+            if own.tab_label.trim().is_empty() { crate::settings::tab_label_template() } else { own.tab_label.clone() };
         let vars = parkett_core::label::Vars {
             number,
             program: program.as_deref(),
@@ -398,7 +402,7 @@ impl Tab {
             title: title.as_deref(),
             profile: Some(&profile),
         };
-        let label = parkett_core::label::render(&crate::settings::tab_label_template(), &vars, &glib::home_dir());
+        let label = parkett_core::label::render(&template, &vars, &glib::home_dir());
         format!("{label}{zoom}")
     }
 

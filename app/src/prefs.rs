@@ -575,6 +575,24 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
     auto.add(&dirs);
     page.add(&auto);
 
+    // eigene Vorlage für den Reiter-Namen (leer = Einstellung unter Allgemein)
+    let tab_label = adw::EntryRow::builder()
+        .title("Vorlage für Reiter-Namen (leer = Einstellung)")
+        .text(profile.tab_label.as_str())
+        .tooltip_text("{n} Nummer · {program} Programm · {dir} Ordner · {path} ganzer Pfad · {host} Rechner bei SSH · {title} Titel der Shell · {profile} Profil")
+        .build();
+    let d = dialog.downgrade();
+    let i = id.clone();
+    tab_label.connect_changed(move |e| {
+        if let Some(d) = d.upgrade() {
+            let text = e.text().trim().to_string();
+            update(&d, &i, |p| p.tab_label = text);
+        }
+    });
+    let labels = adw::PreferencesGroup::builder().title("Reiter").build();
+    labels.add(&tab_label);
+    page.add(&labels);
+
     // Prozessende
     let end = adw::PreferencesGroup::new();
     let exit = adw::ComboRow::builder()

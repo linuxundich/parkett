@@ -85,6 +85,8 @@ pub struct Profile {
     pub hosts: Vec<String>,
     /// Automatisch für diese Ordner (lokal, `~` erlaubt; `~/kunde/*` gilt auch darunter)
     pub directories: Vec<String>,
+    /// Vorlage für kurze Reiter-Namen (siehe `label::render`); leer = Einstellung
+    pub tab_label: String,
 }
 
 /// Kleinste erlaubte Deckkraft: darunter ist Text auf unruhigem Hintergrund kaum lesbar.
@@ -108,6 +110,7 @@ impl Default for Profile {
             opacity: 1.0,
             hosts: Vec::new(),
             directories: Vec::new(),
+            tab_label: String::new(),
         }
     }
 }
