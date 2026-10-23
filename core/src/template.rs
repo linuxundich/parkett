@@ -76,6 +76,75 @@ impl TemplateNode {
     }
 }
 
+impl TemplateNode {
+    /// Teilt den Bereich Nr. `index` (Lesereihenfolge); der neue, leere Bereich kommt rechts
+    /// bzw. unten dazu. `false`, wenn es den Bereich nicht gibt.
+    pub fn split_pane(&mut self, index: usize, direction: SplitDirection) -> bool {
+        let mut n = index;
+        split_at(self, &mut n, direction)
+    }
+
+    /// Entfernt den Bereich Nr. `index`; das Geschwister rückt nach. Der letzte Bereich bleibt.
+    pub fn remove_pane(&mut self, index: usize) -> bool {
+        if matches!(self, TemplateNode::Pane(_)) {
+            return false;
+        }
+        let mut n = index;
+        remove_at(self, &mut n)
+    }
+
+    /// Alle Trenner in die Mitte.
+    pub fn equalize(&mut self) {
+        if let TemplateNode::Split { ratio, first, second, .. } = self {
+            *ratio = 0.5;
+            first.equalize();
+            second.equalize();
+        }
+    }
+}
+
+/// Zählt `n` beim Durchlauf herunter; bei 0 ist der gesuchte Bereich erreicht.
+fn split_at(node: &mut TemplateNode, n: &mut usize, direction: SplitDirection) -> bool {
+    match node {
+        TemplateNode::Pane(spec) if *n == 0 => {
+            let old = std::mem::take(spec);
+            *node = TemplateNode::Split {
+                direction,
+                ratio: 0.5,
+                first: Box::new(TemplateNode::Pane(old)),
+                second: Box::new(TemplateNode::Pane(PaneSpec::default())),
+            };
+            true
+        }
+        TemplateNode::Pane(_) => {
+            *n -= 1;
+            false
+        }
+        TemplateNode::Split { first, second, .. } => split_at(first, n, direction) || split_at(second, n, direction),
+    }
+}
+
+fn remove_at(node: &mut TemplateNode, n: &mut usize) -> bool {
+    let TemplateNode::Split { first, second, .. } = node else { return false };
+    for (target, other) in [(0, 1), (1, 0)] {
+        let child = if target == 0 { &**first } else { &**second };
+        if let TemplateNode::Pane(_) = child {
+            if *n == 0 {
+                let keep = if other == 0 { (**first).clone() } else { (**second).clone() };
+                *node = keep;
+                return true;
+            }
+            *n -= 1;
+        } else {
+            let child = if target == 0 { &mut **first } else { &mut **second };
+            if remove_at(child, n) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 impl Template {
     pub fn to_toml(&self) -> String {
         toml::to_string_pretty(self).expect("Vorlage lässt sich immer serialisieren")
@@ -286,5 +355,27 @@ mod tests {
         assert_eq!(all[0].name, "Web-Projekt");
         store.delete(&id).unwrap();
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn edit_layout() {
+        let pane = |name: &str| TemplateNode::Pane(PaneSpec { name: name.into(), ..PaneSpec::default() });
+        let mut node = pane("A");
+        assert!(!node.remove_pane(0), "letzter Bereich bleibt");
+        assert!(node.split_pane(0, SplitDirection::Horizontal));
+        assert!(node.split_pane(1, SplitDirection::Vertical));
+        let names = |n: &TemplateNode| n.panes().iter().map(|p| p.name.clone()).collect::<Vec<_>>();
+        assert_eq!(names(&node), ["A", "", ""]);
+        node.panes_mut()[2].name = "C".into();
+        assert!(node.remove_pane(1));
+        assert_eq!(names(&node), ["A", "C"]);
+        assert!(!node.split_pane(5, SplitDirection::Vertical));
+        if let TemplateNode::Split { ratio, .. } = &mut node {
+            *ratio = 0.8;
+        }
+        node.equalize();
+        assert!(matches!(node, TemplateNode::Split { ratio, .. } if ratio == 0.5));
+        assert!(node.remove_pane(0));
+        assert_eq!(names(&node), ["C"]);
     }
 }

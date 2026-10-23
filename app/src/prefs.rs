@@ -1106,10 +1106,32 @@ fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::Nav
             let _ = cr.show_text(&format!("{}  {}", n + 1, names.get(n).map(String::as_str).unwrap_or("")));
         }
     });
+    // Aufteilung ändern: je Bereich teilen/entfernen, hier angleichen; danach die Seite neu
+    let equalize = gtk::Button::builder().label("Angleichen").css_classes(["flat"]).valign(gtk::Align::Center).build();
     let pg = adw::PreferencesGroup::builder()
         .title("Aufteilung")
-        .description("Die Aufteilung kommt aus dem Reiter, aus dem die Vorlage gespeichert wurde.")
+        .description("Kommt aus dem Reiter, aus dem die Vorlage gespeichert wurde; mit den Knöpfen an den Bereichen teilen oder entfernen.")
+        .header_suffix(&equalize)
         .build();
+    let edit_layout = {
+        let d = dialog.downgrade();
+        let i = id.clone();
+        move |f: &dyn Fn(&mut parkett_core::template::TemplateNode)| {
+            let Some(d) = d.upgrade() else { return };
+            update_template(&d, &i, |t| f(&mut t.layout));
+            let (d2, i2) = (d.clone(), i.clone());
+            // neu aufbauen nach dem Klick, nicht mitten im Signal des Knopfs
+            glib::idle_add_local_once(move || {
+                d2.pop_subpage();
+                if let Some(page) = template_editor(&d2, &i2) {
+                    d2.push_subpage(&page);
+                }
+            });
+        }
+    };
+    let edit_layout = Rc::new(edit_layout);
+    let e = edit_layout.clone();
+    equalize.connect_clicked(move |_| e(&|l| l.equalize()));
     pg.add(&preview);
     page.add(&pg);
 
@@ -1117,8 +1139,32 @@ fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::Nav
     let mut profile_names = vec!["Standardprofil".to_string()];
     profile_names.extend(profiles.iter().map(|p| p.name.clone()));
     let refs: Vec<&str> = profile_names.iter().map(String::as_str).collect();
+    let count = template.layout.panes().len();
     for (n, spec) in template.layout.panes().iter().enumerate() {
-        let g = adw::PreferencesGroup::builder().title(format!("Bereich {}", n + 1).as_str()).build();
+        let buttons = gtk::Box::builder().spacing(2).valign(gtk::Align::Center).build();
+        for (icon, tip, action) in [
+            ("parkett-split-right-symbolic", "Rechts teilen", 0u8),
+            ("parkett-split-down-symbolic", "Unten teilen", 1),
+            ("user-trash-symbolic", "Bereich entfernen", 2),
+        ] {
+            let b = gtk::Button::builder().icon_name(icon).tooltip_text(tip).css_classes(["flat"]).build();
+            b.set_sensitive(action != 2 || count > 1);
+            let e = edit_layout.clone();
+            b.connect_clicked(move |_| {
+                e(&|l| {
+                    match action {
+                        0 => l.split_pane(n, parkett_core::template::SplitDirection::Horizontal),
+                        1 => l.split_pane(n, parkett_core::template::SplitDirection::Vertical),
+                        _ => l.remove_pane(n),
+                    };
+                })
+            });
+            buttons.append(&b);
+        }
+        let g = adw::PreferencesGroup::builder()
+            .title(format!("Bereich {}", n + 1).as_str())
+            .header_suffix(&buttons)
+            .build();
         let pname = adw::EntryRow::builder().title("Name").text(&spec.name).build();
         let profile = adw::ComboRow::builder().title("Profil").model(&gtk::StringList::new(&refs)).build();
         profile.set_selected(profiles.iter().position(|p| p.id == spec.profile).map(|i| i as u32 + 1).unwrap_or(0));
@@ -1188,7 +1234,16 @@ fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::Nav
     let toolbar = adw::ToolbarView::new();
     toolbar.add_top_bar(&adw::HeaderBar::new());
     toolbar.set_content(Some(&page));
-    Some(adw::NavigationPage::builder().title(template.name.as_str()).child(&toolbar).build())
+    let nav = adw::NavigationPage::builder().title(template.name.as_str()).child(&toolbar).build();
+    // wie bei Profilen (QA-16): Name nicht markiert, sonst überschreibt ihn ein Tastendruck
+    nav.connect_shown(move |_| {
+        let name = name.clone();
+        glib::idle_add_local_once(move || {
+            let end = name.text().chars().count() as i32;
+            name.select_region(end, end);
+        });
+    });
+    Some(nav)
 }
 
 /// Auswahlzeile für ein Profilfeld; `set` bekommt den gewählten Index.
