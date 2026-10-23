@@ -209,7 +209,10 @@ impl Window {
             }
         });
         let weak = self.downgrade();
-        let labels = settings.connect_changed(Some("short-tab-labels"), move |_, _| {
+        let labels = settings.connect_changed(None, move |_, key| {
+            if key != "short-tab-labels" && key != "tab-label-template" {
+                return;
+            }
             if let Some(w) = weak.upgrade() {
                 w.update_labels();
             }

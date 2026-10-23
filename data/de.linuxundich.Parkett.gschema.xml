@@ -69,6 +69,11 @@
       <summary>Hohen Kontrast des Systems übernehmen</summary>
       <description>Ist in GNOME „Hoher Kontrast“ eingeschaltet, zeigen alle Bereiche das Farbschema „Hoher Kontrast“ statt des Schemas aus dem Profil.</description>
     </key>
+    <key name="tab-label-template" type="s">
+      <default>"{n} {program} · {dir}"</default>
+      <summary>Vorlage für kurze Reiter-Namen</summary>
+      <description>Platzhalter: {n} Nummer, {program} Programm, {dir} Ordner, {path} ganzer Pfad, {host} Rechner bei SSH, {title} Titel der Shell, {profile} Profil. Leere Werte fallen samt Trenner weg.</description>
+    </key>
     <key name="short-tab-labels" type="b">
       <default>true</default>
       <summary>Kurze Reiter-Namen</summary>

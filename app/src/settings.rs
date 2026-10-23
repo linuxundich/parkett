@@ -44,6 +44,16 @@ pub fn follow_high_contrast() -> bool {
     settings().boolean("follow-high-contrast")
 }
 
+/// Vorlage für kurze Reiter-Namen (`core::label::render`); leer = Standard.
+pub fn tab_label_template() -> String {
+    let t = settings().string("tab-label-template").trim().to_string();
+    if t.is_empty() {
+        parkett_core::label::DEFAULT_TEMPLATE.to_string()
+    } else {
+        t
+    }
+}
+
 pub fn context_colors() -> bool {
     settings().boolean("context-colors")
 }

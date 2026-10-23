@@ -383,12 +383,22 @@ impl Tab {
         let pane = self.focused_pane();
         let t = pane.terminal();
         // In einer SSH-Sitzung ist das lokale Verzeichnis (das der ssh) bedeutungslos
-        let dir = match t.context() {
-            parkett_core::context::Context::Remote(_) => None,
-            _ => t.working_directory(),
+        let (dir, host) = match t.context() {
+            parkett_core::context::Context::Remote(host) => (None, Some(host)),
+            _ => (t.working_directory(), None),
         };
         let program = t.label_program();
-        let label = parkett_core::label::tab_label(number, program.as_deref(), dir.as_deref(), &glib::home_dir());
+        let title = t.title();
+        let profile = crate::profiles::ProfileManager::get().profile(&t.profile_id()).name;
+        let vars = parkett_core::label::Vars {
+            number,
+            program: program.as_deref(),
+            dir: dir.as_deref(),
+            host: host.as_deref(),
+            title: title.as_deref(),
+            profile: Some(&profile),
+        };
+        let label = parkett_core::label::render(&crate::settings::tab_label_template(), &vars, &glib::home_dir());
         format!("{label}{zoom}")
     }
 

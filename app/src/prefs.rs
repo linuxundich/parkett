@@ -37,6 +37,12 @@ fn general_page() -> adw::PreferencesPage {
         .subtitle("Nummer, Programm und Ordner statt des Titels der Shell")
         .build();
     settings.bind("short-tab-labels", &labels, "active").build();
+    let template = adw::EntryRow::builder()
+        .title("Vorlage für Reiter-Namen")
+        .tooltip_text("{n} Nummer · {program} Programm · {dir} Ordner · {path} ganzer Pfad · {host} Rechner bei SSH · {title} Titel der Shell · {profile} Profil")
+        .build();
+    settings.bind("tab-label-template", &template, "text").build();
+    settings.bind("short-tab-labels", &template, "sensitive").get_only().build();
     let tabbar = adw::SwitchRow::builder().title("Reiterleiste bei einem Reiter ausblenden").build();
     settings.bind("autohide-tab-bar", &tabbar, "active").build();
     let context = adw::SwitchRow::builder()
@@ -77,6 +83,7 @@ fn general_page() -> adw::PreferencesPage {
     look.add(&dim);
     look.add(&context);
     look.add(&labels);
+    look.add(&template);
     look.add(&tabbar);
     page.add(&look);
 
