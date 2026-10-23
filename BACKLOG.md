@@ -4,7 +4,7 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 [QA audit of 2026-10-19](qa/2026-10-19/QA-REPORT.md) (IDs QA-xx and R-xx), the
 [code review of phase 6](docs/QA.md) (IDs L, D, G) and notes from testing.
 
-## Next release (0.3): fixes and small improvements
+## Next release (0.4): fixes and small improvements
 
 ### From the QA audit
 - [ ] QA-20 Cursor in the wrong place after line wrap: investigate, compare with Ptyxis
@@ -29,14 +29,14 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 
 ## Roadmap
 
-### 0.3: Sessions and input
+### 0.4: Sessions and input
 - [ ] Send input to several panes at once (Tilix "synchronized input"), clearly marked
 - [ ] Drag and drop to move panes (Tilix-style drop zones)
 - [ ] Automatic profile switching by host or directory
 - [ ] Bookmarks for directories
 - [ ] Title templates with variables
 
-### 0.4: Distribution
+### 0.5: Distribution
 - [ ] English interface (gettext), then translations; AppStream metadata and `.desktop` file in
       English with German translations
 - [ ] AUR package and Fedora COPR from the public repository
@@ -75,15 +75,16 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
       reordering, custom title, switch off/on), QA-18 names via AT-SPI, import through the
       dialog (sorted), selection in light mode with blue/orange/green accent, match count with
       300 000 lines. The lost first key in an earlier run was the test's own Esc (Meta+e in bash)
-- [ ] On the host by hand: transparency (needs a look at the screen), the Nautilus context menu
-      itself (right click on a folder), deleting a profile in the preferences
+- [ ] On the host by hand: deleting a profile in the preferences
+- [x] On the host by hand (Christoph, 2026-10-23): transparency, the Nautilus context menu
+      (right click on a folder), several monitors
 - [ ] Sixel output with a VTE that has Sixel (Arch and Fedora 44 build without it)
 - [ ] Launch through `xdg-terminal-exec` (installed neither in the VM nor on the host)
 - [ ] Bell with sound
 - [ ] Dragging dividers with the mouse and dragging a tab into a new window
 - [ ] Orca with speech output, by hand
 - [ ] CPU under continuous output on the host with a real GPU
-- [ ] X11 on Ubuntu, HiDPI with 200 % scaling, several monitors, other keyboard layouts
+- [ ] X11 on Ubuntu, HiDPI with 200 % scaling, other keyboard layouts
 - [ ] Endurance run over hours
 
 ## Housekeeping

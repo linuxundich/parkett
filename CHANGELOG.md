@@ -4,6 +4,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-23
+
+Fixes from the QA audit, tested in a Fedora VM and on Arch with GNOME 51: environment of a
+second call, start commands after the prompt, `parkett -- command` on first start, high contrast,
+selection in the accent color, match count, short tab labels, less CPU in the background.
+Source on GitHub; package in the author's Arch repo `linuxundich`.
+
 ### Added
 - A call that reaches a running Parkett (`FOO=1 parkett --tab`, `xdg-terminal-exec`, the
   Nautilus menu) passes its environment to the new shell: a Python venv, `SSH_AUTH_SOCK` or an

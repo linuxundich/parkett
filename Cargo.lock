@@ -480,7 +480,7 @@ dependencies = [
 
 [[package]]
 name = "parkett"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "gio",
  "glib",
@@ -493,7 +493,7 @@ dependencies = [
 
 [[package]]
 name = "parkett-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",

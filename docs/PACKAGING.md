@@ -43,7 +43,7 @@ packages); then as a separate step with a host agent.
 
 ## Recommendation
 
-**Status 2026-10-19:** version 0.2.0 is public on GitHub (source only). Binary packages exist
+**Status 2026-10-23:** version 0.3.0 is public on GitHub (source only). Binary packages exist
 only in the author's private Arch repo; for everyone else the route is building from source
 ([BUILDING.md](BUILDING.md)).
 

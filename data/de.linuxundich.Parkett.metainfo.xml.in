@@ -41,6 +41,11 @@
     <category>TerminalEmulator</category>
   </categories>
   <releases>
+    <release version="0.3.0" date="2026-10-23" type="stable">
+      <description>
+        <p>Ein zweiter Aufruf gibt seine Umgebung an die neue Shell weiter, Startbefehle von Vorlagen kommen erst nach dem Prompt und nie in eine Passwortabfrage, kurze Reiter-Namen, Trefferzahl in der Suche, Auswahl in der Akzentfarbe, Farbschema „Hoher Kontrast“ automatisch bei hohem Kontrast, ein normales Ende mit Exit-Code 0 schließt den Bereich, weniger Rechenlast im Hintergrund sowie zahlreiche Korrekturen.</p>
+      </description>
+    </release>
     <release version="0.2.0" date="2026-10-19" type="stable">
       <description>
         <p>Sitzung beim Start wiederherstellen, Befehlszeile (Verzeichnis, Befehl, Profil, Titel, Reiter), Kontextmenü in Nautilus, transparenter Hintergrund, Schrift, Cursor und Glocke je Profil, Benachrichtigung bei Befehlsende im Hintergrund sowie zahlreiche Korrekturen.</p>
