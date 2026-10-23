@@ -411,6 +411,18 @@ impl Window {
                 }
             }
             w.update_title();
+            w.update_sync_actions();
+        });
+
+        // Klick auf das Symbol der gemeinsamen Eingabe schaltet sie für diesen Reiter ab
+        let weak = self.downgrade();
+        tab_view.connect_indicator_activated(move |_, page| {
+            let (Some(w), Ok(tab)) = (weak.upgrade(), page.child().downcast::<Tab>()) else { return };
+            if tab.sync() {
+                tab.set_sync(false);
+                w.update_sync_actions();
+                w.toast("Gemeinsame Eingabe aus");
+            }
         });
 
         // Schließen eines Tabs: bei laufendem Vordergrundprozess nachfragen
@@ -558,6 +570,10 @@ impl Window {
         tab.connect_changed(move |tab| {
             if let Some(w) = window_of(tab) {
                 w.update_page(tab);
+                // Fokuswechsel im Reiter: Haken „empfängt gemeinsame Eingabe“ angleichen
+                if w.current_tab().as_ref() == Some(tab) {
+                    w.sync_action_states();
+                }
             }
         });
         // geschlossener Bereich: „Rückgängig“ anbieten, danach Prozess beenden
@@ -623,9 +639,15 @@ impl Window {
         if tab.has_failed_pane() {
             page.set_indicator_icon(Some(&gio::ThemedIcon::new("dialog-warning-symbolic")));
             page.set_indicator_tooltip("Ein Prozess ist mit Fehler beendet");
+            page.set_indicator_activatable(false);
             if view.selected_page().as_ref() != Some(&page) {
                 page.set_needs_attention(true);
             }
+        } else if tab.sync() {
+            // gemeinsame Eingabe: Symbol am Reiter, Klick darauf schaltet sie ab
+            page.set_indicator_icon(Some(&gio::ThemedIcon::new("input-keyboard-symbolic")));
+            page.set_indicator_tooltip("Gemeinsame Eingabe an – Klick schaltet sie ab");
+            page.set_indicator_activatable(true);
         } else {
             page.set_indicator_icon(gio::Icon::NONE);
         }
@@ -678,6 +700,28 @@ impl Window {
             let (w, h) = self.default_size();
             let _ = s.set_int("window-width", w);
             let _ = s.set_int("window-height", h);
+        }
+    }
+
+    /// Schalter der gemeinsamen Eingabe an den gewählten Reiter und Bereich angleichen,
+    /// danach dessen Reiter-Symbol.
+    fn update_sync_actions(&self) {
+        self.sync_action_states();
+        if let Some(tab) = self.current_tab() {
+            self.update_page(&tab);
+        }
+    }
+
+    fn sync_action_states(&self) {
+        let tab = self.current_tab();
+        let on = tab.as_ref().is_some_and(Tab::sync);
+        if let Some(a) = self.lookup_action("toggle-sync").and_downcast::<gio::SimpleAction>() {
+            a.set_state(&on.to_variant());
+        }
+        if let Some(a) = self.lookup_action("sync-pane").and_downcast::<gio::SimpleAction>() {
+            let included = tab.as_ref().is_some_and(|t| !t.focused_pane().terminal().sync_excluded());
+            a.set_enabled(on);
+            a.set_state(&included.to_variant());
         }
     }
 
@@ -824,6 +868,35 @@ impl Window {
         on_tab("split-down", |w, t| split(w, t, Some(Orientation::Vertical)));
         on_tab("split-auto", |w, t| split(w, t, None));
         on_tab("toggle-zoom", |_, t| t.toggle_zoom());
+        // Gemeinsame Eingabe (Tilix „Synchronize input“): Schalter mit Zustand, damit Menüs
+        // den Haken zeigen; der Zustand folgt dem gewählten Reiter (update_sync_actions)
+        let a = gio::SimpleAction::new_stateful("toggle-sync", None, &false.to_variant());
+        let weak = self.downgrade();
+        a.connect_activate(move |_, _| {
+            let Some(w) = weak.upgrade() else { return };
+            let Some(tab) = w.current_tab() else { return };
+            tab.set_sync(!tab.sync());
+            w.update_sync_actions();
+            let n = tab.sync_count();
+            w.toast(&if tab.sync() {
+                format!("Eingabe geht an {n} {}", if n == 1 { "Bereich" } else { "Bereiche" })
+            } else {
+                "Gemeinsame Eingabe aus".to_string()
+            });
+        });
+        self.add_action(&a);
+        let a = gio::SimpleAction::new_stateful("sync-pane", None, &true.to_variant());
+        a.set_enabled(false);
+        let weak = self.downgrade();
+        a.connect_activate(move |_, _| {
+            let Some(w) = weak.upgrade() else { return };
+            let Some(tab) = w.current_tab() else { return };
+            let t = tab.focused_pane().terminal().clone();
+            t.set_sync_excluded(!t.sync_excluded());
+            tab.update_states();
+            w.update_sync_actions();
+        });
+        self.add_action(&a);
         on_tab("equalize", |_, t| t.equalize());
         on_tab("close-pane", |w, t| {
             let pane = t.focused_pane();

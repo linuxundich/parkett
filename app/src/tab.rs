@@ -49,6 +49,8 @@ mod imp {
         pub closed: RefCell<Vec<(u64, Pane, Layout, Layout)>>,
         pub closed_serial: std::cell::Cell<u64>,
         pub layout_mode: std::cell::Cell<bool>,
+        /// gemeinsame Eingabe: Getipptes geht an alle Bereiche, die nicht ausgenommen sind
+        pub sync: std::cell::Cell<bool>,
     }
 
     #[glib::object_subclass]
@@ -277,6 +279,13 @@ impl Tab {
 
     fn add_pane_with(&self, id: PaneId, cwd: Option<String>, profile_id: &str, launch: Launch) -> Pane {
         let pane = Pane::new(id, cwd, profile_id, launch);
+        let weak = self.downgrade();
+        let source = pane.terminal().downgrade();
+        pane.terminal().connect_input(move |text| {
+            if let (Some(tab), Some(source)) = (weak.upgrade(), source.upgrade()) {
+                tab.forward_input(&source, text);
+            }
+        });
         let weak = self.downgrade();
         pane.terminal().connect_state_changed(move || {
             if let Some(tab) = weak.upgrade() {
@@ -726,6 +735,49 @@ impl Tab {
         });
     }
 
+    pub fn sync(&self) -> bool {
+        self.imp().sync.get()
+    }
+
+    /// Gemeinsame Eingabe ein/aus; ausgenommene Bereiche bleiben ausgenommen.
+    pub fn set_sync(&self, on: bool) {
+        self.imp().sync.set(on);
+        self.update_states();
+        self.emit_changed();
+    }
+
+    /// Bereiche, die gemeinsame Eingabe empfangen (bei ausgeschalteter Eingabe keiner).
+    pub fn sync_count(&self) -> usize {
+        if !self.sync() {
+            return 0;
+        }
+        self.imp().panes.borrow().values().filter(|p| !p.terminal().sync_excluded()).count()
+    }
+
+    /// Eingabe aus `source` an die übrigen beteiligten Bereiche. Die Sperre verhindert, dass
+    /// weitergereichter Text erneut weitergereicht wird.
+    fn forward_input(&self, source: &crate::terminal::Terminal, text: &str) {
+        thread_local! {
+            static FORWARDING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+        }
+        if !self.sync() || source.sync_excluded() || FORWARDING.with(|f| f.get()) {
+            return;
+        }
+        let targets: Vec<_> = self
+            .imp()
+            .panes
+            .borrow()
+            .values()
+            .map(|p| p.terminal().clone())
+            .filter(|t| !t.sync_excluded() && t.vte() != source.vte())
+            .collect();
+        FORWARDING.with(|f| f.set(true));
+        for t in targets {
+            t.feed(text);
+        }
+        FORWARDING.with(|f| f.set(false));
+    }
+
     pub fn update_states(&self) {
         let imp = self.imp();
         let layout = self.layout();
@@ -734,6 +786,7 @@ impl Tab {
         let mode = imp.layout_mode.get();
         for (id, pane) in imp.panes.borrow().iter() {
             pane.set_state(*id == layout.focus(), multi);
+            pane.set_sync(imp.sync.get() && !pane.terminal().sync_excluded());
             let number = order.iter().position(|p| p == id).map(|i| i as u32 + 1);
             pane.set_badge(if mode && multi { number } else { None });
         }

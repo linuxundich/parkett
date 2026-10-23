@@ -25,6 +25,7 @@ pub const MIN_COLUMNS: i64 = 20;
 pub const MIN_ROWS: i64 = 5;
 
 type Callback = Box<dyn Fn()>;
+type InputCallback = Box<dyn Fn(&str)>;
 
 struct Inner {
     root: gtk::Box,
@@ -54,6 +55,10 @@ struct Inner {
     child_pid: Cell<Option<glib::Pid>>,
     exit: Cell<Option<ExitStatus>>,
     on_state_changed: RefCell<Vec<Callback>>,
+    /// Eingabe des Nutzers (Tasten, Einfügen), für die gemeinsame Eingabe im Reiter
+    on_input: RefCell<Vec<InputCallback>>,
+    /// von der gemeinsamen Eingabe des Reiters ausgenommen
+    sync_excluded: Cell<bool>,
     on_close: RefCell<Vec<Callback>>,
     /// Glocke oder Befehlsende, seit der Reiter zuletzt angesehen wurde
     attention: Cell<bool>,
@@ -170,6 +175,8 @@ impl Terminal {
             child_pid: Cell::new(None),
             exit: Cell::new(None),
             on_state_changed: RefCell::default(),
+            on_input: RefCell::default(),
+            sync_excluded: Cell::new(false),
             on_close: RefCell::default(),
             attention: Cell::new(false),
             uid: NEXT_UID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
@@ -214,6 +221,26 @@ impl Terminal {
 
     pub fn connect_state_changed(&self, f: impl Fn() + 'static) {
         self.0.on_state_changed.borrow_mut().push(Box::new(f));
+    }
+
+    /// Text, den der Nutzer in dieses Terminal tippt oder einfügt (VTE „commit“).
+    pub fn connect_input(&self, f: impl Fn(&str) + 'static) {
+        self.0.on_input.borrow_mut().push(Box::new(f));
+    }
+
+    /// Text an den Prozess schicken, als hätte der Nutzer ihn hier getippt.
+    pub fn feed(&self, text: &str) {
+        if self.0.exit.get().is_none() {
+            self.0.vte.feed_child(text.as_bytes());
+        }
+    }
+
+    pub fn sync_excluded(&self) -> bool {
+        self.0.sync_excluded.get()
+    }
+
+    pub fn set_sync_excluded(&self, excluded: bool) {
+        self.0.sync_excluded.set(excluded);
     }
 
     pub fn connect_colors_changed(&self, f: impl Fn() + 'static) {
@@ -730,6 +757,16 @@ impl Terminal {
             }
         });
 
+        // Eingabe für die gemeinsame Eingabe im Reiter weiterreichen
+        let weak = Rc::downgrade(&self.0);
+        self.0.vte.connect_commit(move |_, text, _| {
+            if let Some(inner) = weak.upgrade() {
+                for f in inner.on_input.borrow().iter() {
+                    f(text);
+                }
+            }
+        });
+
         // Zeitpunkt der letzten Ausgabe für den Startbefehl (R-09)
         let weak = Rc::downgrade(&self.0);
         self.0.vte.connect_contents_changed(move |_| {
@@ -1150,6 +1187,12 @@ impl Terminal {
         item(&split, "Bereich maximieren", "win.toggle-zoom");
         item(&split, "Größen angleichen", "win.equalize");
         menu.append_section(None, &split);
+        let sync = gio::Menu::new();
+        item(&sync, "Eingabe an alle Bereiche", "win.toggle-sync");
+        let it = gio::MenuItem::new(Some("Dieser Bereich empfängt gemeinsame Eingabe"), Some("win.sync-pane"));
+        it.set_attribute_value("hidden-when", Some(&"action-disabled".to_variant()));
+        sync.append_item(&it);
+        menu.append_section(None, &sync);
         let close = gio::Menu::new();
         item(&close, "Bereich schließen", "win.close-pane");
         menu.append_section(None, &close);

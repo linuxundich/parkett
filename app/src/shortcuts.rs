@@ -48,6 +48,8 @@ pub const ENTRIES: &[Entry] = &[
     e("win.split-down", "Bereiche", "Unten teilen", &["<Control><Alt>d"]),
     e("win.split-auto", "Bereiche", "Automatisch teilen", &["<Control><Alt>a"]),
     e("win.close-pane", "Bereiche", "Bereich schließen", &["<Control><Shift>w"]),
+    e("win.toggle-sync", "Bereiche", "Eingabe an alle Bereiche", &["<Control><Alt>i"]),
+    e("win.sync-pane", "Bereiche", "Bereich empfängt gemeinsame Eingabe", &[]),
     e("win.toggle-zoom", "Bereiche", "Bereich maximieren", &["<Control><Shift>x"]),
     e("win.equalize", "Bereiche", "Größen angleichen", &["<Control><Alt>equal"]),
     e("win.focus-left", "Bereiche", "Fokus nach links", &["<Alt>Left"]),

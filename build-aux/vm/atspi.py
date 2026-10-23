@@ -4,6 +4,7 @@
 
   atspi.py tabs              Reiter-Namen, einer je Zeile
   atspi.py focused           Rolle und Name des Elements mit Fokus
+  atspi.py texts             letzte Zeile mit Text je Terminal (Bereiche in Baumreihenfolge)
   atspi.py press NAME [ROLE] erste Aktion des ersten Elements mit diesem Namen
                              (ROLE mit _ statt Leerzeichen, z. B. toggle_button)
 """
@@ -48,6 +49,12 @@ def main():
         for o in nodes():
             if o.get_state_set().contains(Atspi.StateType.FOCUSED):
                 print(f"{o.get_role_name()}: {o.get_name() or ''}")
+    elif cmd == "texts":
+        for o in nodes():
+            if o.get_role_name() == "terminal":
+                text = Atspi.Text.get_text(o, 0, Atspi.Text.get_character_count(o))
+                lines = [line for line in text.splitlines() if line.strip()]
+                print(" | ".join(lines[-4:]))
     elif cmd == "press":
         name = sys.argv[2]
         role = sys.argv[3].replace("_", " ") if len(sys.argv) > 3 else None

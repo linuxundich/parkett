@@ -28,6 +28,7 @@ vte-terminal { padding: 6px 8px; }
 }
 .parkett-exit-bar.neutral { background: color-mix(in srgb, var(--window-fg-color) 5%, var(--view-bg-color)); }
 .parkett-focus-line { background: var(--accent-bg-color); }
+.parkett-sync-line { background: var(--warning-bg-color); }
 .parkett-pill {
   padding: 2px 2px 2px 9px;
   border-radius: 8px;

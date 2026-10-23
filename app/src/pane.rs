@@ -21,6 +21,7 @@ mod imp {
         pub pill: OnceCell<gtk::Box>,
         pub pill_label: OnceCell<gtk::Label>,
         pub focus_line: OnceCell<gtk::Box>,
+        pub sync_line: OnceCell<gtk::Box>,
         pub context_line: OnceCell<gtk::DrawingArea>,
         pub multi: Cell<bool>,
         pub narrow: Cell<bool>,
@@ -108,6 +109,15 @@ impl Pane {
             .visible(false)
             .build();
         overlay.add_overlay(&focus_line);
+        // gemeinsame Eingabe: kräftige Linie oben, über Fokus- und Kontextlinie
+        let sync_line = gtk::Box::builder()
+            .css_classes(["parkett-sync-line"])
+            .valign(gtk::Align::Start)
+            .height_request(4)
+            .can_target(false)
+            .visible(false)
+            .tooltip_text("Gemeinsame Eingabe")
+            .build();
 
         // Kontextfarbe (root/SSH): 3 px Linie oben in der Farbe des Schemas
         let context_line = gtk::DrawingArea::builder()
@@ -128,6 +138,7 @@ impl Pane {
             });
         }
         overlay.add_overlay(&context_line);
+        overlay.add_overlay(&sync_line);
 
         // Breite des Bereichs beobachten: schmale Bereiche blenden den Text des schwebenden
         // Titels aus, damit er die Prompt-Zeile nicht verdeckt (QA). Unsichtbare Zeichenfläche,
@@ -341,6 +352,7 @@ impl Pane {
         imp.pill.set(pill).ok();
         imp.pill_label.set(pill_label).ok();
         imp.focus_line.set(focus_line).ok();
+        imp.sync_line.set(sync_line).ok();
         imp.context_line.set(context_line).ok();
         imp.dim.set(dim).ok();
         imp.search.set(search).ok();
@@ -448,6 +460,11 @@ impl Pane {
         imp.context_line.get().unwrap().set_visible(chip.is_some());
         imp.context_line.get().unwrap().queue_draw();
         self.update_visibility();
+    }
+
+    /// Linie für die gemeinsame Eingabe: Dieser Bereich empfängt, was man in einen anderen tippt.
+    pub fn set_sync(&self, on: bool) {
+        self.imp().sync_line.get().unwrap().set_visible(on);
     }
 
     /// Nummer im Layout-Modus; `None` blendet sie aus.
