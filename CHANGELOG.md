@@ -4,6 +4,18 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Command palette: Ctrl+Enter on *Neuer Reiter mit Profil …* opens the profile in a new pane
+  of the current tab instead of a new tab.
+- Main menu: *Befehlspalette* (command palette), *Layout-Modus* (layout mode) and a *Vorlagen*
+  (templates) submenu, so they can be found without knowing the shortcut.
+
+### Changed
+- Signal handlers of the preferences are also released when their page is destroyed, not only
+  when the dialog closes; drawing functions of a pane hold the terminal weakly (L1/L2).
+- The foreground process is read once per poll for context color, tab label and notification
+  (D2).
+
 ## [0.3.0] - 2026-10-23
 
 Fixes from the QA audit, tested in a Fedora VM and on Arch with GNOME 51: environment of a

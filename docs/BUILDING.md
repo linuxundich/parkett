@@ -58,8 +58,9 @@ and QMP. They expect an SSH key `~/.ssh/id_vmtest` and default to a Fedora VM na
 | Script | Purpose |
 |---|---|
 | `build-aux/vm/deploy.sh` | copy the source tree into the VM, build, install to `~/.local`, start Parkett the way GNOME Shell does |
-| `build-aux/vm/smoke.sh` | smoke test over the window's D-Bus actions: split, tabs, close, undo timeout, no orphaned shells, session restore, journal without errors |
+| `build-aux/vm/smoke.sh` | smoke test over the window's D-Bus actions: split, tabs, close, undo timeout, no orphaned shells, session restore, markup in tab titles, focus after the main menu, journal without errors |
 | `build-aux/vm/shot.sh file.png` | screenshot of the VM |
+| `build-aux/vm/atspi.py` | AT-SPI queries inside the VM for the smoke test: tab names, focused element, press a button |
 | `build-aux/vm/click.py X Y` | mouse click (`CLICKS=2` double click, `BUTTON=right`) |
 | `build-aux/qa/` | throughput and memory measurements |
 

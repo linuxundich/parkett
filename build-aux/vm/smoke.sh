@@ -65,6 +65,17 @@ check "keine verwaisten Shells" "$(remote "n=0; for p in $pids; do kill -0 \$p 2
 remote 'systemd-run --user -q --collect -u app-gnome-de.linuxundich.Parkett-smoke ~/.local/bin/parkett'
 sleep 2
 check "Sitzung wiederhergestellt" "$(shells)" 3
+# QA-07: Markup in Titeln bleibt Text (AT-SPI-Name des Reiters)
+remote 'timeout 10 ~/.local/bin/parkett --tab -t "<b>A & B</b>"'
+sleep 1
+check "Reitertitel mit Markup wörtlich (QA-07)" \
+  "$(remote 'python3 ~/parkett/build-aux/vm/atspi.py tabs' | grep -cx '[0-9]* <b>A & B</b>')" 1
+# QA-09: nach dem Hauptmenü hat wieder das Terminal den Fokus
+remote 'python3 ~/parkett/build-aux/vm/atspi.py press Hauptmenü toggle_button'
+sleep 1
+keys KEY_ESC
+sleep 1
+check "Fokus nach dem Hauptmenü im Terminal (QA-09)" "$(remote 'python3 ~/parkett/build-aux/vm/atspi.py focused')" "terminal: Terminal"
 remote 'kill -TERM $(pidof parkett)'
 sleep 1
 # GLib schreibt unter systemd strukturiert ins Journal: Das Präfix „Gtk-CRITICAL“ fehlt dann

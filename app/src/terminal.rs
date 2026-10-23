@@ -81,6 +81,27 @@ static NEXT_UID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::ne
 #[derive(Clone)]
 pub struct Terminal(Rc<Inner>);
 
+/// Vordergrund der PTY (`read_foreground`).
+struct Foreground {
+    pgid: i32,
+    /// die Shell selbst wartet am Prompt
+    is_shell: bool,
+    comm: String,
+    args: Vec<String>,
+    euid: Option<u32>,
+}
+
+/// Schwache Referenz für Closures an Widgets des Bereichs (Draw-Funktionen): eine starke
+/// hielte das Terminal fest, solange das Widget lebt (L2).
+#[derive(Clone)]
+pub struct WeakTerminal(std::rc::Weak<Inner>);
+
+impl WeakTerminal {
+    pub fn upgrade(&self) -> Option<Terminal> {
+        self.0.upgrade().map(Terminal)
+    }
+}
+
 /// Was ein Bereich abweichend vom Profil startet (Befehlszeile).
 #[derive(Clone, Default)]
 pub struct Launch {
@@ -197,6 +218,10 @@ impl Terminal {
 
     pub fn connect_colors_changed(&self, f: impl Fn() + 'static) {
         self.0.on_colors_changed.borrow_mut().push(Box::new(f));
+    }
+
+    pub fn downgrade(&self) -> WeakTerminal {
+        WeakTerminal(Rc::downgrade(&self.0))
     }
 
     pub fn profile_id(&self) -> String {
@@ -361,14 +386,15 @@ impl Terminal {
     }
 
     fn poll(&self) {
-        // Vordergrundprozess einmal lesen, für Benachrichtigung und Label (D2)
-        let foreground = self.foreground_process();
+        // Vordergrund einmal lesen, für Benachrichtigung, Kontext und Label (D2)
+        let fg = self.read_foreground();
+        let foreground = Self::name_of(fg.as_ref());
         if self.0.command_started.get().is_some() {
             if let Some(name) = &foreground {
                 *self.0.command_name.borrow_mut() = Some(name.clone());
             }
         }
-        let now = self.detect_context();
+        let now = self.context_of(fg.as_ref());
         let mut changed = false;
         if now != *self.0.context.borrow() {
             *self.0.context.borrow_mut() = now;
@@ -385,16 +411,30 @@ impl Terminal {
         }
     }
 
-    fn detect_context(&self) -> Context {
-        if self.0.exit.get().is_some() {
-            return Context::Local;
+    /// Befehl in die Shell tippen und mit Eingabe abschicken (Vorschlag 5: Shell bleibt
+    /// danach nutzbar). Läuft die Shell noch nicht, wird er nach dem Start getippt.
+    pub fn type_command(&self, command: &str) {
+        let text = format!("{}\n", command.trim_end());
+        if self.0.child_pid.get().is_some() && self.0.exit.get().is_none() {
+            self.0.vte.feed_child(text.as_bytes());
+        } else {
+            *self.0.pending_input.borrow_mut() = Some(text);
         }
-        let Some(pty) = self.0.vte.pty() else { return Context::Local };
+    }
+
+    /// Vordergrund der PTY, einmal gelesen für Kontext, Label, Benachrichtigung und
+    /// Vorlage (D2). Muster wie Ptyxis (`agent/ptyxis-process-impl.c`): tcgetpgrp auf der
+    /// PTY, Angaben aus /proc. Nur ohne Flatpak-Sandbox aussagekräftig.
+    fn read_foreground(&self) -> Option<Foreground> {
+        if self.0.exit.get().is_some() {
+            return None;
+        }
+        let pty = self.0.vte.pty()?;
         let pgid = unsafe { libc::tcgetpgrp(pty.fd().as_raw_fd()) };
         if pgid <= 0 {
-            return Context::Local;
+            return None;
         }
-        let comm = std::fs::read_to_string(format!("/proc/{pgid}/comm")).unwrap_or_default();
+        let comm = std::fs::read_to_string(format!("/proc/{pgid}/comm")).unwrap_or_default().trim().to_string();
         let args: Vec<String> = std::fs::read(format!("/proc/{pgid}/cmdline"))
             .unwrap_or_default()
             .split(|b| *b == 0)
@@ -408,35 +448,28 @@ impl Terminal {
                 .and_then(|l| l.split_whitespace().nth(2))
                 .and_then(|u| u.parse().ok())
         });
-        context::classify(comm.trim(), &args, euid)
+        let is_shell = self.0.child_pid.get().is_some_and(|c| c.0 == pgid);
+        Some(Foreground { pgid, is_shell, comm, args, euid })
     }
 
-    /// Befehl in die Shell tippen und mit Eingabe abschicken (Vorschlag 5: Shell bleibt
-    /// danach nutzbar). Läuft die Shell noch nicht, wird er nach dem Start getippt.
-    pub fn type_command(&self, command: &str) {
-        let text = format!("{}\n", command.trim_end());
-        if self.0.child_pid.get().is_some() && self.0.exit.get().is_none() {
-            self.0.vte.feed_child(text.as_bytes());
-        } else {
-            *self.0.pending_input.borrow_mut() = Some(text);
+    fn detect_context(&self) -> Context {
+        self.context_of(self.read_foreground().as_ref())
+    }
+
+    fn context_of(&self, fg: Option<&Foreground>) -> Context {
+        match fg {
+            Some(f) => context::classify(&f.comm, &f.args, f.euid),
+            None => Context::Local,
         }
     }
 
     /// Befehlszeile des Vordergrundprozesses (für „Als Vorlage speichern“), sonst `None`.
     pub fn foreground_command(&self) -> Option<String> {
-        self.foreground_process()?;
-        let child = self.0.child_pid.get()?.0;
-        let pty = self.0.vte.pty()?;
-        let pgid = unsafe { libc::tcgetpgrp(pty.fd().as_raw_fd()) };
-        if pgid <= 0 || pgid == child {
-            return None;
-        }
-        let raw = std::fs::read(format!("/proc/{pgid}/cmdline")).ok()?;
-        let args: Vec<String> = raw
-            .split(|b| *b == 0)
-            .filter(|a| !a.is_empty())
+        let fg = self.read_foreground().filter(|f| !f.is_shell)?;
+        let args: Vec<String> = fg
+            .args
+            .into_iter()
             .map(|a| {
-                let a = String::from_utf8_lossy(a).into_owned();
                 // nur quoten, wo die Shell es braucht – „npm run dev“ statt „'npm' 'run' 'dev'“
                 if !a.is_empty() && a.chars().all(|c| c.is_alphanumeric() || "-_./:=@%+,".contains(c)) {
                     a
@@ -448,9 +481,6 @@ impl Terminal {
         Some(args.join(" ")).filter(|s| !s.is_empty())
     }
 
-    /// Name des Vordergrundprozesses, wenn er nicht die Shell selbst ist (z. B. „vim“, „ssh“).
-    /// Muster wie Ptyxis (`agent/ptyxis-process-impl.c`): tcgetpgrp auf der PTY gegen die
-    /// PID der Shell vergleichen, Name aus /proc. Nur ohne Flatpak-Sandbox aussagekräftig.
     /// Programm für das kurze Reiter-Label: bei SSH „ssh host“, sonst das Programm im
     /// Vordergrund, am Prompt die Shell selbst.
     pub fn label_program(&self) -> Option<String> {
@@ -472,18 +502,14 @@ impl Terminal {
         })
     }
 
+    /// Name des Vordergrundprozesses, wenn er nicht die Shell selbst ist (z. B. „vim“, „ssh“).
     pub fn foreground_process(&self) -> Option<String> {
-        if self.0.exit.get().is_some() {
-            return None;
-        }
-        let child = self.0.child_pid.get()?.0;
-        let pty = self.0.vte.pty()?;
-        let pgid = unsafe { libc::tcgetpgrp(pty.fd().as_raw_fd()) };
-        if pgid <= 0 || pgid == child {
-            return None;
-        }
-        let comm = std::fs::read_to_string(format!("/proc/{pgid}/comm")).unwrap_or_default();
-        Some(comm.trim().to_string()).filter(|c| !c.is_empty()).or(Some(format!("PID {pgid}")))
+        Self::name_of(self.read_foreground().as_ref())
+    }
+
+    fn name_of(fg: Option<&Foreground>) -> Option<String> {
+        let f = fg.filter(|f| !f.is_shell)?;
+        Some(f.comm.clone()).filter(|c| !c.is_empty()).or(Some(format!("PID {}", f.pgid)))
     }
 
     fn emit_state_changed(&self) {

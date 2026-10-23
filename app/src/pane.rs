@@ -82,8 +82,9 @@ impl Pane {
         // Farbschemas (CSS kennt die Palette nicht, daher selbst gezeichnet)
         let dim = gtk::DrawingArea::builder().can_target(false).visible(false).build();
         {
-            let t = terminal.clone();
+            let t = terminal.downgrade();
             dim.set_draw_func(move |_, cr, w, h| {
+                let Some(t) = t.upgrade() else { return };
                 let (r, g, b) = t.background().to_f64();
                 cr.set_source_rgba(r, g, b, 0.38);
                 cr.rectangle(0.0, 0.0, w as f64, h as f64);
@@ -116,9 +117,9 @@ impl Pane {
             .visible(false)
             .build();
         {
-            let t = terminal.clone();
+            let t = terminal.downgrade();
             context_line.set_draw_func(move |_, cr, w, h| {
-                if let Some((line, _)) = t.context_accent() {
+                if let Some((line, _)) = t.upgrade().and_then(|t| t.context_accent()) {
                     let (r, g, b) = line.to_f64();
                     cr.set_source_rgb(r, g, b);
                     cr.rectangle(0.0, 0.0, w as f64, h as f64);

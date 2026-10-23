@@ -455,6 +455,11 @@ impl Tab {
     /// Teilt den fokussierten Bereich; `None` = entlang der längeren Seite.
     /// `false`, wenn ein Teil kleiner als die Mindestgröße würde.
     pub fn split(&self, orientation: Option<Orientation>) -> bool {
+        self.split_with(orientation, None)
+    }
+
+    /// Teilt den aktiven Bereich; der neue bekommt `profile`, ohne Angabe das des aktiven.
+    pub fn split_with(&self, orientation: Option<Orientation>, profile: Option<&str>) -> bool {
         let layout = self.layout();
         let focus = layout.focus();
         let (w, h) = self.size();
@@ -473,7 +478,7 @@ impl Tab {
         }
         let cwd = self.inherited_cwd();
         // neuer Bereich erbt das Profil des aktiven
-        let profile = self.focused_pane().terminal().profile_id();
+        let profile = profile.map(String::from).unwrap_or_else(|| self.focused_pane().terminal().profile_id());
         let Some((next, id)) = layout.split(focus, o) else { return false };
         self.add_pane(id, cwd, &profile);
         self.set_layout(next);

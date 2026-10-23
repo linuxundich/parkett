@@ -152,10 +152,11 @@ fn profiles_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
 
     let rows: Rc<RefCell<Vec<adw::ActionRow>>> = Rc::default();
     let fill = {
-        let group = group.clone();
+        let group = group.downgrade();
         let rows = rows.clone();
         let dialog = dialog.downgrade();
         move || {
+            let Some(group) = group.upgrade() else { return };
             for r in rows.borrow_mut().drain(..) {
                 group.remove(&r);
             }
@@ -184,13 +185,8 @@ fn profiles_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
         }
     };
     fill();
-    let handler = ProfileManager::get().connect_changed(fill);
-    let handler = RefCell::new(Some(handler));
-    dialog.connect_closed(move |_| {
-        if let Some(h) = handler.borrow_mut().take() {
-            ProfileManager::get().disconnect(h);
-        }
-    });
+    let release = release_on_destroy(&group, &ProfileManager::get(), ProfileManager::get().connect_changed(fill));
+    dialog.connect_closed(move |_| release());
 
     let weak = dialog.downgrade();
     add.connect_clicked(move |_| {
@@ -204,6 +200,26 @@ fn profiles_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
 }
 
 /// Ändert das gespeicherte Profil `id` und speichert sofort.
+/// Trennt einen Handler an einem Objekt, das so lange lebt wie die App (ProfileManager,
+/// GSettings), spätestens wenn `owner` zerstört wird; die zurückgegebene Funktion trennt
+/// früher (bei „closed“ bzw. „hidden“), aber nur einmal. Endet der Dialog anders, etwa mit
+/// dem Fenster, hielte der Handler sonst Gruppen und Zeilen fest (L1).
+fn release_on_destroy(
+    owner: &impl IsA<gtk::Widget>,
+    source: &impl IsA<glib::Object>,
+    id: glib::SignalHandlerId,
+) -> impl Fn() + Clone + 'static {
+    let slot = Rc::new(RefCell::new(Some((source.clone().upcast::<glib::Object>(), id))));
+    let release = move || {
+        if let Some((source, id)) = slot.borrow_mut().take() {
+            source.disconnect(id);
+        }
+    };
+    let r = release.clone();
+    owner.connect_destroy(move |_| r());
+    release
+}
+
 fn update(dialog: &adw::PreferencesDialog, id: &str, f: impl FnOnce(&mut Profile)) {
     let manager = ProfileManager::get();
     let mut p = manager.profile(id);
@@ -311,7 +327,7 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
             update(&d, &i, |p| p.palette = pid);
         }
     });
-    let handler = RefCell::new(Some(ProfileManager::get().connect_changed({
+    let handler = ProfileManager::get().connect_changed({
         // nach Import neu füllen (Anzahl der Paletten geändert), sonst nur die Auswahl
         // an das Profil angleichen – Import und Profilwechsel kommen als zwei Änderungen
         let fill = fill.clone();
@@ -339,7 +355,8 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
                 }
             }
         }
-    })));
+    });
+    let release = release_on_destroy(&flow, &ProfileManager::get(), handler);
     let d = dialog.downgrade();
     let i = id.clone();
     import.connect_clicked(move |button| {
@@ -576,11 +593,7 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
             });
         });
     }
-    nav.connect_hidden(move |_| {
-        if let Some(h) = handler.borrow_mut().take() {
-            ProfileManager::get().disconnect(h);
-        }
-    });
+    nav.connect_hidden(move |_| release());
     let d = dialog.downgrade();
     delete.connect_clicked(move |_| {
         let Some(d) = d.upgrade() else { return };
@@ -694,13 +707,10 @@ fn shortcuts_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
         }
     };
     refresh();
-    let id = crate::settings::settings().connect_changed(Some("custom-shortcuts"), move |_, _| refresh());
-    let id = RefCell::new(Some(id));
-    dialog.connect_closed(move |_| {
-        if let Some(id) = id.borrow_mut().take() {
-            crate::settings::settings().disconnect(id);
-        }
-    });
+    let settings = crate::settings::settings();
+    let release =
+        release_on_destroy(&page, &settings, settings.connect_changed(Some("custom-shortcuts"), move |_, _| refresh()));
+    dialog.connect_closed(move |_| release());
     page
 }
 
@@ -790,10 +800,11 @@ fn templates_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
     page.add(&group);
     let rows: Rc<RefCell<Vec<gtk::Widget>>> = Rc::default();
     let fill = {
-        let group = group.clone();
+        let group = group.downgrade();
         let rows = rows.clone();
         let dialog = dialog.downgrade();
         move || {
+            let Some(group) = group.upgrade() else { return };
             for r in rows.borrow_mut().drain(..) {
                 group.remove(&r);
             }
@@ -842,12 +853,9 @@ fn templates_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
         }
     };
     fill();
-    let handler = RefCell::new(Some(ProfileManager::get().connect_templates_changed(fill)));
-    dialog.connect_closed(move |_| {
-        if let Some(h) = handler.borrow_mut().take() {
-            ProfileManager::get().disconnect(h);
-        }
-    });
+    let release =
+        release_on_destroy(&group, &ProfileManager::get(), ProfileManager::get().connect_templates_changed(fill));
+    dialog.connect_closed(move |_| release());
     page
 }
 

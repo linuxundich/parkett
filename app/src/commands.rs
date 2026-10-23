@@ -31,13 +31,18 @@ impl Group {
     }
 }
 
+/// Was ein Eintrag ausführt
+type Run = Rc<dyn Fn(&Window)>;
+
 struct Item {
     group: Group,
     title: String,
     subtitle: String,
     accel: String,
     icon: &'static str,
-    run: Rc<dyn Fn(&Window)>,
+    run: Run,
+    /// Strg+Eingabe: Ziel in einem neuen Bereich (bisher nur Profile); sonst wie `run`
+    alt: Option<Run>,
 }
 
 fn collect(win: &Window) -> Vec<Item> {
@@ -46,6 +51,7 @@ fn collect(win: &Window) -> Vec<Item> {
         let tab_title = tab.title();
         let cwd = tab.cwd().unwrap_or_default();
         items.push(Item {
+            alt: None,
             group: Group::Places,
             title: tab_title.clone(),
             subtitle: format!("Reiter {} · {cwd}", ti + 1),
@@ -60,6 +66,7 @@ fn collect(win: &Window) -> Vec<Item> {
                 let Some(pane) = pane else { continue };
                 let id = *id;
                 items.push(Item {
+                    alt: None,
                     group: Group::Places,
                     title: format!("{tab_title} › {}", pane.terminal().title().unwrap_or_else(|| "Shell".into())),
                     subtitle: format!("Bereich {} · {}", pi + 1, pane.terminal().cwd().unwrap_or_default()),
@@ -79,6 +86,7 @@ fn collect(win: &Window) -> Vec<Item> {
         let n = t.layout.panes().len();
         let id = t.id.clone();
         items.push(Item {
+            alt: None,
             group: Group::Templates,
             title: format!("{} öffnen", t.name),
             subtitle: format!("{n} {} · {}", if n == 1 { "Bereich" } else { "Bereiche" }, t.commands().join(", ")),
@@ -95,14 +103,21 @@ fn collect(win: &Window) -> Vec<Item> {
             subtitle: ProfileManager::get().palette(&p.palette).name,
             accel: String::new(),
             icon: "tab-new-symbolic",
-            run: Rc::new(move |w: &Window| {
-                let _ = WidgetExt::activate_action(w, "win.new-tab-profile", Some(&id.to_variant()));
+            run: Rc::new({
+                let id = id.clone();
+                move |w: &Window| {
+                    let _ = WidgetExt::activate_action(w, "win.new-tab-profile", Some(&id.to_variant()));
+                }
             }),
+            alt: Some(Rc::new(move |w: &Window| {
+                let _ = WidgetExt::activate_action(w, "win.split-profile", Some(&id.to_variant()));
+            })),
         });
     }
     for e in shortcuts::ENTRIES.iter().filter(|e| e.action != "win.palette") {
         let action = e.action;
         items.push(Item {
+            alt: None,
             group: Group::Actions,
             title: e.label.to_string(),
             subtitle: e.section.to_string(),
@@ -119,6 +134,7 @@ fn collect(win: &Window) -> Vec<Item> {
         });
     }
     items.push(Item {
+        alt: None,
         group: Group::Actions,
         title: "Aktuellen Reiter als Vorlage speichern …".into(),
         subtitle: "Vorlagen".into(),
@@ -194,7 +210,7 @@ pub fn show(win: &Window) {
     content.append(&entry);
     content.append(&scroll);
     let footer = gtk::Label::builder()
-        .label("↑↓ wählen · Eingabe ausführen · Esc schließen")
+        .label("↑↓ wählen · Eingabe ausführen · Strg+Eingabe Profil in neuem Bereich · Esc schließen")
         .css_classes(["dim-label", "caption"])
         .margin_bottom(6)
         .build();
@@ -256,9 +272,9 @@ pub fn show(win: &Window) {
         let shown = shown.clone();
         let win = win.downgrade();
         let dialog = dialog.downgrade();
-        move |index: i32| {
+        move |index: i32, alt: bool| {
             let Some(i) = shown.borrow().get(index.max(0) as usize).copied() else { return };
-            let f = items[i].run.clone();
+            let f = if alt { items[i].alt.clone() } else { None }.unwrap_or_else(|| items[i].run.clone());
             if let Some(d) = dialog.upgrade() {
                 d.close();
             }
@@ -275,8 +291,9 @@ pub fn show(win: &Window) {
     entry.connect_search_changed(move |e| r2(&e.text()));
     let run2 = run.clone();
     let l2 = list.clone();
-    entry.connect_activate(move |_| run2(l2.selected_row().map(|r| r.index()).unwrap_or(0)));
-    list.connect_row_activated(move |_, r| run(r.index()));
+    entry.connect_activate(move |_| run2(l2.selected_row().map(|r| r.index()).unwrap_or(0), false));
+    let run3 = run.clone();
+    list.connect_row_activated(move |_, r| run(r.index(), false));
     let d = dialog.downgrade();
     entry.connect_stop_search(move |_| {
         if let Some(d) = d.upgrade() {
@@ -287,7 +304,13 @@ pub fn show(win: &Window) {
     let keys = gtk::EventControllerKey::new();
     let l3 = list.clone();
     let sc = scroll.clone();
-    keys.connect_key_pressed(move |_, key, _, _| {
+    let l4 = list.clone();
+    keys.connect_key_pressed(move |_, key, _, state| {
+        let enter = matches!(key, gtk::gdk::Key::Return | gtk::gdk::Key::KP_Enter);
+        if enter && state.contains(gtk::gdk::ModifierType::CONTROL_MASK) {
+            run3(l4.selected_row().map(|r| r.index()).unwrap_or(0), true);
+            return glib::Propagation::Stop;
+        }
         let delta = match key {
             gtk::gdk::Key::Down => 1,
             gtk::gdk::Key::Up => -1,

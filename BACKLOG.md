@@ -7,19 +7,13 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 ## Next release (0.4): fixes and small improvements
 
 ### From the QA audit
-- [ ] QA-20 Cursor in the wrong place after line wrap: investigate, compare with Ptyxis
-- [ ] Regression tests for QA-02 (pane title), QA-07 (markup) and QA-09 (focus after menus) in the
-      VM smoke test; QA-01 and QA-03 to QA-06 are covered by unit tests and the smoke test
+- [ ] Regression test for QA-02 (pane title hidden): AT-SPI cannot see opacity, needs a
+      screenshot comparison
 
 ### From the code review
-- [ ] L1/L2 Weak references in the preferences and in the drawing functions of the pane
-- [ ] D2 Merge the foreground process queries in `terminal.rs` (notification and label share one
-      read since L3; `detect_context` still reads `/proc` on its own)
 
 ### Small features
 - [ ] Change the split layout of a template in the editor
-- [ ] Ctrl+Enter in the command palette: open the target in a new pane
-- [ ] Palette, layout mode and templates in the main menu (audit proposal 25)
 
 ## Decisions needed
 
@@ -178,6 +172,18 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [x] D3 one `Rgb` ⇄ float conversion in `core` (`Rgb::to_f64`, `Rgb::from_f64`)
 - [x] D6 layout debug output as a macro, environment read once
 - [x] `parkett -- cmd` on first start: GLib removed the `--` (found in the VM; `cli::protect_separator`)
+
+### After 0.3.0 (2026-10-23)
+- [x] L1/L2 handlers of the preferences released on destroy (`release_on_destroy`), drawing
+      functions with `WeakTerminal`
+- [x] D2 one foreground read (`read_foreground`) for context, label, notification and template
+- [x] Ctrl+Enter in the command palette: profile in a new pane (`win.split-profile`)
+- [x] Palette, layout mode and templates in the main menu (audit proposal 25)
+- [x] Smoke test: QA-07 (markup in a tab title) and QA-09 (focus after the main menu) via
+      `build-aux/vm/atspi.py`; 16 checks
+- [x] QA-20 closed: not reproducible with VTE 0.84.1 (Fedora 44); after narrowing, the
+      prompt shows longer in Parkett and Ptyxis alike (VTE rewrap plus bash redraw), the cursor
+      is right after maximizing
 
 ### Spawn path (2026-10-23)
 - [x] QA-08 environment of a call to a running instance (`SEND_ENVIRONMENT`,

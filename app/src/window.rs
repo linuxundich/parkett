@@ -228,9 +228,16 @@ impl Window {
         fill_new_menu(&new_menu);
         let menu_ref = new_menu.clone();
         let menu_ref2 = new_menu.clone();
+        // Vorlagen auch im Hauptmenü (Audit-Vorschlag 25)
+        let template_menu = gio::Menu::new();
+        fill_template_menu(&template_menu);
+        let menu_ref3 = template_menu.clone();
         let handlers = std::cell::RefCell::new(vec![
             ProfileManager::get().connect_changed(move || fill_new_menu(&menu_ref)),
-            ProfileManager::get().connect_templates_changed(move || fill_new_menu(&menu_ref2)),
+            ProfileManager::get().connect_templates_changed(move || {
+                fill_new_menu(&menu_ref2);
+                fill_template_menu(&menu_ref3);
+            }),
         ]);
         self.connect_destroy(move |_| {
             for h in handlers.borrow_mut().drain(..) {
@@ -255,6 +262,13 @@ impl Window {
         s1.append(Some("Neues Fenster"), Some("app.new-window"));
         s1.append(Some("Reiter umbenennen …"), Some("win.rename-tab"));
         main_menu.append_section(None, &s1);
+        // Palette, Layout-Modus und Vorlagen auffindbar machen, nicht nur über Kürzel und
+        // den Pfeil am Neu-Knopf (Audit-Vorschlag 25)
+        let s_tools = gio::Menu::new();
+        s_tools.append(Some("Befehlspalette"), Some("win.palette"));
+        s_tools.append(Some("Layout-Modus"), Some("win.layout-mode"));
+        s_tools.append_submenu(Some("Vorlagen"), &template_menu);
+        main_menu.append_section(None, &s_tools);
         let s2 = gio::Menu::new();
         s2.append(Some("Einstellungen"), Some("app.preferences"));
         s2.append(Some("Tastenkürzel"), Some("app.shortcuts"));
@@ -770,6 +784,20 @@ impl Window {
             w.add_tab_with_profile(cwd, &id);
         });
         self.add_action(&a);
+        // Befehlspalette, Strg+Eingabe auf einem Profil: neuer Bereich statt neuer Reiter
+        let a = gio::SimpleAction::new("split-profile", Some(glib::VariantTy::STRING));
+        let weak = self.downgrade();
+        a.connect_activate(move |_, param| {
+            let (Some(w), Some(id)) = (weak.upgrade(), param.and_then(|p| p.get::<String>())) else { return };
+            match w.current_tab() {
+                Some(tab) if !tab.split_with(None, Some(&id)) => w.toast("Zu wenig Platz zum Teilen"),
+                Some(_) => {}
+                None => {
+                    w.add_tab_with_profile(None, &id);
+                }
+            }
+        });
+        self.add_action(&a);
         action("close-tab", |w| {
             if let Some(page) = w.tab_view().selected_page() {
                 w.tab_view().close_page(&page);
@@ -1158,17 +1186,23 @@ fn fill_new_menu(menu: &gio::Menu) {
     }
     menu.append_section(Some("Neuer Reiter mit Profil"), &profiles);
     let templates = gio::Menu::new();
-    for t in manager.templates() {
-        let item = gio::MenuItem::new(Some(&t.name), None);
-        item.set_action_and_target_value(Some("win.open-template"), Some(&t.id.to_variant()));
-        templates.append_item(&item);
-    }
-    templates.append(Some("Aktuellen Reiter als Vorlage speichern …"), Some("win.save-template"));
+    fill_template_menu(&templates);
     menu.append_section(Some("Vorlagen"), &templates);
     let more = gio::Menu::new();
     more.append(Some("Neues Fenster"), Some("app.new-window"));
     more.append(Some("Profile bearbeiten …"), Some("app.preferences"));
     menu.append_section(None, &more);
+}
+
+/// Vorlagen zum Öffnen, danach „Aktuellen Reiter als Vorlage speichern …“.
+fn fill_template_menu(menu: &gio::Menu) {
+    menu.remove_all();
+    for t in ProfileManager::get().templates() {
+        let item = gio::MenuItem::new(Some(&t.name), None);
+        item.set_action_and_target_value(Some("win.open-template"), Some(&t.id.to_variant()));
+        menu.append_item(&item);
+    }
+    menu.append(Some("Aktuellen Reiter als Vorlage speichern …"), Some("win.save-template"));
 }
 
 fn shortcut(accel: &str, action: &str) -> gtk::Shortcut {
