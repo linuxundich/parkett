@@ -76,6 +76,22 @@ sleep 1
 keys KEY_ESC
 sleep 1
 check "Fokus nach dem Hauptmenü im Terminal (QA-09)" "$(remote 'python3 ~/parkett/build-aux/vm/atspi.py focused')" "terminal: Terminal"
+# QA-02: Der schwebende Titel ist ausgeblendet, bis der Zeiger oben im Bereich steht. Prüft
+# die Ecke oben rechts im rechten Bereich per Bildschirmfoto: ohne Titel einfarbig, mit Titel
+# nicht. Setzt die Fensterlage nach deploy.sh voraus (960×640, mittig auf 1280×800, mit
+# Reiterleiste).
+act split-right
+pointer_away
+sleep 2.5   # Titel nach dem Fokuswechsel (1,5 s) wieder weg
+spread() { virsh -c qemu:///session screenshot "$VM_DOM" /tmp/parkett-smoke.ppm >/dev/null
+  magick /tmp/parkett-smoke.ppm -crop 150x26+960+190 -colorspace gray -format '%[fx:standard_deviation]' info:; }
+hidden=$(spread)
+virsh -c qemu:///session qemu-monitor-command "$VM_DOM" '{"execute":"input-send-event","arguments":{"events":[{"type":"abs","data":{"axis":"x","value":25600}},{"type":"abs","data":{"axis":"y","value":8200}}]}}' >/dev/null
+sleep 1
+shown=$(spread)
+rm -f /tmp/parkett-smoke.ppm
+check "Bereichstitel verdeckt nichts, erscheint oben (QA-02)" \
+  "$(awk -v h="$hidden" -v s="$shown" 'BEGIN { print (h < 0.02 && s > 0.1) ? "ok" : "ausgeblendet " h ", eingeblendet " s }')" ok
 remote 'kill -TERM $(pidof parkett)'
 sleep 1
 # GLib schreibt unter systemd strukturiert ins Journal: Das Präfix „Gtk-CRITICAL“ fehlt dann
