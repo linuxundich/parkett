@@ -279,36 +279,40 @@ impl Tab {
 
     fn add_pane_with(&self, id: PaneId, cwd: Option<String>, profile_id: &str, launch: Launch) -> Pane {
         let pane = Pane::new(id, cwd, profile_id, launch);
-        let weak = self.downgrade();
+        pane.set_owner(self);
+        // Alle Handler fragen den Bereich beim Aufruf nach seinem Reiter: Er kann per Drag &
+        // Drop in einen anderen umziehen.
+        let weak_pane = pane.downgrade();
         let source = pane.terminal().downgrade();
         pane.terminal().connect_input(move |text| {
-            if let (Some(tab), Some(source)) = (weak.upgrade(), source.upgrade()) {
+            if let (Some(tab), Some(source)) = (weak_pane.upgrade().and_then(|p| p.tab()), source.upgrade()) {
                 tab.forward_input(&source, text);
             }
         });
-        let weak = self.downgrade();
+        let weak_pane = pane.downgrade();
         pane.terminal().connect_state_changed(move || {
-            if let Some(tab) = weak.upgrade() {
+            if let Some(tab) = weak_pane.upgrade().and_then(|p| p.tab()) {
                 tab.emit_changed();
             }
         });
         // „Schließen“ in der Leiste nach Prozessende. Die Id erst beim Aufruf lesen: Rückgängig
         // an neuer Stelle vergibt dem Bereich eine neue.
-        let weak = self.downgrade();
         let weak_pane = pane.downgrade();
         pane.terminal().connect_close(move || {
-            if let (Some(tab), Some(pane)) = (weak.upgrade(), weak_pane.upgrade()) {
-                tab.close_pane(pane.id());
+            if let Some(pane) = weak_pane.upgrade() {
+                if let Some(tab) = pane.tab() {
+                    tab.close_pane(pane.id());
+                }
             }
         });
         // Fokus per Klick oder Tab-Taste ins Modell übernehmen
-        let weak = self.downgrade();
         let weak_pane = pane.downgrade();
         pane.terminal().vte().connect_has_focus_notify(move |vte| {
             if !vte.has_focus() {
                 return;
             }
-            let (Some(tab), Some(pane)) = (weak.upgrade(), weak_pane.upgrade()) else { return };
+            let Some(pane) = weak_pane.upgrade() else { return };
+            let Some(tab) = pane.tab() else { return };
             let id = pane.id();
             let changed = {
                 let mut layout = tab.imp().layout.borrow_mut();
@@ -573,6 +577,38 @@ impl Tab {
         };
         self.imp().panes.borrow_mut().insert(pane.id(), pane);
         self.set_layout(next);
+    }
+
+    /// Nimmt einen Bereich samt laufendem Prozess heraus (Drag & Drop in einen anderen
+    /// Reiter). Beim letzten Bereich bleibt der Reiter leer zurück; das Fenster schließt ihn.
+    pub fn take_pane(&self, id: PaneId) -> Option<Pane> {
+        let before = self.layout();
+        if !before.contains(id) {
+            return None;
+        }
+        let pane = self.imp().panes.borrow_mut().remove(&id)?;
+        detach(pane.upcast_ref());
+        match before.close(id) {
+            Some(next) => self.set_layout(next),
+            None => self.emit_by_name::<()>("empty", &[]),
+        }
+        Some(pane)
+    }
+
+    /// Nimmt einen Bereich aus einem anderen Reiter auf, neben dem aktiven. `false`, wenn kein
+    /// Platz ist; dann bleibt der Bereich bei niemandem, und der Aufrufer gibt ihn zurück.
+    pub fn adopt_pane(&self, pane: &Pane) -> bool {
+        let current = self.layout();
+        let (w, h) = self.size();
+        let Some((next, new_id)) = current.split_auto(current.focus(), w, h) else { return false };
+        pane.set_id(new_id);
+        pane.set_owner(self);
+        self.imp().panes.borrow_mut().insert(new_id, pane.clone());
+        let next = next.with_focus(new_id).unwrap_or(next);
+        self.set_layout(next);
+        pane.focus_terminal();
+        crate::session::schedule_save();
+        true
     }
 
     /// „Rückgängig“ ist abgelaufen: Prozess des Bereichs beenden und freigeben.

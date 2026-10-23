@@ -197,6 +197,25 @@ impl Window {
         let imp = self.imp();
         let tab_view = adw::TabView::new();
         let tab_bar = adw::TabBar::builder().view(&tab_view).build();
+        // Bereich auf einen Reiter der Leiste ziehen: dorthin umziehen (auch aus einem anderen
+        // Fenster); der Prozess läuft weiter
+        tab_bar.setup_extra_drop_target(gtk::gdk::DragAction::MOVE, &[String::static_type()]);
+        // Ohne eigene Antwort meldet die Leiste eine Aktion, die nicht zu MOVE passt
+        // (gdk_drop_status: assertion), und der Drop endet nie (VM 2026-10-23)
+        tab_bar.set_extra_drag_preload(true);
+        tab_bar.connect_extra_drag_value(|_, _, value| match value.and_then(|v| v.get::<String>().ok()) {
+            Some(key) if crate::pane::parse_drag_key(&key).is_some() => gtk::gdk::DragAction::MOVE,
+            _ => gtk::gdk::DragAction::empty(),
+        });
+        let weak = self.downgrade();
+        tab_bar.connect_extra_drag_drop(move |_, page, value| {
+            let (Some(w), Ok(target), Ok(key)) =
+                (weak.upgrade(), page.child().downcast::<Tab>(), value.get::<String>())
+            else {
+                return false;
+            };
+            w.move_pane_to(&key, &target)
+        });
         let settings = crate::settings::settings();
         settings.bind("autohide-tab-bar", &tab_bar, "autohide").build();
         // Abblenden sofort umschalten, wenn die Einstellung sich ändert
@@ -493,6 +512,12 @@ impl Window {
         crate::session::schedule_save();
         let view = self.tab_view();
         let tab = page.child().downcast::<Tab>().ok();
+        // leer, weil sein letzter Bereich in einen anderen Reiter gezogen wurde: nichts
+        // wiederherzustellen, also ohne „Rückgängig“
+        if tab.as_ref().is_some_and(|t| t.pane_count() == 0) {
+            view.close_page_finish(page, true);
+            return;
+        }
         let position = view.page_position(page);
         let title = tab.as_ref().map(|t| t.title()).unwrap_or_default();
         let last = view.n_pages() <= 1;
@@ -738,6 +763,33 @@ impl Window {
             a.set_enabled(on);
             a.set_state(&included.to_variant());
         }
+    }
+
+    /// Drag & Drop eines Bereichs (Inhalt `key`, siehe pane.rs) auf den Reiter `target`.
+    fn move_pane_to(&self, key: &str, target: &Tab) -> bool {
+        let Some((from, id)) = crate::pane::parse_drag_key(key) else { return false };
+        let Some(app) = self.application() else { return false };
+        let source = app
+            .windows()
+            .into_iter()
+            .filter_map(|w| w.downcast::<Window>().ok())
+            .flat_map(|w| w.tabs())
+            .find(|t| crate::pane::tab_key(t) == from);
+        let Some(source) = source else { return false };
+        if &source == target {
+            return false;
+        }
+        let Some(pane) = source.take_pane(id) else { return false };
+        if !target.adopt_pane(&pane) {
+            // kein Platz: zurück in den alten Reiter (der ihn nimmt, solange er nicht leer war)
+            if !source.adopt_pane(&pane) {
+                pane.terminal().terminate();
+            }
+            self.toast("Zu wenig Platz im Reiter");
+            return false;
+        }
+        self.select(target);
+        true
     }
 
     pub fn toast(&self, text: &str) {

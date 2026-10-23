@@ -18,6 +18,8 @@ mod imp {
     #[derive(Default)]
     pub struct Pane {
         pub id: Cell<u32>,
+        /// Reiter, dem der Bereich gehört; ändert sich beim Ziehen in einen anderen Reiter
+        pub owner: RefCell<glib::WeakRef<crate::tab::Tab>>,
         pub terminal: OnceCell<Terminal>,
         pub pill: OnceCell<gtk::Box>,
         pub pill_label: OnceCell<gtk::Label>,
@@ -469,9 +471,8 @@ impl Pane {
             let Some(p) = weak.upgrade() else { return false };
             p.show_drop_hint(None);
             let (Ok(key), Some(tab)) = (value.get::<String>(), p.tab()) else { return false };
-            // nur aus demselben Reiter (andere Reiter: Entscheidung 2026-10-23, vorerst nicht)
-            let Some((from, source)) = key.rsplit_once(':') else { return false };
-            let Ok(source) = source.parse::<u32>() else { return false };
+            // nur aus demselben Reiter; in andere Reiter über die Reiterleiste (Window)
+            let Some((from, source)) = parse_drag_key(&key) else { return false };
             if from != tab_key(&tab) {
                 return false;
             }
@@ -481,8 +482,13 @@ impl Pane {
     }
 
     /// Reiter, in dem der Bereich liegt.
-    fn tab(&self) -> Option<crate::tab::Tab> {
-        self.ancestor(crate::tab::Tab::static_type()).and_downcast()
+    /// Reiter, dem der Bereich gehört (auch während „Rückgängig“, wenn er nicht angezeigt wird).
+    pub fn tab(&self) -> Option<crate::tab::Tab> {
+        self.imp().owner.borrow().upgrade()
+    }
+
+    pub fn set_owner(&self, tab: &crate::tab::Tab) {
+        *self.imp().owner.borrow_mut() = tab.downgrade();
     }
 
     /// Zone als halbtransparente Fläche zeigen: Hälfte an der Seite, Mitte zum Tauschen.
@@ -727,7 +733,14 @@ fn drag_key(tab: &crate::tab::Tab, pane: u32) -> String {
     format!("{}:{pane}", tab_key(tab))
 }
 
-fn tab_key(tab: &crate::tab::Tab) -> String {
+/// (Reiter-Schlüssel, Bereich) aus dem Inhalt beim Ziehen.
+pub fn parse_drag_key(key: &str) -> Option<(&str, u32)> {
+    let (from, id) = key.rsplit_once(':')?;
+    from.starts_with("parkett-pane:").then_some(())?;
+    Some((from, id.parse().ok()?))
+}
+
+pub fn tab_key(tab: &crate::tab::Tab) -> String {
     format!("parkett-pane:{:p}", tab.as_ptr())
 }
 
