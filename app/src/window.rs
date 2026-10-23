@@ -630,7 +630,10 @@ impl Window {
         page.set_title(&self.page_label(tab, &page));
         // voller Titel der Shell und Verzeichnis, wenn das Label kurz ist
         let cwd = tab.cwd().map(|c| tilde(&c)).unwrap_or_default();
-        let tooltip = if crate::settings::short_tab_labels() { format!("{}\n{cwd}", tab.title()) } else { cwd };
+        let mut tooltip = if crate::settings::short_tab_labels() { format!("{}\n{cwd}", tab.title()) } else { cwd };
+        if let Some(name) = tab.focused_pane().terminal().automatic_profile() {
+            tooltip.push_str(&format!("\nAussehen: Profil „{name}“ (automatisch)"));
+        }
         page.set_tooltip(&glib::markup_escape_text(tooltip.trim()));
         page.set_keyword(&tab.cwd().unwrap_or_default());
         if tab.take_attention() && view.selected_page().as_ref() != Some(&page) {

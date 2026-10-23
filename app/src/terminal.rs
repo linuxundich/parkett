@@ -16,7 +16,7 @@ use vte::prelude::*;
 
 use parkett_core::context::{self, Context};
 use parkett_core::palette::Rgb;
-use parkett_core::profile::{Bell, CursorBlink, CursorShape, ExitAction};
+use parkett_core::profile::{Bell, CursorBlink, CursorShape, ExitAction, Profile};
 
 use crate::profiles::ProfileManager;
 
@@ -59,6 +59,8 @@ struct Inner {
     on_input: RefCell<Vec<InputCallback>>,
     /// von der gemeinsamen Eingabe des Reiters ausgenommen
     sync_excluded: Cell<bool>,
+    /// Profil, dessen Aussehen gerade gilt (automatischer Wechsel nach Rechner/Ordner)
+    appearance: RefCell<String>,
     on_close: RefCell<Vec<Callback>>,
     /// Glocke oder Befehlsende, seit der Reiter zuletzt angesehen wurde
     attention: Cell<bool>,
@@ -177,6 +179,7 @@ impl Terminal {
             on_state_changed: RefCell::default(),
             on_input: RefCell::default(),
             sync_excluded: Cell::new(false),
+            appearance: RefCell::default(),
             on_close: RefCell::default(),
             attention: Cell::new(false),
             uid: NEXT_UID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
@@ -427,6 +430,9 @@ impl Terminal {
             *self.0.context.borrow_mut() = now;
             self.apply_colors();
             changed = true;
+        } else {
+            // Ordnerregeln: Ein cd ohne Shell-Integration meldet niemand, also hier nachsehen
+            self.check_appearance();
         }
         let program = self.label_program_with(foreground);
         if program != *self.0.label_program.borrow() {
@@ -779,7 +785,12 @@ impl Terminal {
         self.0.vte.connect_termprop_changed(None, move |_, name| {
             let Some(inner) = weak.upgrade() else { return };
             match name {
-                "xterm.title" | "vte.cwd" => Terminal(inner).emit_state_changed(),
+                "xterm.title" => Terminal(inner).emit_state_changed(),
+                "vte.cwd" => {
+                    let t = Terminal(inner);
+                    t.check_appearance();
+                    t.emit_state_changed();
+                }
                 // Shell-Integration (vte.sh): Befehl beginnt bzw. Prompt kommt wieder
                 "vte.shell.preexec" => {
                     inner.command_started.set(Some(Instant::now()));
@@ -797,11 +808,45 @@ impl Terminal {
         });
     }
 
+    /// Profil fürs Aussehen: ein Profil mit passender Regel (Rechner der SSH-Verbindung,
+    /// sonst lokaler Ordner), sonst das eigene. Verhalten (Glocke, Prozessende, Neustart)
+    /// bleibt beim eigenen Profil.
+    fn appearance_profile(&self) -> Profile {
+        let manager = ProfileManager::get();
+        let own = manager.profile(&self.profile_id());
+        let host = match &*self.0.context.borrow() {
+            Context::Remote(h) => Some(h.clone()),
+            _ => None,
+        };
+        // wie der Reiter-Name: OSC 7, sonst der Ordner der Shell (/proc) – ohne vte.sh kommt
+        // kein OSC 7, und Ordnerregeln griffen nie
+        let cwd = if host.is_none() { self.working_directory() } else { None };
+        let home = glib::home_dir().to_string_lossy().into_owned();
+        parkett_core::profile::automatic(&manager.profiles(), host.as_deref(), cwd.as_deref(), &home)
+            .cloned()
+            .unwrap_or(own)
+    }
+
+    /// Nach einem Ordnerwechsel: neu einfärben, wenn eine Ordnerregel nun anders greift.
+    fn check_appearance(&self) {
+        if self.appearance_profile().id != *self.0.appearance.borrow() {
+            self.apply_colors();
+        }
+    }
+
+    /// Profil fürs Aussehen, wenn es nicht das eigene ist (automatischer Wechsel).
+    pub fn automatic_profile(&self) -> Option<String> {
+        let id = self.0.appearance.borrow().clone();
+        (!id.is_empty() && id != self.profile_id()).then(|| ProfileManager::get().profile(&id).name)
+    }
+
     /// Farben aus der Palette des Profils (Fassung nach Systemstil), Schrift, Cursor, Glocke.
     fn apply_colors(&self) {
         let sm = adw::StyleManager::default();
         let manager = ProfileManager::get();
-        let chosen = manager.profile(&self.profile_id()).palette;
+        let look = self.appearance_profile();
+        *self.0.appearance.borrow_mut() = look.id.clone();
+        let chosen = look.palette.clone();
         let high_contrast = sm.is_high_contrast() && crate::settings::follow_high_contrast();
         let palette = manager.palette(parkett_core::palette::effective_id(&chosen, high_contrast));
         let face = palette.face(sm.is_dark());
@@ -823,7 +868,7 @@ impl Terminal {
         let vte = &self.0.vte;
         // Transparenz: nur der Hintergrund bekommt Alpha; das Fenster dahinter wird dafür
         // durchsichtig geschaltet (Window::update_translucency)
-        let opacity = manager.profile(&self.profile_id()).opacity();
+        let opacity = look.opacity();
         let mut bg = rgba(&background);
         bg.set_alpha(opacity as f32);
         vte.set_colors(Some(&rgba(&face.foreground)), Some(&bg), &refs);
@@ -832,11 +877,10 @@ impl Terminal {
         vte.set_color_cursor_foreground(face.cursor_foreground.as_ref().map(rgba).as_ref());
         // Auswahl in der Akzentfarbe statt invertiert
         vte.set_color_highlight(Some(&rgba(&face.selection(&from_rgba(&sm.accent_color_rgba())))));
-        // Schrift, Cursor und Glocke aus dem Profil
-        let profile = manager.profile(&self.profile_id());
-        let font = if profile.font.trim().is_empty() { sm.monospace_font_name() } else { profile.font.trim().into() };
+        // Schrift und Cursor aus dem Profil fürs Aussehen, Glocke aus dem eigenen
+        let font = if look.font.trim().is_empty() { sm.monospace_font_name() } else { look.font.trim().into() };
         vte.set_font(Some(&pango::FontDescription::from_string(&font)));
-        vte.set_cursor_shape(match profile.cursor_shape {
+        vte.set_cursor_shape(match look.cursor_shape {
             CursorShape::Block => vte::CursorShape::Block,
             CursorShape::Ibeam => vte::CursorShape::Ibeam,
             CursorShape::Underline => vte::CursorShape::Underline,
@@ -844,12 +888,12 @@ impl Terminal {
         // blinkender Text (SGR 5) nur im Bereich mit Fokus, wie gnome-terminal: in allen
         // Bereichen kostete er im Leerlauf 7,8 % CPU in der VM (QA-14)
         vte.set_text_blink_mode(vte::TextBlinkMode::Focused);
-        vte.set_cursor_blink_mode(match profile.cursor_blink {
+        vte.set_cursor_blink_mode(match look.cursor_blink {
             CursorBlink::System => vte::CursorBlinkMode::System,
             CursorBlink::On => vte::CursorBlinkMode::On,
             CursorBlink::Off => vte::CursorBlinkMode::Off,
         });
-        vte.set_audible_bell(profile.bell == Bell::Sound);
+        vte.set_audible_bell(manager.profile(&self.profile_id()).bell == Bell::Sound);
         vte.set_enable_sixel(sixel_supported() && crate::settings::settings().boolean("enable-sixel"));
         self.0.background.set(background);
         for f in self.0.on_colors_changed.borrow().iter() {

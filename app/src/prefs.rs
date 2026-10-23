@@ -539,6 +539,35 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
     start.add(&env);
     page.add(&start);
 
+    // Automatischer Wechsel: Aussehen dieses Profils für bestimmte Rechner und Ordner
+    let auto = adw::PreferencesGroup::builder()
+        .title("Automatisch verwenden")
+        .description("Bereiche zeigen Farbschema, Schrift und Deckkraft dieses Profils, solange eine Regel passt – etwa während „ssh bender“ läuft. Mehrere Einträge mit Komma trennen, * als Platzhalter.")
+        .build();
+    let hosts = adw::EntryRow::builder()
+        .title("Für Rechner (z. B. bender, *.tuxedo.de)")
+        .text(profile.hosts.join(", "))
+        .build();
+    let dirs = adw::EntryRow::builder()
+        .title("Für Ordner, auch darunter (z. B. ~/kunde)")
+        .text(profile.directories.join(", "))
+        .build();
+    let list = |text: &str| -> Vec<String> {
+        text.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
+    };
+    for (row, is_hosts) in [(&hosts, true), (&dirs, false)] {
+        let d = dialog.downgrade();
+        let i = id.clone();
+        row.connect_changed(move |e| {
+            let Some(d) = d.upgrade() else { return };
+            let items = list(&e.text());
+            update(&d, &i, |p| if is_hosts { p.hosts = items } else { p.directories = items });
+        });
+    }
+    auto.add(&hosts);
+    auto.add(&dirs);
+    page.add(&auto);
+
     // Prozessende
     let end = adw::PreferencesGroup::new();
     let exit = adw::ComboRow::builder()

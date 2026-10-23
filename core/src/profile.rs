@@ -80,6 +80,11 @@ pub struct Profile {
     pub bell: Bell,
     /// Deckkraft des Hintergrunds, 1.0 = undurchsichtig (siehe [`Profile::opacity`])
     pub opacity: f64,
+    /// Automatisch für diese Rechner (SSH), `*` und `?` als Platzhalter: Bereiche zeigen dann
+    /// das Aussehen dieses Profils, solange die Verbindung läuft
+    pub hosts: Vec<String>,
+    /// Automatisch für diese Ordner (lokal, `~` erlaubt; `~/kunde/*` gilt auch darunter)
+    pub directories: Vec<String>,
 }
 
 /// Kleinste erlaubte Deckkraft: darunter ist Text auf unruhigem Hintergrund kaum lesbar.
@@ -101,8 +106,63 @@ impl Default for Profile {
             cursor_blink: CursorBlink::System,
             bell: Bell::Sound,
             opacity: 1.0,
+            hosts: Vec::new(),
+            directories: Vec::new(),
         }
     }
+}
+
+/// Platzhalter `*` (beliebig viele Zeichen) und `?` (eines), ohne Groß-/Kleinschreibung.
+pub fn wildcard_match(pattern: &str, text: &str) -> bool {
+    let p: Vec<char> = pattern.to_lowercase().chars().collect();
+    let t: Vec<char> = text.to_lowercase().chars().collect();
+    let (mut pi, mut ti, mut star, mut mark) = (0, 0, None, 0);
+    while ti < t.len() {
+        if pi < p.len() && (p[pi] == '?' || p[pi] == t[ti]) {
+            pi += 1;
+            ti += 1;
+        } else if pi < p.len() && p[pi] == '*' {
+            star = Some(pi);
+            mark = ti;
+            pi += 1;
+        } else if let Some(s) = star {
+            pi = s + 1;
+            mark += 1;
+            ti = mark;
+        } else {
+            return false;
+        }
+    }
+    p[pi..].iter().all(|c| *c == '*')
+}
+
+/// Profil, dessen Aussehen ein Bereich automatisch bekommt: zuerst nach Rechner (bei einer
+/// SSH-Verbindung), sonst nach lokalem Ordner. Ordnermuster gelten auch für Unterordner;
+/// `~` steht für `home`. Bei mehreren Treffern gewinnt das erste Profil in `profiles`.
+pub fn automatic<'a>(
+    profiles: &'a [Profile],
+    host: Option<&str>,
+    cwd: Option<&str>,
+    home: &str,
+) -> Option<&'a Profile> {
+    if let Some(host) = host.filter(|h| !h.is_empty()) {
+        // „user@host“ und „host:port“ aus der Befehlszeile nur mit dem Rechnernamen vergleichen
+        let host = host.rsplit('@').next().unwrap_or(host);
+        let host = host.split(':').next().unwrap_or(host);
+        return profiles.iter().find(|p| p.hosts.iter().any(|pat| wildcard_match(pat.trim(), host)));
+    }
+    let cwd = cwd?.trim_end_matches('/');
+    profiles.iter().find(|p| {
+        p.directories.iter().any(|pat| {
+            let pat = pat.trim();
+            let pat = match pat.strip_prefix('~') {
+                Some(rest) => format!("{home}{rest}"),
+                None => pat.to_string(),
+            };
+            let pat = pat.trim_end_matches('/');
+            !pat.is_empty() && (wildcard_match(pat, cwd) || wildcard_match(&format!("{pat}/*"), cwd))
+        })
+    })
 }
 
 impl Profile {
@@ -347,5 +407,45 @@ mod tests {
         assert_eq!(p(7.0), 1.0);
         assert_eq!(p(f64::NAN), 1.0);
         assert_eq!(Profile::from_toml("x", "opacity = 0.85\n").unwrap().opacity(), 0.85);
+    }
+
+    #[test]
+    fn wildcards() {
+        assert!(wildcard_match("bender", "bender"));
+        assert!(wildcard_match("*.tuxedo.de", "build.tuxedo.de"));
+        assert!(!wildcard_match("*.tuxedo.de", "tuxedo.de"));
+        assert!(wildcard_match("web?", "web1"));
+        assert!(wildcard_match("BENDER", "bender"));
+        assert!(!wildcard_match("bend", "bender"));
+        assert!(wildcard_match("*", ""));
+    }
+
+    #[test]
+    fn automatic_profile_by_host_then_directory() {
+        let p = |id: &str, hosts: &[&str], dirs: &[&str]| Profile {
+            id: id.into(),
+            hosts: hosts.iter().map(|s| s.to_string()).collect(),
+            directories: dirs.iter().map(|s| s.to_string()).collect(),
+            ..Profile::default()
+        };
+        let list = vec![p("server", &["bender", "*.tuxedo.de"], &[]), p("kunde", &[], &["~/kunde", "/srv/web*"])];
+        let id = |host: Option<&str>, cwd: Option<&str>| {
+            automatic(&list, host, cwd, "/home/t").map(|p| p.id.clone()).unwrap_or_default()
+        };
+        assert_eq!(id(Some("bender"), None), "server");
+        assert_eq!(id(Some("toff@bender"), Some("/home/t/kunde")), "server", "Rechner vor Ordner");
+        assert_eq!(id(Some("build.tuxedo.de:2222"), None), "server");
+        assert_eq!(id(Some("anderer"), Some("/home/t/kunde")), "", "Ordner nur lokal");
+        assert_eq!(id(None, Some("/home/t/kunde")), "kunde");
+        assert_eq!(id(None, Some("/home/t/kunde/projekt/src")), "kunde", "auch darunter");
+        assert_eq!(id(None, Some("/home/t/kundenliste")), "", "nur ganze Ordner");
+        assert_eq!(id(None, Some("/srv/webseite")), "kunde");
+        assert_eq!(id(None, None), "");
+    }
+
+    #[test]
+    fn old_profiles_without_rules_still_load() {
+        let p = Profile::from_toml("alt", "name = \"Alt\"\n").unwrap();
+        assert!(p.hosts.is_empty() && p.directories.is_empty());
     }
 }
