@@ -27,9 +27,13 @@ As of 0.3.0. All shortcuts can be changed or disabled under *Einstellungen › K
   `{n}` number, `{program}` program (over SSH „ssh host“), `{dir}` last folder, `{path}` full
   path with `~`, `{host}` host of an SSH session, `{title}` the shell's title, `{profile}`
   profile. Empty values drop out together with their separator (` · `, ` | `, ` - `, `: `).
+  A profile can have its own template (profile editor, *Reiter*; `tab_label` in the TOML file),
+  which wins over the setting.
 - **Moving panes:** drag a pane's title (floating title: move the pointer to the top of the pane
   first; or the title row) onto another pane of the same tab. Near an edge the pane is placed on
   that side, half the target's size; in the middle both panes swap. The zone shows while dragging.
+  Dropped on a tab in the tab bar (also in another Parkett window), the pane moves to that tab,
+  next to its active pane; the program keeps running.
 - **Input to all panes** (Ctrl+Alt+I, also in the context menu and the command palette): what you
   type or paste in one pane of the tab goes to all its panes, like Tilix's "synchronize input".
   Receiving panes get an orange line at the top, the tab an icon (clicking it turns the mode
@@ -54,7 +58,8 @@ templates and the bookmarks are also in the main menu.
 
 **Bookmarks:** *Aktuellen Ordner als Lesezeichen* (Current folder as bookmark; palette or main
 menu) stores the active pane's folder. Enter on a bookmark opens a new tab there. They live in
-`~/.config/parkett/bookmarks.toml` and can be renamed, sorted or removed by hand:
+`~/.config/parkett/bookmarks.toml`; *Einstellungen › Lesezeichen* (Preferences › Bookmarks)
+renames, sorts and removes them and adds folders, or edit the file by hand:
 
 ```toml
 [[bookmark]]

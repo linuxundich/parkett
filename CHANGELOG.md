@@ -15,7 +15,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Bookmarks for folders in the command palette (prefix `~`; Enter new tab, Ctrl+Enter new pane,
   Alt+Enter `cd` here) and the main menu, stored in `~/.config/parkett/bookmarks.toml`.
 - Title templates for the short tab labels (`{n} {program} · {dir}` by default; `{path}`,
-  `{host}`, `{title}`, `{profile}`), set under *Einstellungen › Allgemein*.
+  `{host}`, `{title}`, `{profile}`), set under *Einstellungen › Allgemein*; a profile can have
+  its own template.
+- Drop a pane title on a tab in the tab bar to move the pane there (also between windows).
+- *Einstellungen › Lesezeichen*: rename, sort, delete bookmarks and add folders.
 - Command palette: Ctrl+Enter on *Neuer Reiter mit Profil …* opens the profile in a new pane
   of the current tab instead of a new tab.
 - Main menu: *Befehlspalette* (command palette), *Layout-Modus* (layout mode) and a *Vorlagen*

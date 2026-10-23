@@ -61,4 +61,9 @@ Run `build-aux/ci.sh` before every commit. App unit tests must not call GTK func
   `forward_input`), drag and drop (`Layout::move_pane`, `drop_zone`), automatic profile
   (`profile::automatic`, `Terminal::appearance_profile`; folders via `working_directory`,
   because the VM's bash sends no OSC 7), bookmarks (`core::bookmark`, `app/src/bookmarks.rs`),
-  title templates (`label::render`). Next: template layout in the editor, release 0.4.
+  title templates (`label::render`); then per-profile template (`Profile::tab_label`),
+  bookmarks page in the preferences, panes into other tabs via the tab bar (`Pane::owner`,
+  `Tab::take_pane`/`adopt_pane`; AdwTabBar needs an `extra-drag-value` answer). Next: template
+  layout in the editor, release 0.4.
+- Commit only after `build-aux/ci.sh` exited 0 (check the exit code, not grep output): a doc
+  example shift once broke `core/tests/usage.rs` on `main`.

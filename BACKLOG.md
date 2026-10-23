@@ -30,8 +30,9 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [x] Automatic profile switching by host or directory (appearance only, returns afterwards)
 - [x] Bookmarks for directories (palette `~`, main menu, `bookmarks.toml`)
 - [x] Title templates with variables (setting `tab-label-template`)
-- [ ] Later: move panes into another tab by dropping them on the tab bar; bookmarks page in the
-      preferences (rename, sort); title template per profile
+- [x] Move panes into another tab by dropping them on the tab bar (also between windows)
+- [x] Bookmarks page in the preferences (rename, sort, delete, add a folder)
+- [x] Title template per profile (`tab_label`)
 
 ### 0.5: Distribution
 - [ ] English interface (gettext), then translations; AppStream metadata and `.desktop` file in
