@@ -35,6 +35,45 @@ pub fn tilde(path: &str, home: &Path) -> String {
     }
 }
 
+/// Pfad aus der Ausgabe (Strg+Klick): `:Zeile` und `:Zeile:Spalte` am Ende entfallen,
+/// `~` wird zum Persönlichen Ordner, `./` und `../` gelten relativ zu `cwd`. Ohne bekanntes
+/// Verzeichnis gibt es für relative Pfade kein Ziel.
+pub fn output_path(text: &str, cwd: Option<&str>, home: &Path) -> Option<PathBuf> {
+    let mut t = text.trim();
+    // „src/main.rs:42:7“ aus Compiler-Meldungen
+    for _ in 0..2 {
+        if let Some((head, tail)) = t.rsplit_once(':') {
+            if !tail.is_empty() && tail.chars().all(|c| c.is_ascii_digit()) {
+                t = head;
+            }
+        }
+    }
+    if t.is_empty() {
+        return None;
+    }
+    let path = if t == "~" || t.starts_with("~/") {
+        expand_home(t, home)
+    } else if t.starts_with('/') {
+        PathBuf::from(t)
+    } else if t.starts_with("./") || t.starts_with("../") {
+        Path::new(cwd?).join(t)
+    } else {
+        return None;
+    };
+    // „..“ und „.“ auflösen, ohne das Dateisystem zu fragen
+    let mut out = PathBuf::new();
+    for c in path.components() {
+        match c {
+            Component::ParentDir => {
+                out.pop();
+            }
+            Component::CurDir => {}
+            other => out.push(other),
+        }
+    }
+    Some(out)
+}
+
 /// Unterverzeichnis einer Vorlage an `base` hängen. Nur relative Pfade ohne „..“ – sonst
 /// könnte eine Vorlage ihre Bereiche an beliebigen Orten starten; dann bleibt es bei `base`.
 pub fn join_subdir(base: &Path, sub: &str) -> PathBuf {
@@ -91,5 +130,22 @@ mod tests {
         assert_eq!(std::fs::metadata(&target).unwrap().permissions().mode() & 0o777, 0o600);
         assert!(!tmp.exists());
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn paths_from_output() {
+        let home = Path::new("/home/a");
+        let p = |t: &str, cwd: Option<&str>| output_path(t, cwd, home).map(|p| p.to_string_lossy().into_owned());
+        assert_eq!(p("/etc/fstab", None).as_deref(), Some("/etc/fstab"));
+        assert_eq!(p("~/src/parkett", None).as_deref(), Some("/home/a/src/parkett"));
+        assert_eq!(p("~", None).as_deref(), Some("/home/a"));
+        assert_eq!(
+            p("./app/src/main.rs:42:7", Some("/home/a/parkett")).as_deref(),
+            Some("/home/a/parkett/app/src/main.rs")
+        );
+        assert_eq!(p("../core/lib.rs:3", Some("/home/a/parkett/app")).as_deref(), Some("/home/a/parkett/core/lib.rs"));
+        assert_eq!(p("./x", None), None, "relativ ohne Verzeichnis");
+        assert_eq!(p("src/main.rs", Some("/tmp")), None, "ohne ./ kein Pfad");
+        assert_eq!(p("/var/log/../tmp/", None).as_deref(), Some("/var/tmp"));
     }
 }

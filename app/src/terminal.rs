@@ -981,8 +981,47 @@ impl Terminal {
             .filter(|u| !u.is_empty())
     }
 
-    /// Öffnet einen Link mit der Standardanwendung, aber nur mit erlaubtem Schema.
+    /// Dateipfad aus der Ausgabe im Dateimanager: Ordner öffnen, bei Dateien den Ordner mit der
+    /// Datei markiert (Audit T-53). In einer SSH-Sitzung liegt der Pfad auf dem anderen Rechner.
+    fn open_path(&self, text: &str) {
+        let window = self.0.vte.root().and_downcast::<gtk::Window>();
+        let toast = |msg: &str| {
+            if let Some(w) = window.as_ref().and_then(|w| w.clone().downcast::<crate::window::Window>().ok()) {
+                w.toast(msg);
+            }
+        };
+        if matches!(self.detect_context(), Context::Remote(_)) {
+            toast("Der Pfad liegt auf dem anderen Rechner");
+            return;
+        }
+        let cwd = self.working_directory();
+        let Some(path) = parkett_core::paths::output_path(text, cwd.as_deref(), &glib::home_dir()) else {
+            return;
+        };
+        if !path.exists() {
+            toast(&format!("„{}“ gibt es nicht", path.display()));
+            return;
+        }
+        let launcher = gtk::FileLauncher::new(Some(&gio::File::for_path(&path)));
+        let report = move |res: Result<(), glib::Error>| {
+            if let Err(e) = res {
+                glib::g_warning!("parkett", "Pfad nicht geöffnet: {e}");
+            }
+        };
+        if path.is_dir() {
+            launcher.launch(window.as_ref(), gio::Cancellable::NONE, report);
+        } else {
+            launcher.open_containing_folder(window.as_ref(), gio::Cancellable::NONE, report);
+        }
+    }
+
+    /// Öffnet einen Link mit der Standardanwendung, aber nur mit erlaubtem Schema; ein
+    /// erkannter Dateipfad (ohne Schema) geht an den Dateimanager.
     pub fn open_link(&self, uri: &str) {
+        if uri.starts_with('/') || uri.starts_with('~') || uri.starts_with('.') {
+            self.open_path(uri);
+            return;
+        }
         let scheme = uri.split(':').next().unwrap_or("").to_ascii_lowercase();
         if !SAFE_SCHEMES.contains(&scheme.as_str()) {
             glib::g_warning!("parkett", "Link mit Schema „{scheme}“ nicht geöffnet");
@@ -1251,6 +1290,9 @@ const SAFE_SCHEMES: &[&str] = &["http", "https", "ftp", "mailto", "file"];
 const URL_PATTERNS: &[&str] = &[
     r#"\b(?:https?|ftp|file)://[^\s<>"'`]*[^\s<>"'`.,;:!?)\]}]"#,
     r#"\bmailto:[^\s<>"'`@]+@[^\s<>"'`]*[^\s<>"'`.,;:!?)\]}]"#,
+    // Dateipfade (Audit T-53): /…, ~/…, ./…, ../…, auch mit :Zeile:Spalte; nicht mitten in
+    // Wörtern, Adressen („https://“) oder Daten („10/23“)
+    r#"(?<![\w/~.:@-])(?:~|\.\.?)?/[\w.+@%~/-]*[\w+@%~/-](?::\d+){0,2}"#,
 ];
 
 /// PCRE2-Flags wie bei Ptyxis: UTF, NO_UTF_CHECK, UCP und MULTILINE (verlangt VTE).
