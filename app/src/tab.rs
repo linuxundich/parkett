@@ -455,6 +455,17 @@ impl Tab {
         ((vte.char_width() * MIN_COLUMNS) as f32, (vte.char_height() * MIN_ROWS) as f32)
     }
 
+    /// Drag & Drop eines Bereichs (siehe `Layout::move_pane`); `false`, wenn nichts passiert.
+    pub fn move_pane(&self, source: PaneId, target: PaneId, zone: parkett_core::layout::DropZone) -> bool {
+        let Some(next) = self.layout().move_pane(source, target, zone) else { return false };
+        self.set_layout(next);
+        if let Some(p) = self.pane(source) {
+            p.focus_terminal();
+        }
+        crate::session::schedule_save();
+        true
+    }
+
     fn set_layout(&self, layout: Layout) {
         *self.imp().layout.borrow_mut() = layout;
         self.rebuild();

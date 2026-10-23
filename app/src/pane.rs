@@ -8,6 +8,7 @@ use vte::prelude::*;
 
 use crate::shortcuts::live_tooltip;
 use crate::terminal::{Launch, Terminal};
+use parkett_core::layout::DropZone;
 
 mod imp {
     use std::cell::{Cell, OnceCell, RefCell};
@@ -22,6 +23,8 @@ mod imp {
         pub pill_label: OnceCell<gtk::Label>,
         pub focus_line: OnceCell<gtk::Box>,
         pub sync_line: OnceCell<gtk::Box>,
+        /// Zone beim Ablegen eines gezogenen Bereichs
+        pub drop_hint: OnceCell<gtk::Box>,
         pub context_line: OnceCell<gtk::DrawingArea>,
         pub multi: Cell<bool>,
         pub narrow: Cell<bool>,
@@ -139,6 +142,8 @@ impl Pane {
         }
         overlay.add_overlay(&context_line);
         overlay.add_overlay(&sync_line);
+        let drop_hint = gtk::Box::builder().css_classes(["parkett-drop-hint"]).can_target(false).visible(false).build();
+        overlay.add_overlay(&drop_hint);
 
         // Breite des Bereichs beobachten: schmale Bereiche blenden den Text des schwebenden
         // Titels aus, damit er die Prompt-Zeile nicht verdeckt (QA). Unsichtbare Zeichenfläche,
@@ -353,6 +358,7 @@ impl Pane {
         imp.pill_label.set(pill_label).ok();
         imp.focus_line.set(focus_line).ok();
         imp.sync_line.set(sync_line).ok();
+        imp.drop_hint.set(drop_hint).ok();
         imp.context_line.set(context_line).ok();
         imp.dim.set(dim).ok();
         imp.search.set(search).ok();
@@ -417,7 +423,87 @@ impl Pane {
         });
         entry.add_controller(keys);
         update();
+        pane.setup_drag();
         pane
+    }
+
+    /// Drag & Drop: Titel (schwebend oder Zeile) ziehen, auf einem anderen Bereich desselben
+    /// Reiters ablegen – am Rand daneben einsetzen, in der Mitte tauschen.
+    fn setup_drag(&self) {
+        let imp = self.imp();
+        // am ganzen Titel, nicht nur am Text: In schmalen Bereichen blendet der schwebende
+        // Titel den Text aus. Die Knöpfe bleiben klickbar, gezogen wird erst nach einer Bewegung.
+        let pill: gtk::Widget = imp.pill.get().unwrap().clone().upcast();
+        let row: gtk::Widget = imp.row.get().unwrap().clone().upcast();
+        for handle in [pill, row] {
+            let source = gtk::DragSource::builder().actions(gtk::gdk::DragAction::MOVE).build();
+            let weak = self.downgrade();
+            source.connect_prepare(move |_, _, _| {
+                let p = weak.upgrade()?;
+                let tab = p.tab()?;
+                Some(gtk::gdk::ContentProvider::for_value(&drag_key(&tab, p.id()).to_value()))
+            });
+            let h = handle.downgrade();
+            source.connect_drag_begin(move |src, _| {
+                if let Some(h) = h.upgrade() {
+                    src.set_icon(Some(&gtk::WidgetPaintable::new(Some(&h))), 0, 0);
+                }
+            });
+            handle.add_controller(source);
+        }
+        let target = gtk::DropTarget::new(String::static_type(), gtk::gdk::DragAction::MOVE);
+        let weak = self.downgrade();
+        target.connect_motion(move |_, x, y| {
+            let Some(p) = weak.upgrade() else { return gtk::gdk::DragAction::empty() };
+            p.show_drop_hint(Some(zone_at(&p, x, y)));
+            gtk::gdk::DragAction::MOVE
+        });
+        let weak = self.downgrade();
+        target.connect_leave(move |_| {
+            if let Some(p) = weak.upgrade() {
+                p.show_drop_hint(None);
+            }
+        });
+        let weak = self.downgrade();
+        target.connect_drop(move |_, value, x, y| {
+            let Some(p) = weak.upgrade() else { return false };
+            p.show_drop_hint(None);
+            let (Ok(key), Some(tab)) = (value.get::<String>(), p.tab()) else { return false };
+            // nur aus demselben Reiter (andere Reiter: Entscheidung 2026-10-23, vorerst nicht)
+            let Some((from, source)) = key.rsplit_once(':') else { return false };
+            let Ok(source) = source.parse::<u32>() else { return false };
+            if from != tab_key(&tab) {
+                return false;
+            }
+            tab.move_pane(source, p.id(), zone_at(&p, x, y))
+        });
+        self.add_controller(target);
+    }
+
+    /// Reiter, in dem der Bereich liegt.
+    fn tab(&self) -> Option<crate::tab::Tab> {
+        self.ancestor(crate::tab::Tab::static_type()).and_downcast()
+    }
+
+    /// Zone als halbtransparente Fläche zeigen: Hälfte an der Seite, Mitte zum Tauschen.
+    fn show_drop_hint(&self, zone: Option<DropZone>) {
+        let hint = self.imp().drop_hint.get().unwrap();
+        let Some(zone) = zone else {
+            hint.set_visible(false);
+            return;
+        };
+        let (w, h) = (self.width(), self.height());
+        let (halign, valign, width, height) = match zone {
+            DropZone::Left => (gtk::Align::Start, gtk::Align::Fill, w / 2, -1),
+            DropZone::Right => (gtk::Align::End, gtk::Align::Fill, w / 2, -1),
+            DropZone::Top => (gtk::Align::Fill, gtk::Align::Start, -1, h / 2),
+            DropZone::Bottom => (gtk::Align::Fill, gtk::Align::End, -1, h / 2),
+            DropZone::Center => (gtk::Align::Center, gtk::Align::Center, w / 2, h / 2),
+        };
+        hint.set_halign(halign);
+        hint.set_valign(valign);
+        hint.set_size_request(width, height);
+        hint.set_visible(true);
     }
 
     pub fn id(&self) -> u32 {
@@ -634,6 +720,19 @@ fn set_count(label: &gtk::Label, n: Option<usize>) {
     };
     label.set_visible(!text.is_empty());
     label.set_label(&text);
+}
+
+/// Inhalt beim Ziehen: Reiter (Adresse) und Bereich, damit nur im selben Reiter abgelegt wird.
+fn drag_key(tab: &crate::tab::Tab, pane: u32) -> String {
+    format!("{}:{pane}", tab_key(tab))
+}
+
+fn tab_key(tab: &crate::tab::Tab) -> String {
+    format!("parkett-pane:{:p}", tab.as_ptr())
+}
+
+fn zone_at(p: &Pane, x: f64, y: f64) -> DropZone {
+    parkett_core::layout::drop_zone(x as f32, y as f32, p.width() as f32, p.height() as f32)
 }
 
 fn set_error(entry: &gtk::SearchEntry, error: bool) {

@@ -50,6 +50,35 @@ pub enum Node {
     },
 }
 
+/// Wo ein gezogener Bereich auf einem anderen landet: an einer Seite einsetzen oder tauschen.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DropZone {
+    Left,
+    Right,
+    Top,
+    Bottom,
+    Center,
+}
+
+/// Anteil am Rand, ab dem nicht mehr getauscht, sondern daneben eingesetzt wird.
+const DROP_EDGE: f32 = 0.25;
+
+/// Zone unter dem Zeiger (`x`, `y` relativ zum Zielbereich der Größe `w`×`h`): nahe an einer
+/// Kante deren Seite, in der Mitte tauschen. Bei zwei nahen Kanten zählt die nähere.
+pub fn drop_zone(x: f32, y: f32, w: f32, h: f32) -> DropZone {
+    if w <= 0.0 || h <= 0.0 {
+        return DropZone::Center;
+    }
+    let (fx, fy) = ((x / w).clamp(0.0, 1.0), (y / h).clamp(0.0, 1.0));
+    let edges = [(fx, DropZone::Left), (1.0 - fx, DropZone::Right), (fy, DropZone::Top), (1.0 - fy, DropZone::Bottom)];
+    let (d, zone) = edges.into_iter().fold((f32::MAX, DropZone::Center), |best, e| if e.0 < best.0 { e } else { best });
+    if d < DROP_EDGE {
+        zone
+    } else {
+        DropZone::Center
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rect {
     pub x: f32,
@@ -169,6 +198,30 @@ impl Layout {
             second: Box::new(Node::Pane(new_id)),
         })?;
         Some((Layout { root, focus: new_id, zoomed: None, next_id: new_id + 1 }, new_id))
+    }
+
+    /// Drag & Drop: `source` herausnehmen und an der Seite `zone` von `target` einsetzen
+    /// (halbe Fläche von `target`); `Center` tauscht beide. `source` bekommt den Fokus.
+    pub fn move_pane(&self, source: PaneId, target: PaneId, zone: DropZone) -> Option<Layout> {
+        if source == target || !self.contains(source) || !self.contains(target) {
+            return None;
+        }
+        let (orientation, source_first) = match zone {
+            DropZone::Center => return self.swap(source, target)?.with_focus(source),
+            DropZone::Left => (Orientation::Horizontal, true),
+            DropZone::Right => (Orientation::Horizontal, false),
+            DropZone::Top => (Orientation::Vertical, true),
+            DropZone::Bottom => (Orientation::Vertical, false),
+        };
+        let (without, _) = remove(&self.root, source)?;
+        let (a, b) = if source_first { (source, target) } else { (target, source) };
+        let root = replace(&without, target, &|_| Node::Split {
+            orientation,
+            ratio: 0.5,
+            first: Box::new(Node::Pane(a)),
+            second: Box::new(Node::Pane(b)),
+        })?;
+        Some(Layout { root, focus: source, zoomed: None, next_id: self.next_id })
     }
 
     /// Wie Tilix „automatisch teilen“: entlang der längeren Seite des Bereichs.
@@ -617,5 +670,44 @@ mod tests {
         assert!(l.same_shape(&moved));
         let (other, _) = l.split(b, Orientation::Vertical).unwrap();
         assert!(!l.same_shape(&other));
+    }
+
+    #[test]
+    fn drop_zones() {
+        assert_eq!(drop_zone(10.0, 50.0, 100.0, 100.0), DropZone::Left);
+        assert_eq!(drop_zone(95.0, 50.0, 100.0, 100.0), DropZone::Right);
+        assert_eq!(drop_zone(50.0, 5.0, 100.0, 100.0), DropZone::Top);
+        assert_eq!(drop_zone(50.0, 90.0, 100.0, 100.0), DropZone::Bottom);
+        assert_eq!(drop_zone(50.0, 50.0, 100.0, 100.0), DropZone::Center);
+        // Ecke: die nähere Kante
+        assert_eq!(drop_zone(3.0, 20.0, 100.0, 100.0), DropZone::Left);
+        assert_eq!(drop_zone(50.0, 50.0, 0.0, 100.0), DropZone::Center);
+    }
+
+    #[test]
+    fn move_pane_to_each_side() {
+        // 1 | 2, dann 2 unten teilen → 1 | (2 / 3)
+        let (l, _) = Layout::new().split(1, Orientation::Horizontal).unwrap();
+        let (l, three) = l.split(2, Orientation::Vertical).unwrap();
+        // 3 links neben 1: (3 | 1) | 2
+        let m = l.move_pane(three, 1, DropZone::Left).unwrap();
+        assert_eq!(m.panes(), vec![3, 1, 2]);
+        assert_eq!(m.focus(), 3);
+        // 1 unter 2: 2 / 1, daneben 3? → (2 / 1) / 3 im rechten Teil, links nichts mehr
+        let m = l.move_pane(1, 2, DropZone::Bottom).unwrap();
+        assert_eq!(m.panes(), vec![2, 1, 3]);
+        match m.root() {
+            Node::Split { orientation: Orientation::Vertical, first, .. } => {
+                assert!(matches!(**first, Node::Split { orientation: Orientation::Vertical, .. }))
+            }
+            other => panic!("unerwartet: {other:?}"),
+        }
+        // Mitte tauscht, Fokus beim gezogenen Bereich
+        let m = l.move_pane(1, three, DropZone::Center).unwrap();
+        assert_eq!(m.panes(), vec![3, 2, 1]);
+        assert_eq!(m.focus(), 1);
+        // auf sich selbst oder mit unbekannter Id: nichts
+        assert!(l.move_pane(2, 2, DropZone::Left).is_none());
+        assert!(l.move_pane(9, 2, DropZone::Left).is_none());
     }
 }
