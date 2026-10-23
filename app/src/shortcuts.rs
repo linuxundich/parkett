@@ -41,6 +41,7 @@ pub const ENTRIES: &[Entry] = &[
     e("app.new-window", "Reiter und Fenster", "Neues Fenster", &["<Control><Shift>n"]),
     e("win.palette", "Reiter und Fenster", "Befehlspalette", &["<Control><Shift>p"]),
     e("win.save-template", "Reiter und Fenster", "Reiter als Vorlage speichern", &[]),
+    e("win.add-bookmark", "Reiter und Fenster", "Aktuellen Ordner als Lesezeichen", &[]),
     e("app.preferences", "Reiter und Fenster", "Einstellungen", &["<Control>comma"]),
     e("app.shortcuts", "Reiter und Fenster", "Tastenkürzel-Übersicht", &["<Control>question"]),
     e("win.layout-mode", "Bereiche", "Layout-Modus", &["<Control><Shift>l"]),

@@ -475,11 +475,12 @@ impl Tab {
     /// Teilt den fokussierten Bereich; `None` = entlang der längeren Seite.
     /// `false`, wenn ein Teil kleiner als die Mindestgröße würde.
     pub fn split(&self, orientation: Option<Orientation>) -> bool {
-        self.split_with(orientation, None)
+        self.split_with(orientation, None, None)
     }
 
-    /// Teilt den aktiven Bereich; der neue bekommt `profile`, ohne Angabe das des aktiven.
-    pub fn split_with(&self, orientation: Option<Orientation>, profile: Option<&str>) -> bool {
+    /// Teilt den aktiven Bereich; der neue bekommt `profile` (sonst das des aktiven) und
+    /// startet in `cwd` (sonst nach Einstellung „Verzeichnis neuer Terminals“).
+    pub fn split_with(&self, orientation: Option<Orientation>, profile: Option<&str>, cwd: Option<String>) -> bool {
         let layout = self.layout();
         let focus = layout.focus();
         let (w, h) = self.size();
@@ -496,7 +497,7 @@ impl Tab {
         if layout.zoomed().is_none() && !layout.can_split(focus, o, w, h, min_w, min_h) {
             return false;
         }
-        let cwd = self.inherited_cwd();
+        let cwd = cwd.or_else(|| self.inherited_cwd());
         // neuer Bereich erbt das Profil des aktiven
         let profile = profile.map(String::from).unwrap_or_else(|| self.focused_pane().terminal().profile_id());
         let Some((next, id)) = layout.split(focus, o) else { return false };

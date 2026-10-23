@@ -21,6 +21,7 @@ pub enum Scope {
     Actions,
     Places,
     Templates,
+    Bookmarks,
 }
 
 /// Trennt das Präfix ab: („> teil“) → (Actions, „teil“).
@@ -30,6 +31,7 @@ pub fn split_scope(query: &str) -> (Scope, &str) {
         Some('>') => (Scope::Actions, q[1..].trim_start()),
         Some('@') => (Scope::Places, q[1..].trim_start()),
         Some('#') => (Scope::Templates, q[1..].trim_start()),
+        Some('~') => (Scope::Bookmarks, q[1..].trim_start()),
         _ => (Scope::All, q),
     }
 }
@@ -67,6 +69,7 @@ mod tests {
         assert_eq!(split_scope("> teil"), (Scope::Actions, "teil"));
         assert_eq!(split_scope("@bender"), (Scope::Places, "bender"));
         assert_eq!(split_scope(" #web"), (Scope::Templates, "web"));
+        assert_eq!(split_scope("~proj"), (Scope::Bookmarks, "proj"));
         assert_eq!(split_scope("bender"), (Scope::All, "bender"));
     }
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //! Parkett – Terminalemulator für GNOME mit Splits.
 
+mod bookmarks;
 mod commands;
 mod pane;
 mod prefs;

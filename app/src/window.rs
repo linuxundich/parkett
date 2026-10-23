@@ -268,6 +268,9 @@ impl Window {
         s_tools.append(Some("Befehlspalette"), Some("win.palette"));
         s_tools.append(Some("Layout-Modus"), Some("win.layout-mode"));
         s_tools.append_submenu(Some("Vorlagen"), &template_menu);
+        let bookmark_menu = gio::Menu::new();
+        fill_bookmark_menu(&bookmark_menu);
+        s_tools.append_submenu(Some("Lesezeichen"), &bookmark_menu);
         main_menu.append_section(None, &s_tools);
         let s2 = gio::Menu::new();
         s2.append(Some("Einstellungen"), Some("app.preferences"));
@@ -281,6 +284,12 @@ impl Window {
             // mit F10 beenden (QA-01; GNOME Terminal schaltet F10 ebenfalls ab)
             .tooltip_text("Hauptmenü")
             .build();
+        // Lesezeichen bei jedem Öffnen frisch: Die Datei darf von Hand bearbeitet werden
+        menu_button.connect_active_notify(move |b| {
+            if b.is_active() {
+                fill_bookmark_menu(&bookmark_menu);
+            }
+        });
         if let Some(popover) = menu_button.popover().and_downcast::<gtk::PopoverMenu>() {
             popover.add_child(&crate::style::selector(), "style");
             self.refocus_after(&popover);
@@ -837,7 +846,7 @@ impl Window {
         a.connect_activate(move |_, param| {
             let (Some(w), Some(id)) = (weak.upgrade(), param.and_then(|p| p.get::<String>())) else { return };
             match w.current_tab() {
-                Some(tab) if !tab.split_with(None, Some(&id)) => w.toast("Zu wenig Platz zum Teilen"),
+                Some(tab) if !tab.split_with(None, Some(&id), None) => w.toast("Zu wenig Platz zum Teilen"),
                 Some(_) => {}
                 None => {
                     w.add_tab_with_profile(None, &id);
@@ -845,6 +854,48 @@ impl Window {
             }
         });
         self.add_action(&a);
+        // Lesezeichen: Ordner als neuer Reiter, neuer Bereich oder „cd“ im aktiven Bereich
+        let a = gio::SimpleAction::new("open-bookmark", Some(glib::VariantTy::STRING));
+        let weak = self.downgrade();
+        a.connect_activate(move |_, param| {
+            let (Some(w), Some(dir)) = (weak.upgrade(), param.and_then(|p| p.get::<String>())) else { return };
+            let profile = ProfileManager::get().default_id();
+            let tab = w.add_tab_with_profile(Some(dir), &profile);
+            w.select(&tab);
+        });
+        self.add_action(&a);
+        let a = gio::SimpleAction::new("bookmark-pane", Some(glib::VariantTy::STRING));
+        let weak = self.downgrade();
+        a.connect_activate(move |_, param| {
+            let (Some(w), Some(dir)) = (weak.upgrade(), param.and_then(|p| p.get::<String>())) else { return };
+            if let Some(tab) = w.current_tab() {
+                if !tab.split_with(None, None, Some(dir)) {
+                    w.toast("Zu wenig Platz zum Teilen");
+                }
+            }
+        });
+        self.add_action(&a);
+        let a = gio::SimpleAction::new("bookmark-cd", Some(glib::VariantTy::STRING));
+        let weak = self.downgrade();
+        a.connect_activate(move |_, param| {
+            let (Some(w), Some(dir)) = (weak.upgrade(), param.and_then(|p| p.get::<String>())) else { return };
+            if let Some(tab) = w.current_tab() {
+                let quoted = glib::shell_quote(&dir).to_string_lossy().into_owned();
+                tab.focused_pane().terminal().type_command(&format!("cd {quoted}"));
+            }
+        });
+        self.add_action(&a);
+        action("add-bookmark", |w| {
+            let Some(dir) = w.current_tab().and_then(|t| t.focused_pane().terminal().working_directory()) else {
+                w.toast("Kein Ordner bekannt");
+                return;
+            };
+            match crate::bookmarks::add(&dir) {
+                Ok(true) => w.toast(&format!("Lesezeichen „{}“ angelegt", tilde(&dir))),
+                Ok(false) => w.toast("Dieser Ordner ist schon ein Lesezeichen"),
+                Err(e) => w.toast(&format!("Lesezeichen nicht gespeichert: {e}")),
+            }
+        });
         action("close-tab", |w| {
             if let Some(page) = w.tab_view().selected_page() {
                 w.tab_view().close_page(&page);
@@ -1268,6 +1319,17 @@ fn fill_new_menu(menu: &gio::Menu) {
     more.append(Some("Neues Fenster"), Some("app.new-window"));
     more.append(Some("Profile bearbeiten …"), Some("app.preferences"));
     menu.append_section(None, &more);
+}
+
+/// Lesezeichen als neue Reiter, danach „Aktuellen Ordner als Lesezeichen“.
+fn fill_bookmark_menu(menu: &gio::Menu) {
+    menu.remove_all();
+    for b in crate::bookmarks::load() {
+        let item = gio::MenuItem::new(Some(&b.name), None);
+        item.set_action_and_target_value(Some("win.open-bookmark"), Some(&crate::bookmarks::resolve(&b).to_variant()));
+        menu.append_item(&item);
+    }
+    menu.append(Some("Aktuellen Ordner als Lesezeichen"), Some("win.add-bookmark"));
 }
 
 /// Vorlagen zum Öffnen, danach „Aktuellen Reiter als Vorlage speichern …“.
