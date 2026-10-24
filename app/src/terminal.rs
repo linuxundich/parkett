@@ -87,6 +87,10 @@ struct Inner {
     label_program: RefCell<Option<String>>,
     /// nächste Abfrage des Vordergrundprozesses (`watch_context`)
     poll_source: RefCell<Option<glib::SourceId>>,
+    /// vorgezogene Abfrage nach Ausgabe oder Shell-Marke (`poll_soon`)
+    quick_poll: RefCell<Option<glib::SourceId>>,
+    /// letzte Abfrage, zum Drosseln von `poll_soon`
+    last_poll: Cell<Instant>,
     /// Deckkraft des Hintergrunds aus dem Profil
     opacity: Cell<f64>,
     /// Von Parkett beendet (Schließen): kein Neustart, keine Leiste (QA-03)
@@ -97,6 +101,10 @@ struct Inner {
 const NOTIFY_AFTER: std::time::Duration = std::time::Duration::from_secs(10);
 /// So lange ohne Ausgabe gilt als Stille (Tilix: 10 s)
 const SILENCE_AFTER: std::time::Duration = std::time::Duration::from_secs(10);
+/// Vorgezogene Kontextabfrage: Wartezeit, bis ssh/sudo per exec gestartet ist, und
+/// Mindestabstand zweier Abfragen bei laufender Ausgabe
+const QUICK_DELAY: Duration = Duration::from_millis(40);
+const QUICK_GAP: Duration = Duration::from_millis(200);
 
 static NEXT_UID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
@@ -212,6 +220,8 @@ impl Terminal {
             command_name: RefCell::new(None),
             label_program: RefCell::new(None),
             poll_source: RefCell::new(None),
+            quick_poll: RefCell::new(None),
+            last_poll: Cell::new(Instant::now()),
             opacity: Cell::new(1.0),
             terminated: Cell::new(false),
         }));
@@ -487,7 +497,27 @@ impl Terminal {
         *self.0.poll_source.borrow_mut() = Some(id);
     }
 
+    /// Abfrage gleich vorziehen: Nach `ssh host` oder `sudo -i` färbte der sekündliche Takt
+    /// erst bis zu 1 s später ein. Ausgabe (Echo der Eingabe, Passwortabfrage, Banner) und die
+    /// Shell-Marken lösen sie aus; höchstens alle `QUICK_GAP`, und nur im sichtbaren Bereich,
+    /// damit Dauerausgabe im Hintergrund die CPU nicht weckt (L3).
+    fn poll_soon(&self) {
+        if self.0.quick_poll.borrow().is_some() || !self.is_seen() {
+            return;
+        }
+        let delay = QUICK_DELAY.max(QUICK_GAP.saturating_sub(self.0.last_poll.get().elapsed()));
+        let weak = Rc::downgrade(&self.0);
+        let id = glib::timeout_add_local_once(delay, move || {
+            if let Some(inner) = weak.upgrade() {
+                inner.quick_poll.borrow_mut().take();
+                Terminal(inner).poll_now();
+            }
+        });
+        *self.0.quick_poll.borrow_mut() = Some(id);
+    }
+
     fn poll(&self) {
+        self.0.last_poll.set(Instant::now());
         // Vordergrund einmal lesen, für Benachrichtigung, Kontext und Label (D2)
         let fg = self.read_foreground();
         let foreground = Self::name_of(fg.as_ref());
@@ -856,7 +886,9 @@ impl Terminal {
         self.0.vte.connect_contents_changed(move |_| {
             if let Some(inner) = weak.upgrade() {
                 inner.last_output.set(Instant::now());
-                Terminal(inner).watch_output();
+                let t = Terminal(inner);
+                t.watch_output();
+                t.poll_soon();
             }
         });
 
@@ -874,13 +906,16 @@ impl Terminal {
                 "vte.shell.preexec" => {
                     inner.command_started.set(Some(Instant::now()));
                     inner.command_name.borrow_mut().take();
+                    Terminal(inner).poll_soon();
                 }
                 "vte.shell.precmd" => {
                     // erster Prompt: wartender Startbefehl kann jetzt kommen (R-09)
                     Terminal(inner.clone()).feed_pending();
                     if let Some(start) = inner.command_started.take() {
-                        Terminal(inner).command_finished(start.elapsed());
+                        Terminal(inner.clone()).command_finished(start.elapsed());
                     }
+                    // zurück am Prompt: Kontextfarbe sofort lösen
+                    Terminal(inner).poll_soon();
                 }
                 _ => {}
             }

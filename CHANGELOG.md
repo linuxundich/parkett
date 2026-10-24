@@ -34,6 +34,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Search for whole words only (*W* in the search bar).
 - Template for the window title (*Einstellungen › Allgemein*, default `{title}`).
 
+### Changed
+- The context color for SSH and root follows faster: the foreground is checked about 40 ms
+  after new output and at the shell's command start and prompt (at most every 200 ms, only in
+  the visible pane) instead of only once a second.
+
 ## [0.4.0] - 2026-10-23
 
 Tilix features: input to all panes of a tab, moving panes by drag and drop (also into other
