@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Vom Host aus: Speicher (RSS), Threads, Kindprozesse und CPU-Zeit von Parkett in der VM.
-#   build-aux/qa/messen.sh            einmal messen
-#   build-aux/qa/messen.sh cpu 30     CPU-Anteil über 30 s
+#   build-aux/qa/measure.sh            einmal messen
+#   build-aux/qa/measure.sh cpu 30     CPU-Anteil über 30 s
 set -euo pipefail
 SSH=(ssh -i "$HOME/.ssh/id_vmtest" -o IdentitiesOnly=yes -o BatchMode=yes -p 2223 testt@localhost)
 mode=${1:-rss}

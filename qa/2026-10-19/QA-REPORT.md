@@ -7,7 +7,7 @@ the complete source code (read-only).
 **Nothing was changed in the source code, in the project configuration or in Christoph's data.**
 Test data lived only with the VM user `testt` and has been removed again (see J).
 
-Evidence is in `bilder/`, the design variants in [`designvarianten.html`](designvarianten.html).
+Evidence is in `images/`, the design variants in [`design-variants.html`](design-variants.html).
 
 Labels for findings:
 
@@ -122,38 +122,38 @@ Status: **Passed** · **Failed** · **Partial** · **Not tested** · **Not appli
 
 | ID | Test | Status | Evidence |
 |---|---|---|---|
-| T-01 | First start without configuration, shell runs | Passed | `01-erster-start.png` |
+| T-01 | First start without configuration, shell runs | Passed | `01-first-start.png` |
 | T-02 | Start until the shell runs (4 runs) | Passed | 141 / 161 / 152 / 151 ms |
 | T-03 | Close window without running programs: no confirmation, no orphaned shells | Passed | process list |
 | T-04 | SIGTERM to Parkett with 7 shells: no orphaned shells | Passed | `kill -0` per PID |
 | T-05 | Session: 2 tabs + split + color scheme back after restart | Passed | `session.json`, screenshot |
 | T-06 | Session with directory `/tmp/a b/Ü` | Failed | QA-05 |
 | T-07 | Maximize, Super+Arrow, shrink the window by keyboard | Partial | minimum width ≈ 550 px (QA-13) |
-| T-08 | `exit` / Ctrl+D → bar „Prozess beendet“ (Process exited) with *Neu starten* | Passed (design QA-11) | `03-prozess-beendet-exit0.png` |
+| T-08 | `exit` / Ctrl+D → bar „Prozess beendet“ (Process exited) with *Neu starten* | Passed (design QA-11) | `03-process-exited-exit0.png` |
 | T-09 | Profile „Neu starten“, close tab | Failed | QA-03 |
-| T-10 | Broken profile and palette file | Passed (design QA-15) | `16-kaputte-dateien.png` |
-| T-11 | Close a pane with `sleep` running → confirmation, Enter = *Abbrechen* (Cancel) | Passed | `24-schliessen-nachfrage.png` |
+| T-10 | Broken profile and palette file | Passed (design QA-15) | `16-broken-files.png` |
+| T-11 | Close a pane with `sleep` running → confirmation, Enter = *Abbrechen* (Cancel) | Passed | `24-close-confirmation.png` |
 | T-12 | Second instance passes on the environment (`QA_ENV=gesetzt parkett --tab -- …`) | Failed | QA-08 |
 
 ### Terminal and shell
 
 | ID | Test | Status | Evidence |
 |---|---|---|---|
-| T-20 | ANSI 16/256/truecolor, bold, italic, underlined, curly, inverse, strikethrough, overline, blinking | Passed | `02-farben-unicode.png` |
+| T-20 | ANSI 16/256/truecolor, bold, italic, underlined, curly, inverse, strikethrough, overline, blinking | Passed | `02-colors-unicode.png` |
 | T-21 | Umlauts, Cyrillic, Greek, CJK, emoji, box drawing, math, RTL | Passed | same |
 | T-22 | ZWJ emoji, flags | Partial | fall apart – VTE limitation (as in phase 5) |
 | T-23 | Wrap a 600-character line | Passed | same |
 | T-24 | `top`, `less` with search, `nano` (saving with umlauts), `htop` | Passed | screenshots, file content |
-| T-25 | Ctrl+Z, `jobs`, `fg`, Ctrl+C (rc=130), Ctrl+L, Ctrl+W, Home/End | Passed | `04-jobsteuerung.png` |
-| T-26 | Bash with bracketed paste: multi-line text is pasted highlighted, not executed | Passed | `11-einfuege-warnung.png` |
-| T-27 | High load (`while :; do cat 200 000 Zeilen; done`): UI responds, splitting works, D-Bus response ≤ 10 ms | Passed | `05-hohe-last-teilen.png` |
-| T-28 | Cursor after shrinking/enlarging with a wrapped prompt | Partial | `23-cursor-nach-umbruch.png`, QA-20 |
+| T-25 | Ctrl+Z, `jobs`, `fg`, Ctrl+C (rc=130), Ctrl+L, Ctrl+W, Home/End | Passed | `04-job-control.png` |
+| T-26 | Bash with bracketed paste: multi-line text is pasted highlighted, not executed | Passed | `11-paste-warning.png` |
+| T-27 | High load (`while :; do cat 200 000 Zeilen; done`): UI responds, splitting works, D-Bus response ≤ 10 ms | Passed | `05-high-load-split.png` |
+| T-28 | Cursor after shrinking/enlarging with a wrapped prompt | Partial | `23-cursor-after-rewrap.png`, QA-20 |
 
 ### Keyboard and input
 
 | ID | Test | Status | Evidence |
 |---|---|---|---|
-| T-30 | Ctrl+Shift+T, Ctrl+Page Up/Down, Alt+Arrow, Ctrl+Shift+X, Ctrl+Shift+P, Ctrl+Shift+L, Ctrl+?, Ctrl+, | Passed | `10-kuerzel.png` |
+| T-30 | Ctrl+Shift+T, Ctrl+Page Up/Down, Alt+Arrow, Ctrl+Shift+X, Ctrl+Shift+P, Ctrl+Shift+L, Ctrl+?, Ctrl+, | Passed | `10-shortcuts.png` |
 | T-31 | Ctrl+Alt+R/D (split), Ctrl+Shift+W, Ctrl+Shift+F | Passed | screenshots |
 | T-32 | F2 in `htop` | Failed | QA-01, `08-f2-in-htop.png` |
 | T-33 | F10 in `htop` | Failed | QA-01, `09-f10-in-htop.png` |
@@ -166,9 +166,9 @@ Status: **Passed** · **Failed** · **Partial** · **Not tested** · **Not appli
 | ID | Test | Status | Evidence |
 |---|---|---|---|
 | T-40 | Select by dragging, Ctrl+Shift+C, Ctrl+Shift+V | Passed | `wl-paste` |
-| T-41 | Two-line text → warning with preview, focus on *Abbrechen* | Passed | `11-einfuege-warnung.png` |
+| T-41 | Two-line text → warning with preview, focus on *Abbrechen* | Passed | `11-paste-warning.png` |
 | T-42 | Shift+Insert → same warning (QA.md still says: without) | Passed | screenshot |
-| T-43 | Paste one line with a line break into `dash` | Failed | QA-04, `12-einfuegen-ohne-warnung-dash.png` |
+| T-43 | Paste one line with a line break into `dash` | Failed | QA-04, `12-paste-without-warning-dash.png` |
 | T-44 | Middle-click (primary selection) | Not applicable | disabled in Ubuntu |
 | T-45 | Large amounts of text in the clipboard | Not tested | – |
 
@@ -176,7 +176,7 @@ Status: **Passed** · **Failed** · **Partial** · **Not tested** · **Not appli
 
 | ID | Test | Status | Evidence |
 |---|---|---|---|
-| T-50 | Incremental search, Enter = above, no match = red entry, Esc | Passed | `18-suche.png` |
+| T-50 | Incremental search, Enter = above, no match = red entry, Esc | Passed | `18-search.png` |
 | T-51 | OSC 8 link: tooltip shows the target | Passed | `19-links.png` |
 | T-52 | URL: context menu *Link öffnen/kopieren* (Open/Copy link), Ctrl+click starts Firefox | Passed | process `firefox https://www.gnome.org` |
 | T-53 | File paths as links | Not applicable | not planned (idea in G) |
@@ -186,10 +186,10 @@ Status: **Passed** · **Failed** · **Partial** · **Not tested** · **Not appli
 
 | ID | Test | Status | Evidence |
 |---|---|---|---|
-| T-60 | Preferences dialog: General, Profiles, Templates, Shortcuts | Passed | `20-einstellungen.png`, `21-profil.png` |
+| T-60 | Preferences dialog: General, Profiles, Templates, Shortcuts | Passed | `20-preferences.png`, `21-profile.png` |
 | T-61 | Changing the color scheme takes effect immediately, persists after restart | Passed | `standard.toml` |
-| T-62 | System style light ↔ dark live | Passed | `26-dunkel-splits.png` |
-| T-63 | Switch pane title „Als Zeile“ (As a row) live | Passed | `31-ist-zeile-dunkel.png` |
+| T-62 | System style light ↔ dark live | Passed | `26-dark-splits.png` |
+| T-63 | Switch pane title „Als Zeile“ (As a row) live | Passed | `31-current-row-dark.png` |
 | T-64 | Text scaling 1.5 and high contrast | Partial | UI follows; color scheme stays (known, BACKLOG) |
 | T-65 | Contrast of the 14 color schemes (calculated) | Partial | QA-10 |
 | T-66 | Sixel | Not applicable | Ubuntu's VTE without Sixel, switch correctly grayed out |
@@ -260,7 +260,7 @@ By priority. Each entry names environment, steps and evidence. Unless stated oth
   - The title lies over columns ≈ 26–55 of the first line.
   - The input only shows through faintly.
   - `htop` also loses parts of the CPU bar.
-- **Evidence:** `06-titel-verdeckt-prompt.png`, `07-titel-verdeckt-eingabe.png`, `08-f2-in-htop.png`.
+- **Evidence:** `06-title-covers-prompt.png`, `07-title-covers-input.png`, `08-f2-in-htop.png`.
 - **Impact:**
   - In every freshly split pane you type blind at first.
   - All users with splits are affected; the default prompt of Ubuntu, Debian and Fedora is long.
@@ -307,7 +307,7 @@ By priority. Each entry names environment, steps and evidence. Unless stated oth
   4. Ctrl+Shift+V.
 - **Expected:** a warning, because the text contains a line break and would be executed immediately.
 - **Actual:** no warning, the command runs immediately.
-- **Evidence:** `12-einfuegen-ohne-warnung-dash.png`.
+- **Evidence:** `12-paste-without-warning-dash.png`.
 - **Impact:** classic "pastejacking": a web page puts `curl … | sh` followed by a line break into the clipboard, one click is enough. Bash 5.3 with bracketed paste is protected, `sh`, `dash` and server shells without this option are not.
 - **Cause:** the trailing line break is cut off before the lines are counted (`terminal.rs:919–925`); but the whole text is pasted.
 - **Recommendation:** treat every text with `\n` or `\r` as "will be executed". Alternatively, strip the trailing line break when pasting, like GNOME Console.
@@ -325,7 +325,7 @@ By priority. Each entry names environment, steps and evidence. Unless stated oth
   - `/home/testt`.
   - `session.json` contains `"subdir": "tmp/a%20b/%C3%9C"`, so the session does not restore the directory either.
   - Control: `/usr/share` works.
-- **Evidence:** `13-verzeichnis-leerzeichen.png`, excerpt from `session.json`.
+- **Evidence:** `13-directory-spaces.png`, excerpt from `session.json`.
 - **Impact:** "new terminals in the current directory" fails silently for all paths with spaces or non-ASCII characters. Typical examples are `~/Schreibtisch/Neuer Ordner` or `Übersetzungen`.
 - **Cause:** `Terminal::cwd()` takes `Uri::path()` of the percent-encoded OSC 7 URI (`terminal.rs:226–231`).
 - **Recommendation:** `gio::File::for_uri(uri).path()` or `glib::Uri::unescape_string`. Fix together with QA-06.
@@ -342,7 +342,7 @@ By priority. Each entry names environment, steps and evidence. Unless stated oth
   - The path of another machine is ignored.
   - Fallback: the real directory of the local process (`/proc/<pid>/cwd`) or the home directory.
 - **Actual:** the new local pane starts in `/etc`.
-- **Evidence:** `14-osc7-fremder-rechner.png`.
+- **Evidence:** `14-osc7-foreign-host.png`.
 - **Impact:**
   - After `ssh server` and `cd /srv/app`, *split* starts locally in `/srv/app` (if it exists) or silently in the home directory.
   - Any output (`cat datei`) can set the start directory, for instance to a prepared Git repo whose hooks or `core.fsmonitor` a Git prompt runs.
@@ -361,7 +361,7 @@ By priority. Each entry names environment, steps and evidence. Unless stated oth
 - **Actual:**
   - The subtitle is empty.
   - The switch is *on*, *Öffnen* (Open) has the focus.
-- **Evidence:** `15-vorlage-startbefehl-unsichtbar.png`.
+- **Evidence:** `15-template-startup-command-invisible.png`.
 - **Impact:** you run commands you have not seen. Templates only come from your own configuration folder, so the risk is limited. With shared dotfiles or copied templates, however, it is real.
 - **Cause:**
   - The subtitle of an `AdwActionRow` is Pango markup; `&` and `<` are not escaped (`window.rs:892`).
@@ -377,7 +377,7 @@ By priority. Each entry names environment, steps and evidence. Unless stated oth
   2. `QA_ENV=gesetzt parkett --tab -- bash -c 'echo QA_ENV=${QA_ENV:-FEHLT}; exec bash'`.
 - **Expected:** `QA_ENV=gesetzt`.
 - **Actual:** `QA_ENV=FEHLT`.
-- **Evidence:** `17-umgebung-zweite-instanz.png`.
+- **Evidence:** `17-environment-second-instance.png`.
 - **Impact:**
   - `xdg-terminal-exec` from applications with their own environment, Python `venv`, `SSH_AUTH_SOCK` or `DISPLAY` changes do not reach the new terminal.
   - GNOME Terminal and Ptyxis take over the caller's environment.
@@ -397,7 +397,7 @@ By priority. Each entry names environment, steps and evidence. Unless stated oth
   - AT-SPI reports `[toggle button] 'Hauptmenü' focused`.
   - The letters are lost, Enter opens the menu again.
   - `htop` did not run.
-- **Evidence:** AT-SPI output, `27-fokus-bleibt-im-menue.png`.
+- **Evidence:** AT-SPI output, `27-focus-stays-in-menu.png`.
 - **Impact:** anyone who enters the menu by keyboard loses input afterwards. This is especially treacherous because Enter opens the menu again.
 - **Cause (suspected):** GTK returns the focus to the button after a popover closes; Parkett does not put it on the terminal. No comparison with Ptyxis was made.
 - **Recommendation:** on the popover's `closed`, put the focus on the active terminal. This also applies to the tab overview, New menu and search.
@@ -423,7 +423,7 @@ By priority. Each entry names environment, steps and evidence. Unless stated oth
 - **Observation:**
   - After `exit` the pane stays, with a warning icon and a reddish bar „Prozess beendet“.
   - In the only tab, the window does not close.
-- **Evidence:** `03-prozess-beendet-exit0.png`.
+- **Evidence:** `03-process-exited-exit0.png`.
 - **Assessment:** this is the deliberate default `exit_action = "hold"`. GNOME Console, Ptyxis and Tilix close on exit code 0. Beginners expect `exit` to close the window.
 - **Recommendation:**
   - Default „Bereich schließen bei Erfolg“ (Close pane on success).
@@ -440,7 +440,7 @@ By priority. Each entry names environment, steps and evidence. Unless stated oth
 ### QA-13 – Minimum window width ≈ 550 px · low · reproduced
 
 - **Observation:** by keyboard (Alt+F8) the window could not be made narrower than ≈ 550 px (measured from the screenshot). The header bar with 7 buttons and title determines the width.
-- **Evidence:** `22-mindestbreite.png`.
+- **Evidence:** `22-minimum-width.png`.
 - **Assessment:** the HIG recommend 360 px. For a terminal this matters when tiling on small screens (e.g. three columns on 1366 px).
 - **Recommendation:** below ≈ 600 px move the split buttons into the New menu (`AdwBreakpoint`).
 
@@ -459,7 +459,7 @@ By priority. Each entry names environment, steps and evidence. Unless stated oth
   - The TOML error with the `^` pointer is shown centered in a proportional font; the pointer is in the wrong place.
   - The toast disappears after a few seconds, and the notice cannot be called up again afterwards.
   - The palette message „Color0 in [Palette] fehlt“ (Color0 missing in [Palette]) names the wrong section (`[Light]`/`[Dark]` were missing).
-- **Evidence:** `16-kaputte-dateien.png`.
+- **Evidence:** `16-broken-files.png`.
 - **Recommendation:**
   - Details left-aligned in a monospace font.
   - Toast without timeout.
@@ -468,13 +468,13 @@ By priority. Each entry names environment, steps and evidence. Unless stated oth
 ### QA-16 – Profile editor opens with the name selected · low · reproduced
 
 - **Observation:** when a profile is opened, the name entry has the focus and the name is selected. One keystroke overwrites it (and saves immediately).
-- **Evidence:** `21-profil.png`.
+- **Evidence:** `21-profile.png`.
 - **Recommendation:** focus on the page, not in the entry.
 
 ### QA-17 – Identically labeled tabs and titles · low · reproduced
 
 - **Observation:** window title, subtitle, tab and pane title show the same shell title. Four tabs look the same.
-- **Evidence:** `26-dunkel-splits.png`.
+- **Evidence:** `26-dark-splits.png`.
 - **Recommendation:** H, note "short tab label".
 
 ### QA-18 – Minor screen reader names · low · reproduced
@@ -497,7 +497,7 @@ By priority. Each entry names environment, steps and evidence. Unless stated oth
 - **Observation:**
   - Window made narrow (prompt wraps), then maximized.
   - In the inactive panes the hollow cursor sits in the middle of the prompt (column 24) instead of after it.
-- **Evidence:** `23-cursor-nach-umbruch.png`.
+- **Evidence:** `23-cursor-after-rewrap.png`.
 - **Assessment:** probably VTE rewrapping plus bash redrawing, so not Parkett. Not cross-checked against Ptyxis.
 
 ### Only confirmed in code (review), not triggered in the VM
@@ -571,7 +571,7 @@ By priority. Each entry names environment, steps and evidence. Unless stated oth
 **Weaknesses:**
 
 1. **Hierarchy of titles.** Three levels repeat the same 40-character text. This contradicts the desired "clear hierarchy instead of repetition".
-2. **Floating elements above the content.** Besides the pane title, also the bar „Maximiert · 1 Bereich ausgeblendet“ (Maximized · 1 pane hidden) (`10-kuerzel.png`, top center). Both lie above terminal text.
+2. **Floating elements above the content.** Besides the pane title, also the bar „Maximiert · 1 Bereich ausgeblendet“ (Maximized · 1 pane hidden) (`10-shortcuts.png`, top center). Both lie above terminal text.
 3. **Dimming barely visible.** Inactive panes are only dimmed in the text. The measured background is `#2E3335` versus `#2E3436`. In Tango dark, the difference between active and inactive is mainly the line.
 4. **Error bar for normal cases.** Warning icon and red tint even with exit code 0 (QA-11).
 5. **Error dialog** centered with a proportional font (QA-15).
@@ -679,7 +679,7 @@ Rating: benefit / effort / risk / complexity, each high (H), medium (M), low (L)
 
 ## H. Design variants
 
-In detail with images: **[`designvarianten.html`](designvarianten.html)**. They are based on real
+In detail with images: **[`design-variants.html`](design-variants.html)**. They are based on real
 screenshots from the VM:
 
 - V1 is a real photo of the existing setting.

@@ -63,12 +63,12 @@ Architecture rules implemented:
 | Release build | VM Fedora 44 (GNOME 50.5, GTK 4.22.5, libadwaita 1.9.4, VTE 0.84.1) | ok, 1 min 24 s from scratch |
 | Start as an `app-gnome-…` unit, Wayland (`WAYLAND_DISPLAY=wayland-0`), Bash as child process | VM | ok |
 | Title via OSC and directory via OSC 7 in the header bar (`/usr/share`, `~`) | VM | ok |
-| Input, `ls --color`, Unicode (umlauts, Cyrillic, Greek, double-width CJK, emoji, combining characters, box drawing), bold/italic/underline/truecolor/inverse | VM | ok, see `prototyp-unicode.png` |
+| Input, `ls --color`, Unicode (umlauts, Cyrillic, Greek, double-width CJK, emoji, combining characters, box drawing), bold/italic/underline/truecolor/inverse | VM | ok, see `prototype-unicode.png` |
 | Light → dark live (`color-scheme prefer-dark`): window and terminal colors switch | VM | ok |
 | Resizing (tiling to half width): content rewraps | VM | ok |
 | Zoom Ctrl+= / Ctrl+0 | VM | ok **after a fix** (at first Ctrl+= typed "=") |
 | Select all + copy (Ctrl+Shift+A/C), cross-checked with `wl-paste` | VM | ok |
-| `exit 3` → bar *Prozess beendet · Exit-Code 3* (Process exited · exit code 3), clicking *Neu starten* (Restart) starts a new shell | VM | ok, see `prototyp-prozessende.png` |
+| `exit 3` → bar *Prozess beendet · Exit-Code 3* (Process exited · exit code 3), clicking *Neu starten* (Restart) starts a new shell | VM | ok, see `prototype-process-exit.png` |
 | Three windows in one instance (Ctrl+Shift+N), one shell each | VM | ok |
 | Memory (RSS, VM with software rendering): 1 window 227 MB, 3 windows 248 MB; Ptyxis 1 window 221 MB | VM | the base load lies in GTK rendering, not in Parkett |
 | Icon and name in the dock via `.desktop` + app ID | VM | ok (on the very first start right after installation still generic) |

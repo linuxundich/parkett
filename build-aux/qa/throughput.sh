@@ -1,7 +1,7 @@
 #!/bin/sh
 # Läuft IM Terminal, das gemessen wird: schreibt 3 Mio. Zeilen bzw. eine farbige 20-MB-Datei
-# ins Terminal und notiert die Dauer in ~/qa-durchsatz.txt (eine Zeile je Lauf).
-#   sh durchsatz.sh NAME     NAME = z. B. parkett, ptyxis
+# ins Terminal und notiert die Dauer in ~/qa-throughput.txt (eine Zeile je Lauf).
+#   sh throughput.sh NAME     NAME = z. B. parkett, ptyxis
 name=${1:-unbekannt}
 f=$HOME/qa-farbig.txt
 [ -f "$f" ] || python3 -c '
@@ -14,4 +14,4 @@ with open("'"$f"'","w") as o:
 '
 t0=$(date +%s.%N); seq 1 3000000; t1=$(date +%s.%N)
 cat "$f"; t2=$(date +%s.%N)
-awk -v n="$name" -v a="$t0" -v b="$t1" -v c="$t2" 'BEGIN { printf "%s seq3M=%.2fs farbig20MB=%.2fs\n", n, b-a, c-b }' >> "$HOME/qa-durchsatz.txt"
+awk -v n="$name" -v a="$t0" -v b="$t1" -v c="$t2" 'BEGIN { printf "%s seq3M=%.2fs farbig20MB=%.2fs\n", n, b-a, c-b }' >> "$HOME/qa-throughput.txt"

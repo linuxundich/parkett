@@ -8,8 +8,8 @@ App icon for Parkett: herringbone parquet with an inset terminal area
 | `parkett.svg` | app icon, **generated** by `gen_icon.py` – make changes there |
 | `parkett-symbolic.svg` | symbolic icon 16 px, made by hand |
 | `gen_icon.py` | generator; `--no-grain` leaves out the wood grain |
-| `vorschau.png` | 256 … 16 px plus symbolic, light and dark |
-| `entwuerfe/` | rejected variants A (basket weave) and B (split) |
+| `preview.png` | 256 … 16 px plus symbolic, light and dark |
+| `drafts/` | rejected variants A (basket weave) and B (split) |
 
 Regenerate:
 

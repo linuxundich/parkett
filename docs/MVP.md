@@ -62,13 +62,13 @@ or terminal respectively, not as app accels (see PROTOTYPE.md, bug found).
 | `cargo test` (13 core tests incl. ratio by path, unzoom, 1 app test), `cargo clippy` | green, no findings |
 | Split right, then split down: 50 % / 50 % | ok **after fix** (35 % at first) – see findings 1, 2 |
 | Alt+Left focuses the left pane; Shift+Alt+Right ×3 → 59 % | ok (`mvp-splits.png`) |
-| Ctrl+Shift+X: maximizes with notice and „(1/3)“, input arrives; again → back | ok (`mvp-maximiert.png`) |
+| Ctrl+Shift+X: maximizes with notice and „(1/3)“, input arrives; again → back | ok (`mvp-maximized.png`) |
 | Ctrl+Alt+= equalizes | ok |
 | Window width 960 → maximized 1920 → back: ratio stays 40.9 % | ok (log `PARKETT_DEBUG_LAYOUT`) |
 | New tab, tab bar appears, Ctrl+Page Up switches | ok |
 | F2 → „Server“ → Enter renames the tab | ok **after fix** (finding 3) |
-| Tab overview with previews of both tabs | ok (`mvp-uebersicht.png`) |
-| `sleep 300`, Ctrl+Shift+W → confirmation names „sleep“; confirming ends shell and sleep | ok **after fix** (finding 4) (`mvp-nachfrage.png`) |
+| Tab overview with previews of both tabs | ok (`mvp-overview.png`) |
+| `sleep 300`, Ctrl+Shift+W → confirmation names „sleep“; confirming ends shell and sleep | ok **after fix** (finding 4) (`mvp-close-confirmation.png`) |
 | Close tab with `sleep`: Esc cancels, confirming ends everything | ok **after fix** (finding 5) |
 | Close window with `sleep` running → confirmation | ok |
 | Right-click in the inactive pane: focus changes, menu with shortcuts; „Unten teilen“ (Split down) acts there | ok |
@@ -167,9 +167,9 @@ selection as tiles with live preview.
 |---|---|
 | `cargo test`: 24 core tests + 1 app test, `cargo clippy` | green, no findings |
 | First start creates `standard.toml` with scheme „gnome“ | ok |
-| Preferences: page „Allgemein“, page „Profile“, editor with tiles | ok (`mvp-farbschemata.png`) |
+| Preferences: page „Allgemein“, page „Profile“, editor with tiles | ok (`mvp-color-schemes.png`) |
 | Click tile „Tango“ → both running panes Tango immediately, profile saved | ok |
-| Dark mode → dark Tango variant, dimming matches | ok (`mvp-tango-hell-dunkel.png`) |
+| Dark mode → dark Tango variant, dimming matches | ok (`mvp-tango-light-dark.png`) |
 | Import Tilix `monokai.json` → `monokai-dark.palette`, notice „nur eine Fassung“ (only one variant), profile uses it | ok (`mvp-import.png`) – tile selection followed **only after fix** |
 | Import Ptyxis palette with only `[Palette]` (Afterglow) → tile selected | ok |
 | „+“ creates a new profile, renaming via the entry is saved | ok |
@@ -217,13 +217,13 @@ were set in the TOML file for the test, not via the entry fields.
 
 | Test | Result |
 |---|---|
-| Search „apfel“: first finds „APFEL“ (bottom), Enter → „apfel“ above; „apfelbanane“ → red | ok (`mvp-suche.png`) |
+| Search „apfel“: first finds „APFEL“ (bottom), Enter → „apfel“ above; „apfelbanane“ → red | ok (`mvp-search.png`) |
 | Ctrl+click on `https://linuxundich.de/artikel/test,` opens Firefox with the address without the comma | ok |
 | Pointer over OSC 8 text „Hier klicken“ (Click here) → tooltip `https://example.org/wahres-ziel` | ok (`mvp-osc8-tooltip.png`) |
-| Right-click on `mailto:…` → „Link öffnen/kopieren“; copy → `wl-paste` = address | ok (`mvp-link-menue.png`) |
+| Right-click on `mailto:…` → „Link öffnen/kopieren“; copy → `wl-paste` = address | ok (`mvp-link-menu.png`) |
 | Right-click on `javascript:alert(1)` → no link entries | ok |
-| Shortcuts page lists all actions | ok (`mvp-kuerzel-seite.png`) |
-| „Neuer Reiter“ (New tab) → Ctrl+Shift+X → notice „schon Bereich maximieren“ (already Maximize pane), nothing triggered | ok (`mvp-kuerzel-konflikt.png`) |
+| Shortcuts page lists all actions | ok (`mvp-shortcuts-page.png`) |
+| „Neuer Reiter“ (New tab) → Ctrl+Shift+X → notice „schon Bereich maximieren“ (already Maximize pane), nothing triggered | ok (`mvp-shortcut-conflict.png`) |
 | Ctrl+Alt+E recorded → GSettings `{'win.new-tab': '<Control><Alt>e'}`; Ctrl+Shift+T has no effect, Ctrl+Alt+E opens a tab (live) | ok |
 | After recording, Ctrl+, works again; row shows „Eigene Belegung“ (Custom binding); „Alle zurücksetzen“ → `{}` | ok |
 | Shortcuts overview (Ctrl+?) shows the current bindings, no GTK warnings | ok |
@@ -271,11 +271,11 @@ Not tested: regex and match-case toggles of the search, changing a terminal shor
 | Palette „teil“ → three split actions with shortcuts; arrow down + Enter → „Unten teilen“ | ok (`mvp-palette.png`) |
 | Click on the window title opens the palette; „@“ → tab and three panes | ok |
 | Layout mode: numbers, title notice; M+Left swaps `sleep 600` to the left; „1“ focuses; Esc → input in pane 1 | ok |
-| Help bar complete in a 960 px window | ok **after fix** (cut off at first) (`mvp-layout-modus.png`) |
+| Help bar complete in a 960 px window | ok **after fix** (cut off at first) (`mvp-layout-mode.png`) |
 | Save as template (palette): TOML with split layout, ratios, `command = "sleep 600"` | ok |
-| Open template from the New menu: dialog with directory and startup command, new tab with the same split layout, `sleep 600` runs in the third pane | ok (`mvp-vorlage-oeffnen.png`) |
+| Open template from the New menu: dialog with directory and startup command, new tab with the same split layout, `sleep 600` runs in the third pane | ok (`mvp-template-open.png`) |
 | Directory without subdirectory | ok **after fix** (at first `~/` instead of `~`) |
-| Preferences › Templates: list and editor with preview | ok (`mvp-vorlage-editor.png`) |
+| Preferences › Templates: list and editor with preview | ok (`mvp-template-editor.png`) |
 
 Not tested: folder chooser in the open dialog, editing via the editor (saving while
 typing), prefix `#`, R/D/A/Z/=/X in layout mode (same functions as the shortcuts).
@@ -312,11 +312,11 @@ The preferences page „Tastenkürzel“ is now called „Kürzel“ (Shortcuts)
 |---|---|
 | `cargo test` (37 core + 1 app), `cargo clippy` | green, no findings |
 | `ssh localhost` (waiting for host key) → pane tinted blue, line, chip „localhost“ | ok |
-| `sudo -i` → pane tinted red, line, chip „root“ | ok (`mvp-kontextfarbe-hell.png`) |
-| Dark mode: context colors from the dark variant | ok (`mvp-kontextfarbe-dunkel.png`) |
+| `sudo -i` → pane tinted red, line, chip „root“ | ok (`mvp-context-color-light.png`) |
+| Dark mode: context colors from the dark variant | ok (`mvp-context-color-dark.png`) |
 | Close pane → toast, shell keeps running; „Rückgängig“ → pane back | ok |
 | Let the toast expire → shell of the closed pane terminated | ok |
-| Close tab with `sleep 600` (confirmation accepted) → toast, `sleep` runs; „Rückgängig“ → tab back with `sleep` running | ok (`mvp-rueckgaengig.png`) |
+| Close tab with `sleep 600` (confirmation accepted) → toast, `sleep` runs; „Rückgängig“ → tab back with `sleep` running | ok (`mvp-undo.png`) |
 | Close tab and let it expire → `sleep` and shell terminated | ok |
 
 Observed: libadwaita pauses the timeout while the pointer is on the toast

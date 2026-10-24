@@ -134,7 +134,7 @@ core; not measured on the host with GPU.
 
 | Request | Implementation | Test (VM) |
 |---|---|---|
-| Split buttons like in Tilix | „Rechts teilen“ (Split right) and „Unten teilen“ (Split down) on the left of the header bar next to „Neuer Reiter“; custom symbolic icons (`data/icons/hicolor/scalable/actions/parkett-split-*-symbolic.svg`, Adwaita has no suitable ones); tooltip with the current shortcut; screen reader names | Pass: both buttons split the active pane (`kopfleiste-teilen-stil.png`) |
+| Split buttons like in Tilix | „Rechts teilen“ (Split right) and „Unten teilen“ (Split down) on the left of the header bar next to „Neuer Reiter“; custom symbolic icons (`data/icons/hicolor/scalable/actions/parkett-split-*-symbolic.svg`, Adwaita has no suitable ones); tooltip with the current shortcut; screen reader names | Pass: both buttons split the active pane (`headerbar-split-style.png`) |
 | Light/dark by hand | GSettings `style` (system/light/dark) → `AdwStyleManager::set_color_scheme`; style selector with three round buttons at the top of the main menu (modeled on GNOME Text Editor) and „Stil“ (Style) in Preferences › General | Pass: „Dunkel“ (Dark) on a light system, „Hell“ (Light) on a dark system; terminals follow |
 
 ## Phase 6 – Code review (2026-10-19)
