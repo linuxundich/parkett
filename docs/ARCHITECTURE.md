@@ -1,6 +1,6 @@
 # Architecture
 
-As of 2026-10-23, version 0.4.0. Derived from `docs/PROTOTYPE.md` (phase 3) and the
+As of 2026-10-25, version 0.5.0. Derived from `docs/PROTOTYPE.md` (phase 3) and the
 decisions made in phase 4.
 
 ## Structure

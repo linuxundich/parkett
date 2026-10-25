@@ -43,11 +43,11 @@ packages); then as a separate step with a host agent.
 
 ## Recommendation
 
-**Status 2026-10-23:** version 0.4.0 is public on GitHub (source only). Binary packages exist
+**Status 2026-10-25:** version 0.5.0 is public on GitHub (source only). Binary packages exist
 only in the author's private Arch repo; for everyone else the route is building from source
 ([BUILDING.md](BUILDING.md)).
 
-1. Next: AUR and Fedora COPR from the public repository.
+1. On hold for now (2026-10-25): AUR and Fedora COPR from the public repository.
 2. The private Arch repo stays for the author's own machines.
 3. .deb only if needed, after testing in the Ubuntu/TUXEDO VMs.
 4. Flatpak only with a host agent, as a separate project.

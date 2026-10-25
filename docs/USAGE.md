@@ -3,7 +3,7 @@
 The interface is available in English and German (it follows the system language). Labels below
 are given in German with their English meaning; the English interface uses the English terms.
 
-As of 0.4.0. All shortcuts can be changed or disabled under *Einstellungen › Kürzel*
+As of 0.5.0. All shortcuts can be changed or disabled under *Einstellungen › Kürzel*
 (Preferences › Shortcuts); Ctrl+? shows the current bindings.
 
 ## Tabs and panes

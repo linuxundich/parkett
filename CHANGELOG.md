@@ -4,6 +4,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-25
+
+English interface with German translation, the remaining Tilix features (tab into a new window,
+scrollbar, reset, file drop, save output, monitoring, copy on select, read only, paste special,
+command and SSH bookmarks, custom links), context colors graded by risk for root, SSH, containers
+and other users, and the preferences in a sidebar. Needs libadwaita 1.9. Source on GitHub; package
+in the author's Arch repo `linuxundich`.
+
 ### Added
 - Drag a tab out of the window to open it in a new window (its programs keep running).
 - Scrollbar: a thin overlay bar at the right edge, can be turned off per profile

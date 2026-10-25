@@ -42,6 +42,11 @@
     <category>TerminalEmulator</category>
   </categories>
   <releases>
+    <release version="0.5.0" date="2026-10-25" type="stable">
+      <description>
+        <p>English interface with German translation, a tab can be dragged into a new window, scrollbar, reset, dropping files, saving the output, monitoring activity and silence, copy on select, read-only terminals, paste special, bookmarks for commands and SSH hosts and custom links. Context colors now mark root (also on another computer), SSH, containers and other users, with readable text in every color scheme. The preferences show their pages in a sidebar.</p>
+      </description>
+    </release>
     <release version="0.4.0" date="2026-10-23" type="stable">
       <description>
         <p>Input to all panes of a tab, moving panes by dragging (also into other tabs), automatic profile by host or folder, bookmarks for folders, templates for tab names, file paths in the output as links, editing the layout of templates and narrow windows down to 360 pixels.</p>

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: parkett\n"
 "Report-Msgid-Bugs-To: https://github.com/linuxundich/parkett/issues\n"
-"POT-Creation-Date: 2026-10-25 13:05+0100\n"
+"POT-Creation-Date: 2026-10-25 13:47+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -74,18 +74,22 @@ msgid "Light and dark style following the system setting"
 msgstr ""
 
 #: data/de.linuxundich.Parkett.metainfo.xml.in:47
-msgid "Input to all panes of a tab, moving panes by dragging (also into other tabs), automatic profile by host or folder, bookmarks for folders, templates for tab names, file paths in the output as links, editing the layout of templates and narrow windows down to 360 pixels."
+msgid "English interface with German translation, a tab can be dragged into a new window, scrollbar, reset, dropping files, saving the output, monitoring activity and silence, copy on select, read-only terminals, paste special, bookmarks for commands and SSH hosts and custom links. Context colors now mark root (also on another computer), SSH, containers and other users, with readable text in every color scheme. The preferences show their pages in a sidebar."
 msgstr ""
 
 #: data/de.linuxundich.Parkett.metainfo.xml.in:52
-msgid "A second call passes its environment to the new shell, start commands of templates come only after the prompt and never into a password prompt, short tab names, match count in the search, selection in the accent color, color scheme “High Contrast” automatically with high contrast, a normal exit with exit code 0 closes the pane, less load in the background and many fixes."
+msgid "Input to all panes of a tab, moving panes by dragging (also into other tabs), automatic profile by host or folder, bookmarks for folders, templates for tab names, file paths in the output as links, editing the layout of templates and narrow windows down to 360 pixels."
 msgstr ""
 
 #: data/de.linuxundich.Parkett.metainfo.xml.in:57
-msgid "Restore the session on startup, command line (directory, command, profile, title, tab), context menu in Nautilus, transparent background, font, cursor and bell per profile, notification when a command finishes in the background and many fixes."
+msgid "A second call passes its environment to the new shell, start commands of templates come only after the prompt and never into a password prompt, short tab names, match count in the search, selection in the accent color, color scheme “High Contrast” automatically with high contrast, a normal exit with exit code 0 closes the pane, less load in the background and many fixes."
 msgstr ""
 
 #: data/de.linuxundich.Parkett.metainfo.xml.in:62
+msgid "Restore the session on startup, command line (directory, command, profile, title, tab), context menu in Nautilus, transparent background, font, cursor and bell per profile, notification when a command finishes in the background and many fixes."
+msgstr ""
+
+#: data/de.linuxundich.Parkett.metainfo.xml.in:67
 msgid "First version: tabs and split panes, command palette, layout mode, templates with start commands, profiles, color schemes with light and dark variants, context color for root and SSH, undo when closing, search, links and customizable shortcuts."
 msgstr ""
 
@@ -285,13 +289,13 @@ msgstr ""
 msgid "Tabs and panes"
 msgstr ""
 
-#: app/src/commands.rs:31 app/src/prefs.rs:1116 app/src/prefs.rs:1140
+#: app/src/commands.rs:31 app/src/prefs.rs:1114 app/src/prefs.rs:1138
 #: app/src/window.rs:302
 msgid "Bookmarks"
 msgstr ""
 
-#: app/src/commands.rs:32 app/src/commands.rs:180 app/src/prefs.rs:1344
-#: app/src/prefs.rs:1346 app/src/window.rs:299 app/src/window.rs:1456
+#: app/src/commands.rs:32 app/src/commands.rs:186 app/src/prefs.rs:1342
+#: app/src/prefs.rs:1344 app/src/window.rs:299 app/src/window.rs:1456
 msgid "Templates"
 msgstr ""
 
@@ -299,41 +303,41 @@ msgstr ""
 msgid "Actions"
 msgstr ""
 
-#: app/src/commands.rs:73
+#: app/src/commands.rs:72
 msgid "Tab {number} · {dir}"
 msgstr ""
 
-#: app/src/commands.rs:89
+#: app/src/commands.rs:88
 msgid "Pane {number} · {dir}"
 msgstr ""
 
-#: app/src/commands.rs:130
+#: app/src/commands.rs:129
 msgid "Open {name}"
 msgstr ""
 
-#: app/src/commands.rs:131
+#: app/src/commands.rs:130
 msgid "{n} pane · {commands}"
 msgid_plural "{n} panes · {commands}"
 msgstr[0] ""
 msgstr[1] ""
 
-#: app/src/commands.rs:146
+#: app/src/commands.rs:145
 msgid "New tab with profile “{name}”"
 msgstr ""
 
-#: app/src/commands.rs:179 app/src/window.rs:1488
+#: app/src/commands.rs:185 app/src/window.rs:1488
 msgid "Save current tab as template…"
 msgstr ""
 
-#: app/src/commands.rs:221
+#: app/src/commands.rs:225
 msgid "Command, tab, bookmark or template… (> actions, @ tabs, ~ bookmarks, # templates)"
 msgstr ""
 
-#: app/src/commands.rs:255
+#: app/src/commands.rs:259
 msgid "↑↓ select · Enter run · Ctrl+Enter in new pane · Alt+Enter bookmark here · Esc"
 msgstr ""
 
-#: app/src/commands.rs:261
+#: app/src/commands.rs:265
 msgid "Commands"
 msgstr ""
 
@@ -377,16 +381,16 @@ msgid "Shared input"
 msgstr ""
 
 #: app/src/pane.rs:237 app/src/pane.rs:352 app/src/shortcuts.rs:56
-#: app/src/terminal.rs:1573
+#: app/src/terminal.rs:1574
 msgid "Maximize pane"
 msgstr ""
 
 #: app/src/pane.rs:239 app/src/pane.rs:354 app/src/shortcuts.rs:53
-#: app/src/terminal.rs:1598
+#: app/src/terminal.rs:1599
 msgid "Close pane"
 msgstr ""
 
-#: app/src/pane.rs:281 app/src/shortcuts.rs:75 app/src/terminal.rs:1582
+#: app/src/pane.rs:281 app/src/shortcuts.rs:75 app/src/terminal.rs:1583
 msgid "Read only"
 msgstr ""
 
@@ -592,12 +596,12 @@ msgstr ""
 msgid "Profile not created: {error}"
 msgstr ""
 
-#: app/src/prefs.rs:282 app/src/prefs.rs:1418
+#: app/src/prefs.rs:282 app/src/prefs.rs:1416
 msgid "Not saved: {error}"
 msgstr ""
 
-#: app/src/prefs.rs:295 app/src/prefs.rs:1283 app/src/prefs.rs:1429
-#: app/src/prefs.rs:1535
+#: app/src/prefs.rs:295 app/src/prefs.rs:1281 app/src/prefs.rs:1427
+#: app/src/prefs.rs:1533
 msgid "Name"
 msgstr ""
 
@@ -753,7 +757,7 @@ msgstr ""
 msgid "Mark tab only"
 msgstr ""
 
-#: app/src/prefs.rs:608 app/src/prefs.rs:866 app/src/shortcuts.rs:154
+#: app/src/prefs.rs:608 app/src/shortcuts.rs:154
 msgid "Off"
 msgstr ""
 
@@ -841,207 +845,207 @@ msgstr ""
 msgid "Reset all"
 msgstr ""
 
-#: app/src/prefs.rs:887
+#: app/src/prefs.rs:885
 msgid "Custom"
 msgstr ""
 
-#: app/src/prefs.rs:905
+#: app/src/prefs.rs:903
 msgid ""
 "Current: {current}\n"
 "Press a new combination. Esc cancels, Backspace disables the shortcut."
 msgstr ""
 
-#: app/src/prefs.rs:910 app/src/prefs.rs:1301 app/src/terminal.rs:1722
+#: app/src/prefs.rs:908 app/src/prefs.rs:1299 app/src/terminal.rs:1722
 #: app/src/terminal.rs:1777 app/src/window.rs:854 app/src/window.rs:874
 #: app/src/window.rs:1335 app/src/window.rs:1393
 msgid "Cancel"
 msgstr ""
 
-#: app/src/prefs.rs:910
+#: app/src/prefs.rs:908
 msgid "Restore default"
 msgstr ""
 
-#: app/src/prefs.rs:964
+#: app/src/prefs.rs:962
 msgid "{label} is already assigned to “{other}”. Please press a different combination."
 msgstr ""
 
-#: app/src/prefs.rs:988
+#: app/src/prefs.rs:986
 msgid "Add link"
 msgstr ""
 
-#: app/src/prefs.rs:993
+#: app/src/prefs.rs:991
 msgid "Custom links"
 msgstr ""
 
-#: app/src/prefs.rs:994
+#: app/src/prefs.rs:992
 msgid "Text matching a regular expression becomes a link (Ctrl+click). The target is an address or a command; $0 is the whole match, $1 to $9 the groups."
 msgstr ""
 
-#: app/src/prefs.rs:1013
+#: app/src/prefs.rs:1011
 msgid "Regular expression (e.g. \\bPARK-(\\d+))"
 msgstr ""
 
-#: app/src/prefs.rs:1017
+#: app/src/prefs.rs:1015
 msgid "Target (e.g. https://tracker.example/$1)"
 msgstr ""
 
-#: app/src/prefs.rs:1030
+#: app/src/prefs.rs:1028
 msgid "Remove link"
 msgstr ""
 
-#: app/src/prefs.rs:1118
+#: app/src/prefs.rs:1116
 msgid "Add folder…"
 msgstr ""
 
-#: app/src/prefs.rs:1119
+#: app/src/prefs.rs:1117
 msgid "Add command…"
 msgstr ""
 
-#: app/src/prefs.rs:1134
+#: app/src/prefs.rs:1132
 msgid "Add bookmark"
 msgstr ""
 
-#: app/src/prefs.rs:1141
+#: app/src/prefs.rs:1139
 msgid "Folders, commands and SSH hosts for the command palette (~) and the main menu: Enter opens a new tab, Ctrl+Enter a new pane, Alt+Enter uses the active pane. Commands are typed into the shell."
 msgstr ""
 
-#: app/src/prefs.rs:1152 app/src/prefs.rs:1267 app/src/prefs.rs:1332
+#: app/src/prefs.rs:1150 app/src/prefs.rs:1265 app/src/prefs.rs:1330
 msgid "Bookmarks not saved: {error}"
 msgstr ""
 
-#: app/src/prefs.rs:1174
+#: app/src/prefs.rs:1172
 msgid "No bookmarks yet"
 msgstr ""
 
-#: app/src/prefs.rs:1175
+#: app/src/prefs.rs:1173
 msgid "In the terminal: command palette or main menu › “Current folder as bookmark”"
 msgstr ""
 
-#: app/src/prefs.rs:1197
+#: app/src/prefs.rs:1195
 msgid "Move up"
 msgstr ""
 
-#: app/src/prefs.rs:1198
+#: app/src/prefs.rs:1196
 msgid "Move down"
 msgstr ""
 
-#: app/src/prefs.rs:1199
+#: app/src/prefs.rs:1197
 msgid "Delete"
 msgstr ""
 
-#: app/src/prefs.rs:1258
+#: app/src/prefs.rs:1256
 msgid "Folder as bookmark"
 msgstr ""
 
-#: app/src/prefs.rs:1266 app/src/window.rs:1033
+#: app/src/prefs.rs:1264 app/src/window.rs:1033
 msgid "This folder is already a bookmark"
 msgstr ""
 
-#: app/src/prefs.rs:1280
+#: app/src/prefs.rs:1278
 msgid "Type"
 msgstr ""
 
-#: app/src/prefs.rs:1281 app/src/terminal.rs:412
+#: app/src/prefs.rs:1279 app/src/terminal.rs:412
 msgid "Command"
 msgstr ""
 
-#: app/src/prefs.rs:1281
+#: app/src/prefs.rs:1279
 msgid "SSH host"
 msgstr ""
 
-#: app/src/prefs.rs:1284 app/src/prefs.rs:1291
+#: app/src/prefs.rs:1282 app/src/prefs.rs:1289
 msgid "Command (e.g. journalctl -f)"
 msgstr ""
 
-#: app/src/prefs.rs:1289
+#: app/src/prefs.rs:1287
 msgid "Host, with options if needed (e.g. -p 2222 toff@bender)"
 msgstr ""
 
-#: app/src/prefs.rs:1299
+#: app/src/prefs.rs:1297
 msgid "Add command"
 msgstr ""
 
-#: app/src/prefs.rs:1301
+#: app/src/prefs.rs:1299
 msgid "Add"
 msgstr ""
 
-#: app/src/prefs.rs:1347
+#: app/src/prefs.rs:1345
 msgid "A template opens a tab with a ready-made layout, profiles and start commands. New templates are made from a running tab: menu on the New button › “Save current tab as template…”."
 msgstr ""
 
-#: app/src/prefs.rs:1363
+#: app/src/prefs.rs:1361
 msgid "No templates yet"
 msgstr ""
 
-#: app/src/prefs.rs:1364
+#: app/src/prefs.rs:1362
 msgid "Split a tab as you like and save it as a template"
 msgstr ""
 
-#: app/src/prefs.rs:1373
+#: app/src/prefs.rs:1371
 msgid "Choose directory when opening"
 msgstr ""
 
-#: app/src/prefs.rs:1380
+#: app/src/prefs.rs:1378
 msgid "{n} pane · {dir}"
 msgid_plural "{n} panes · {dir}"
 msgstr[0] ""
 msgstr[1] ""
 
-#: app/src/prefs.rs:1398
+#: app/src/prefs.rs:1396
 msgid "The template no longer exists"
 msgstr ""
 
-#: app/src/prefs.rs:1439
+#: app/src/prefs.rs:1437
 msgid "Fixed directory (empty = choose when opening)"
 msgstr ""
 
-#: app/src/prefs.rs:1459 core/src/label.rs:104
+#: app/src/prefs.rs:1457 core/src/label.rs:104
 msgid "Shell"
 msgstr ""
 
-#: app/src/prefs.rs:1475
+#: app/src/prefs.rs:1473
 msgid "Equalize"
 msgstr ""
 
-#: app/src/prefs.rs:1477
+#: app/src/prefs.rs:1475
 msgid "Layout"
 msgstr ""
 
-#: app/src/prefs.rs:1478
+#: app/src/prefs.rs:1476
 msgid "Comes from the tab the template was saved from; split or remove panes with the buttons on them."
 msgstr ""
 
-#: app/src/prefs.rs:1513 app/src/shortcuts.rs:50 app/src/terminal.rs:1571
+#: app/src/prefs.rs:1511 app/src/shortcuts.rs:50 app/src/terminal.rs:1572
 #: app/src/window.rs:401 app/src/window.rs:1459
 msgid "Split right"
 msgstr ""
 
-#: app/src/prefs.rs:1514 app/src/shortcuts.rs:51 app/src/terminal.rs:1572
+#: app/src/prefs.rs:1512 app/src/shortcuts.rs:51 app/src/terminal.rs:1573
 #: app/src/window.rs:402 app/src/window.rs:1460
 msgid "Split down"
 msgstr ""
 
-#: app/src/prefs.rs:1515
+#: app/src/prefs.rs:1513
 msgid "Remove pane"
 msgstr ""
 
-#: app/src/prefs.rs:1532
+#: app/src/prefs.rs:1530
 msgid "Pane {n}"
 msgstr ""
 
-#: app/src/prefs.rs:1536
+#: app/src/prefs.rs:1534
 msgid "Profile"
 msgstr ""
 
-#: app/src/prefs.rs:1539
+#: app/src/prefs.rs:1537
 msgid "Start command (typed into the shell)"
 msgstr ""
 
-#: app/src/prefs.rs:1540
+#: app/src/prefs.rs:1538
 msgid "Subdirectory"
 msgstr ""
 
-#: app/src/prefs.rs:1584
+#: app/src/prefs.rs:1582
 msgid "Delete template"
 msgstr ""
 
@@ -1095,7 +1099,7 @@ msgstr ""
 #: app/src/shortcuts.rs:71 app/src/shortcuts.rs:72 app/src/shortcuts.rs:73
 #: app/src/shortcuts.rs:74 app/src/shortcuts.rs:75 app/src/shortcuts.rs:76
 #: app/src/shortcuts.rs:77 app/src/shortcuts.rs:80 app/src/shortcuts.rs:84
-#: app/src/shortcuts.rs:85 app/src/terminal.rs:1589
+#: app/src/shortcuts.rs:85 app/src/terminal.rs:1590
 msgid "Terminal"
 msgstr ""
 
@@ -1152,7 +1156,7 @@ msgstr ""
 msgid "Split automatically"
 msgstr ""
 
-#: app/src/shortcuts.rs:54 app/src/terminal.rs:1592
+#: app/src/shortcuts.rs:54 app/src/terminal.rs:1593
 msgid "Input to all panes"
 msgstr ""
 
@@ -1160,7 +1164,7 @@ msgstr ""
 msgid "Pane receives shared input"
 msgstr ""
 
-#: app/src/shortcuts.rs:57 app/src/terminal.rs:1574
+#: app/src/shortcuts.rs:57 app/src/terminal.rs:1575
 msgid "Equalize sizes"
 msgstr ""
 
@@ -1200,36 +1204,36 @@ msgstr ""
 msgid "Search"
 msgstr ""
 
-#: app/src/shortcuts.rs:69 app/src/terminal.rs:1554 app/src/window.rs:180
+#: app/src/shortcuts.rs:69 app/src/terminal.rs:1555 app/src/window.rs:180
 msgid "Copy"
 msgstr ""
 
-#: app/src/shortcuts.rs:70 app/src/terminal.rs:1556 app/src/terminal.rs:1722
+#: app/src/shortcuts.rs:70 app/src/terminal.rs:1557 app/src/terminal.rs:1722
 #: app/src/terminal.rs:1777
 msgid "Paste"
 msgstr ""
 
-#: app/src/shortcuts.rs:71 app/src/terminal.rs:1558
+#: app/src/shortcuts.rs:71 app/src/terminal.rs:1559
 msgid "Select all"
 msgstr ""
 
-#: app/src/shortcuts.rs:72 app/src/terminal.rs:1579
+#: app/src/shortcuts.rs:72 app/src/terminal.rs:1580
 msgid "Save output…"
 msgstr ""
 
-#: app/src/shortcuts.rs:73 app/src/terminal.rs:1557
+#: app/src/shortcuts.rs:73 app/src/terminal.rs:1558
 msgid "Paste special…"
 msgstr ""
 
-#: app/src/shortcuts.rs:74 app/src/terminal.rs:1555
+#: app/src/shortcuts.rs:74 app/src/terminal.rs:1556
 msgid "Copy as HTML"
 msgstr ""
 
-#: app/src/shortcuts.rs:76 app/src/terminal.rs:1580
+#: app/src/shortcuts.rs:76 app/src/terminal.rs:1581
 msgid "Reset"
 msgstr ""
 
-#: app/src/shortcuts.rs:77 app/src/terminal.rs:1581
+#: app/src/shortcuts.rs:77 app/src/terminal.rs:1582
 msgid "Reset and clear"
 msgstr ""
 
@@ -1331,87 +1335,87 @@ msgstr ""
 msgid "No output for {seconds} s"
 msgstr ""
 
-#: app/src/terminal.rs:809
+#: app/src/terminal.rs:810
 msgid "<b>{program}</b> could not be started: {error}"
 msgstr ""
 
-#: app/src/terminal.rs:852 app/src/terminal.rs:871
+#: app/src/terminal.rs:853 app/src/terminal.rs:872
 msgid "<b>Process exited</b>"
 msgstr ""
 
-#: app/src/terminal.rs:872
+#: app/src/terminal.rs:873
 msgid "<b>Process exited</b> · exit code {code}"
 msgstr ""
 
-#: app/src/terminal.rs:873
+#: app/src/terminal.rs:874
 msgid "<b>Process exited</b> · signal {signal}"
 msgstr ""
 
-#: app/src/terminal.rs:876
+#: app/src/terminal.rs:877
 msgid "{text} · no automatic restart, exited immediately"
 msgstr ""
 
-#: app/src/terminal.rs:1222
+#: app/src/terminal.rs:1223
 msgid "Command failed: {error}"
 msgstr ""
 
-#: app/src/terminal.rs:1247
+#: app/src/terminal.rs:1248
 msgid "The path is on the other computer"
 msgstr ""
 
-#: app/src/terminal.rs:1255
+#: app/src/terminal.rs:1256
 msgid "“{path}” does not exist"
 msgstr ""
 
-#: app/src/terminal.rs:1294
+#: app/src/terminal.rs:1295
 msgid "Link not opened"
 msgstr ""
 
-#: app/src/terminal.rs:1295
+#: app/src/terminal.rs:1296
 msgid "The link points to a file on another computer."
 msgstr ""
 
-#: app/src/terminal.rs:1297 app/src/window.rs:181
+#: app/src/terminal.rs:1298 app/src/window.rs:181
 msgid "OK"
 msgstr ""
 
-#: app/src/terminal.rs:1312
+#: app/src/terminal.rs:1313
 msgid "Link not opened: {error}"
 msgstr ""
 
-#: app/src/terminal.rs:1547
+#: app/src/terminal.rs:1548
 msgid "Open link"
 msgstr ""
 
-#: app/src/terminal.rs:1547
+#: app/src/terminal.rs:1548
 msgid "Copy link"
 msgstr ""
 
-#: app/src/terminal.rs:1561
+#: app/src/terminal.rs:1562
 msgid "Zoom in"
 msgstr ""
 
-#: app/src/terminal.rs:1562
+#: app/src/terminal.rs:1563
 msgid "Zoom out"
 msgstr ""
 
-#: app/src/terminal.rs:1563
+#: app/src/terminal.rs:1564
 msgid "Normal size"
 msgstr ""
 
-#: app/src/terminal.rs:1568
+#: app/src/terminal.rs:1569
 msgid "Search…"
 msgstr ""
 
-#: app/src/terminal.rs:1585
+#: app/src/terminal.rs:1586
 msgid "Monitor activity"
 msgstr ""
 
-#: app/src/terminal.rs:1586
+#: app/src/terminal.rs:1587
 msgid "Monitor silence"
 msgstr ""
 
-#: app/src/terminal.rs:1593
+#: app/src/terminal.rs:1594
 msgid "This pane receives shared input"
 msgstr ""
 

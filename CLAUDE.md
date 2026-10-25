@@ -80,6 +80,10 @@ Run `build-aux/ci.sh` before every commit. App unit tests must not call GTK func
   `--split-right/-down`, custom links (`core::link`, groups encoded/quoted), divider double-click
   (counted by event time: GtkPaned's drag gesture cancels `n_press`), text options, whole-word
   search, window title template.
-- Next (0.5, see `BACKLOG.md`): AUR/COPR, Debian package.
+- Released as 0.5.0 (tag `v0.5.0`, 2026-10-25): English interface, Tilix parity, context colors
+  graded by risk (approach C), preferences in an AdwViewSwitcherSidebar (libadwaita ≥ 1.9),
+  English comments and file names.
+- Distribution (AUR/COPR, Debian package) is on hold: do not start or suggest it until Christoph
+  brings it up again (2026-10-25).
 - Commit only after `build-aux/ci.sh` exited 0 (check the exit code, not grep output): a doc
   example shift once broke `core/tests/usage.rs` on `main`.

@@ -4,7 +4,7 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 [QA audit of 2026-10-19](qa/2026-10-19/QA-REPORT.md) (IDs QA-xx and R-xx), the
 [code review of phase 6](docs/QA.md) (IDs L, D, G) and notes from testing.
 
-## Next release (0.5): fixes and small improvements
+## Next release (0.6): fixes and small improvements
 
 ### From the QA audit
 - [x] Regression test for QA-02 (pane title hidden): screenshot comparison in the smoke test
@@ -34,7 +34,7 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [x] Bookmarks page in the preferences (rename, sort, delete, add a folder)
 - [x] Title template per profile (`tab_label`)
 
-### 0.5: Distribution
+### Distribution (on hold until Christoph brings it up again, 2026-10-25)
 - [x] English interface (gettext), then translations; AppStream metadata and `.desktop` file in
       English with German translations
 - [ ] AUR package and Fedora COPR from the public repository
@@ -42,7 +42,7 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
       `tuxedo-os-forky` and build a `.deb`
 - [ ] Project page on linuxundich.de, then the "On the blog" section in the README
 
-### Tilix parity (comparison 2026-10-23)
+### Tilix parity (comparison 2026-10-23; released in 0.5.0 on 2026-10-25)
 - [x] Drag a tab into a new window (`create-window`)
 - [x] Scrollbar per profile (overlay, `ScrolledWindow` like Ptyxis)
 - [x] Reset / reset and clear
