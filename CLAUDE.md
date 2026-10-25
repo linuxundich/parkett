@@ -1,6 +1,6 @@
 # Parkett – notes for Claude
 
-GNOME terminal with Tilix-style splits: Rust, GTK 4.18+, libadwaita 1.8+, VTE 0.80+.
+GNOME terminal with Tilix-style splits: Rust, GTK 4.18+, libadwaita 1.9+, VTE 0.80+.
 Christoph (maintainer) writes in German; answer in German.
 
 ## Layout
@@ -9,7 +9,8 @@ Christoph (maintainer) writes in German; answer in German.
   session, palettes, command line, context detection, tab labels. Unit-tested.
 - `app/` (`parkett`): GTK/libadwaita/VTE interface. `window.rs` (header bar, tabs),
   `tab.rs` (split tree ⇄ GtkPaned), `pane.rs` (title, search), `terminal.rs` (VTE, spawn,
-  exit bar, foreground poll), `prefs.rs`, `shortcuts.rs`, `session.rs`.
+  exit bar, foreground poll), `prefs.rs` (pages) in `prefs_dialog.rs` (sidebar dialog, search),
+  `shortcuts.rs`, `session.rs`.
 - `data/`: GSettings schema, `.desktop`, metainfo, palettes, Nautilus extension.
 - `docs/`: USAGE, ARCHITECTURE, BUILDING, QA, PACKAGING; `qa/2026-10-19/QA-REPORT.md` is the
   audit the IDs QA-xx / R-xx refer to; L/D/G IDs come from the code review in `docs/QA.md`.

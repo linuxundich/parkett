@@ -1,7 +1,7 @@
 # Packaging options
 
-As of 2026-10-19. Minimum versions according to `meson.build`: GTK ≥ 4.18, libadwaita ≥ 1.8
-(AdwShortcutsDialog), VTE (gtk4) ≥ 0.80 (termprops, context menu model). Labels:
+As of 2026-10-19. Minimum versions according to `meson.build`: GTK ≥ 4.18, libadwaita ≥ 1.9
+(AdwViewSwitcherSidebar in the preferences; AdwShortcutsDialog needs 1.8), VTE (gtk4) ≥ 0.80 (termprops, context menu model). Labels:
 **F** fact (built/tested myself) · **S** inference · **V** proposal.
 
 ## Overview

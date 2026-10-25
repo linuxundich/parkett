@@ -2,7 +2,7 @@
 
 ## Requirements
 
-Rust (stable), Meson, gettext, GTK 4.18 or newer, libadwaita 1.8 or newer and VTE for GTK 4
+Rust (stable), Meson, gettext, GTK 4.18 or newer, libadwaita 1.9 or newer and VTE for GTK 4
 (0.80 or newer).
 
 | Distribution | Packages |

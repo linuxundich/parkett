@@ -44,7 +44,7 @@ mod imp {
         pub overlay: OnceCell<gtk::Overlay>,
         pub zoom_banner: OnceCell<gtk::Box>,
         pub zoom_label: OnceCell<gtk::Label>,
-        pub mode_bar: OnceCell<gtk::FlowBox>,
+        pub mode_bar: OnceCell<adw::WrapBox>,
         /// Closed panes while "Undo" is offered: (number, pane,
         /// layout before, layout after)
         pub closed: RefCell<Vec<(u64, Pane, Layout, Layout)>>,
@@ -202,18 +202,17 @@ impl Tab {
             ("1–9", N_("jump")),
             ("Esc", N_("done")),
         ];
-        // FlowBox instead of Box: wraps in narrow windows instead of being cut off
-        let bar = gtk::FlowBox::builder()
+        // wraps in narrow windows instead of being cut off
+        let bar = adw::WrapBox::builder()
             .css_classes(["parkett-mode-bar"])
             .halign(gtk::Align::Center)
             .valign(gtk::Align::End)
             .margin_bottom(16)
             .margin_start(16)
             .margin_end(16)
-            .column_spacing(14)
-            .row_spacing(6)
-            .selection_mode(gtk::SelectionMode::None)
-            .max_children_per_line(10)
+            .child_spacing(14)
+            .line_spacing(6)
+            .align(0.5)
             .can_target(false)
             .visible(false)
             .build();

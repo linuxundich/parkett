@@ -7,6 +7,7 @@ app/src/commands.rs
 app/src/main.rs
 app/src/pane.rs
 app/src/prefs.rs
+app/src/prefs_dialog.rs
 app/src/profiles.rs
 app/src/session.rs
 app/src/settings.rs

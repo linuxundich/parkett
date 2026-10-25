@@ -33,8 +33,6 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   keystroke.
 - Search for whole words only (*W* in the search bar).
 - Template for the window title (*Einstellungen › Allgemein*, default `{title}`).
-
-### Added
 - Context colors, graded by risk: root on another host (`ssh root@host`, or the remote shell's
   title starts with `root@`, e.g. after `sudo -i` on the server), containers (toolbox, distrobox,
   `podman`/`docker exec -it`, `machinectl shell`) and other users (`sudo -u postgres`, `su - www`).
@@ -45,6 +43,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   pane has the focus).
 
 ### Changed
+- Preferences: the pages (General, Profiles, Templates, Bookmarks, Shortcuts) are in a sidebar on
+  the left (AdwViewSwitcherSidebar) instead of a switcher at the top; in narrow windows the sidebar
+  opens with a button. The search (Ctrl+F) lists matching settings with their page and jumps to
+  them. Requires libadwaita 1.9.
+- Current components instead of hand-made ones: *Delete profile* / *Delete template* are
+  AdwButtonRows, the help bar of the layout mode wraps with AdwWrapBox, the OSC 8 link tooltip
+  uses VTE's bound `hyperlink-hover-uri` property, spawn and feature flags come from the VTE
+  bindings.
 - Context colors have a fixed meaning: root red, SSH blue, containers purple, other users amber. The
   shade comes from the scheme by hue, otherwise from GNOME's palette. Before, Parkett took fixed
   palette slots, which gave SSH orange and a green root line in Papercolor (9 of 28 scheme variants

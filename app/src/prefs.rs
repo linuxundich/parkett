@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Preferences dialog (AdwPreferencesDialog): pages "General" and "Profiles".
+//! Preferences: pages General, Profiles, Templates, Bookmarks and Shortcuts in a dialog with a
+//! sidebar (`prefs_dialog`).
 //! Changes apply immediately (GNOME style); a chosen color scheme recolors running
 //! terminals of the profile right away (live preview).
 
@@ -12,10 +13,11 @@ use parkett_core::palette::{Face, Palette};
 use parkett_core::profile::{Bell, CursorBlink, CursorShape, ExitAction, Profile};
 
 use crate::i18n::{gettext, ntrf, trf};
+use crate::prefs_dialog::PrefsDialog;
 use crate::profiles::ProfileManager;
 
 pub fn show(parent: Option<&gtk::Window>) {
-    let dialog = adw::PreferencesDialog::builder().title(gettext("Preferences")).search_enabled(true).build();
+    let dialog = PrefsDialog::new(&gettext("Preferences"));
     dialog.add(&general_page());
     dialog.add(&profiles_page(&dialog));
     dialog.add(&templates_page(&dialog));
@@ -178,7 +180,7 @@ fn general_page() -> adw::PreferencesPage {
     page
 }
 
-fn profiles_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
+fn profiles_page(dialog: &PrefsDialog) -> adw::PreferencesPage {
     let page =
         adw::PreferencesPage::builder().title(gettext("Profiles")).icon_name("applications-utilities-symbolic").build();
     let add = gtk::Button::builder()
@@ -269,7 +271,7 @@ fn release_on_destroy(
     release
 }
 
-fn update(dialog: &adw::PreferencesDialog, id: &str, f: impl FnOnce(&mut Profile)) {
+fn update(dialog: &PrefsDialog, id: &str, f: impl FnOnce(&mut Profile)) {
     let manager = ProfileManager::get();
     let mut p = manager.profile(id);
     if p.id != id {
@@ -282,7 +284,7 @@ fn update(dialog: &adw::PreferencesDialog, id: &str, f: impl FnOnce(&mut Profile
 }
 
 /// `new`: freshly created – then the name stays selected so it can be overwritten right away.
-fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::NavigationPage {
+fn profile_editor(dialog: &PrefsDialog, id: &str, new: bool) -> adw::NavigationPage {
     let manager = ProfileManager::get();
     let profile = manager.profile(id);
     let id = profile.id.clone();
@@ -745,10 +747,10 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
 
     // Delete
     let danger = adw::PreferencesGroup::new();
-    let delete = gtk::Button::builder()
-        .label(gettext("Delete profile"))
-        .css_classes(["destructive-action", "pill"])
-        .halign(gtk::Align::Center)
+    let delete = adw::ButtonRow::builder()
+        .title(gettext("Delete profile"))
+        .start_icon_name("user-trash-symbolic")
+        .css_classes(["destructive-action"])
         .build();
     delete.set_sensitive(manager.profiles().len() > 1);
     danger.add(&delete);
@@ -773,7 +775,7 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
     }
     nav.connect_hidden(move |_| release());
     let d = dialog.downgrade();
-    delete.connect_clicked(move |_| {
+    delete.connect_activated(move |_| {
         let Some(d) = d.upgrade() else { return };
         match ProfileManager::get().delete(&id) {
             Ok(()) => {
@@ -843,7 +845,7 @@ fn draw_face(cr: &gtk::cairo::Context, face: &Face, x: f64, w: f64, h: f64) {
 /// Row, shortcut label and action of a row on the shortcuts page.
 type ShortcutRow = (adw::ActionRow, gtk::Label, &'static str);
 
-fn shortcuts_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
+fn shortcuts_page(dialog: &PrefsDialog) -> adw::PreferencesPage {
     use crate::shortcuts;
     let page = adw::PreferencesPage::builder().title(gettext("Shortcuts")).icon_name("input-keyboard-symbolic").build();
     let rows: Rc<RefCell<Vec<ShortcutRow>>> = Rc::default();
@@ -894,7 +896,7 @@ fn shortcuts_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
 
 /// Records a new key combination. Esc cancels, Backspace disables the shortcut.
 /// During recording, window and app shortcuts are disabled, otherwise they would fire.
-fn capture_shortcut(prefs: &adw::PreferencesDialog, action: &'static str) {
+fn capture_shortcut(prefs: &PrefsDialog, action: &'static str) {
     use crate::shortcuts;
     let Some(entry) = shortcuts::entry(action) else { return };
     let current = shortcuts::label(&shortcuts::effective(action));
@@ -978,7 +980,7 @@ type Refill = Rc<RefCell<Option<Rc<dyn Fn()>>>>;
 
 /// Custom links of the profile (Tilix "Custom Hyperlinks"): pattern and target per entry.
 /// Every change is saved immediately; adding and deleting rebuild the list.
-fn custom_links_group(dialog: &adw::PreferencesDialog, id: &str) -> adw::PreferencesGroup {
+fn custom_links_group(dialog: &PrefsDialog, id: &str) -> adw::PreferencesGroup {
     let add = gtk::Button::builder()
         .icon_name("list-add-symbolic")
         .tooltip_text(gettext("Add link"))
@@ -1108,7 +1110,7 @@ fn custom_links_group(dialog: &adw::PreferencesDialog, id: &str) -> adw::Prefere
 
 /// Rename, sort and delete bookmarks and add folders. Every change is
 /// saved immediately; the list is rebuilt afterwards.
-fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
+fn bookmarks_page(dialog: &PrefsDialog) -> adw::PreferencesPage {
     let page = adw::PreferencesPage::builder().title(gettext("Bookmarks")).icon_name("user-bookmarks-symbolic").build();
     // one "+" with a choice: two buttons side by side would leave the description little room
     let add = gtk::Button::builder().label(gettext("Add folder…")).css_classes(["flat"]).build();
@@ -1271,7 +1273,7 @@ fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
 }
 
 /// Command or SSH target as a bookmark: kind, name, command or target.
-fn add_command_bookmark(prefs: &adw::PreferencesDialog, refill: Rc<dyn Fn()>) {
+fn add_command_bookmark(prefs: &PrefsDialog, refill: Rc<dyn Fn()>) {
     let kind = adw::ComboRow::builder()
         .title(gettext("Type"))
         .model(&gtk::StringList::new(&[gettext("Command").as_str(), gettext("SSH host").as_str()]))
@@ -1336,7 +1338,7 @@ fn add_command_bookmark(prefs: &adw::PreferencesDialog, refill: Rc<dyn Fn()>) {
     dialog.present(Some(prefs));
 }
 
-fn templates_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
+fn templates_page(dialog: &PrefsDialog) -> adw::PreferencesPage {
     let page = adw::PreferencesPage::builder().title(gettext("Templates")).icon_name("view-grid-symbolic").build();
     let group = adw::PreferencesGroup::builder()
         .title(gettext("Templates"))
@@ -1406,7 +1408,7 @@ fn templates_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
     page
 }
 
-fn update_template(dialog: &adw::PreferencesDialog, id: &str, f: impl FnOnce(&mut parkett_core::template::Template)) {
+fn update_template(dialog: &PrefsDialog, id: &str, f: impl FnOnce(&mut parkett_core::template::Template)) {
     let manager = ProfileManager::get();
     let Some(mut t) = manager.template(id) else { return };
     f(&mut t);
@@ -1415,7 +1417,7 @@ fn update_template(dialog: &adw::PreferencesDialog, id: &str, f: impl FnOnce(&mu
     }
 }
 
-fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::NavigationPage> {
+fn template_editor(dialog: &PrefsDialog, id: &str) -> Option<adw::NavigationPage> {
     let manager = ProfileManager::get();
     let template = manager.template(id)?;
     let id = template.id.clone();
@@ -1576,15 +1578,15 @@ fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::Nav
     }
 
     let danger = adw::PreferencesGroup::new();
-    let delete = gtk::Button::builder()
-        .label(gettext("Delete template"))
-        .css_classes(["destructive-action", "pill"])
-        .halign(gtk::Align::Center)
+    let delete = adw::ButtonRow::builder()
+        .title(gettext("Delete template"))
+        .start_icon_name("user-trash-symbolic")
+        .css_classes(["destructive-action"])
         .build();
     danger.add(&delete);
     page.add(&danger);
     let d = dialog.downgrade();
-    delete.connect_clicked(move |_| {
+    delete.connect_activated(move |_| {
         let Some(d) = d.upgrade() else { return };
         match ProfileManager::get().delete_template(&id) {
             Ok(()) => {
@@ -1611,7 +1613,7 @@ fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::Nav
 
 /// Choice row for a profile field; `set` receives the selected index.
 fn choice_row(
-    dialog: &adw::PreferencesDialog,
+    dialog: &PrefsDialog,
     id: &str,
     title: &str,
     labels: &[&str],

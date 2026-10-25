@@ -127,7 +127,7 @@ sends nothing over the network.
 > There are no packages for Parkett yet. AUR and Fedora COPR packages are planned. For now,
 > build it from source.
 
-Parkett needs GTK 4.18, libadwaita 1.8 and VTE 0.80 or newer: Arch Linux, Fedora 44 and
+Parkett needs GTK 4.18, libadwaita 1.9 and VTE 0.80 or newer: Arch Linux, Fedora 44 and
 Ubuntu 26.04 work. Install the build dependencies:
 
 ```sh

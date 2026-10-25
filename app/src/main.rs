@@ -6,6 +6,7 @@ mod commands;
 mod i18n;
 mod pane;
 mod prefs;
+mod prefs_dialog;
 mod profiles;
 mod session;
 mod settings;
@@ -80,7 +81,6 @@ window.parkett-root.parkett-translucent toolbarview > .top-bar {
   box-shadow: 0 0 0 1px var(--border-color), 0 2px 8px rgb(0 0 6 / 18%);
 }
 parkett-pane.focused .parkett-badge { background: var(--accent-bg-color); color: var(--accent-fg-color); }
-.parkett-mode-bar > flowboxchild { padding: 0; }
 .parkett-mode-bar {
   padding: 8px 14px;
   border-radius: 12px;

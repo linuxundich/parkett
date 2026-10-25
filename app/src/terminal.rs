@@ -723,7 +723,8 @@ impl Terminal {
         let (env, flags) = match &self.0.environment {
             Some(caller) => (
                 parkett_core::environment::for_caller(caller, &own_environment(), &profile.valid_environment()),
-                glib::SpawnFlags::SEARCH_PATH | glib::SpawnFlags::from_bits_retain(VTE_SPAWN_NO_PARENT_ENVV),
+                glib::SpawnFlags::SEARCH_PATH
+                    | glib::SpawnFlags::from_bits_retain(vte::ffi::VTE_SPAWN_NO_PARENT_ENVV as u32),
             ),
             None => (profile.valid_environment(), glib::SpawnFlags::SEARCH_PATH),
         };
@@ -1161,13 +1162,7 @@ impl Terminal {
             self.0.actions.add_action(&a);
         }
         // OSC 8 links show their real target as a tooltip – the visible text can deceive.
-        // vte4-rs does not bind the signal, hence connect_local.
-        vte.connect_local("hyperlink-hover-uri-changed", false, |args| {
-            let vte = args[0].get::<vte::Terminal>().ok()?;
-            let uri = args[1].get::<Option<String>>().ok().flatten();
-            vte.set_tooltip_text(uri.as_deref());
-            None
-        });
+        vte.connect_hyperlink_hover_uri_notify(|vte| vte.set_tooltip_text(vte.hyperlink_hover_uri().as_deref()));
     }
 
     /// Register the profile's custom links again when they have changed.
@@ -1619,11 +1614,6 @@ const URL_PATTERNS: &[&str] = &[
     r#"(?<![\w/~.:@-])(?:~|\.\.?)?/[\w.+@%~/-]*[\w+@%~/-](?::\d+){0,2}"#,
 ];
 
-/// PCRE2 flags like Ptyxis: UTF, NO_UTF_CHECK, UCP and MULTILINE (required by VTE).
-/// `VTE_SPAWN_NO_PARENT_ENVV` (vtepty.h): only `envv` instead of Parkett's environment; VTE
-/// still sets TERM, COLORTERM and VTE_VERSION. Missing in vte4-rs.
-const VTE_SPAWN_NO_PARENT_ENVV: u32 = 1 << 25;
-
 /// How to search (toggles of the search bar).
 #[derive(Clone, Copy, Default)]
 pub struct SearchQuery {
@@ -1650,6 +1640,7 @@ pub const SEARCH_COUNT_MAX: usize = 999;
 /// Rows per block when counting (bottom to top)
 const SEARCH_COUNT_ROWS: libc::c_long = 20_000;
 
+/// PCRE2 flags like Ptyxis: UTF, NO_UTF_CHECK, UCP and MULTILINE (required by VTE).
 pub const PCRE2_FLAGS: u32 = 0x0008_0000 | 0x4000_0000 | 0x0002_0000 | 0x0000_0400;
 pub const PCRE2_CASELESS: u32 = 0x0000_0008;
 
@@ -1802,8 +1793,8 @@ fn paste_advanced(vte: &vte::Terminal) {
 /// Is the installed VTE built with Sixel? (Arch and Fedora 44 are not.)
 pub fn sixel_supported() -> bool {
     // vte4-rs does not bind vte_get_feature_flags; plain query without arguments
-    let flags = unsafe { vte::ffi::vte_get_feature_flags() };
-    flags & vte::ffi::VTE_FEATURE_FLAG_SIXEL != 0
+    let flags = vte::FeatureFlags::from_bits_truncate(unsafe { vte::ffi::vte_get_feature_flags() });
+    flags.contains(vte::FeatureFlags::FLAG_SIXEL)
 }
 
 fn rgba(c: &Rgb) -> gtk::gdk::RGBA {

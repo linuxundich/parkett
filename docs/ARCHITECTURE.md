@@ -12,7 +12,7 @@ parkett/
 ```
 
 Dependencies: `core` only serde, serde_json, toml. `app` additionally gtk4 0.11 (`v4_18`),
-libadwaita 0.9 (`v1_8`), vte4 0.10 (`v0_80`), libc. No other crates
+libadwaita 0.9 (`v1_9`), vte4 0.10 (`v0_80`), libc. No other crates
 (rationale in `docs/ANALYSIS.md`).
 
 ### core/
@@ -41,7 +41,8 @@ libadwaita 0.9 (`v1_8`), vte4 0.10 (`v0_80`), libc. No other crates
 | `pane` | `ParkettPane`: terminal plus floating title (hidden; shown when the pointer is at the top or briefly after a focus change) or title row, focus line, context line, root frame, context badge, dimming, search bar |
 | `terminal` | VTE widget, process spawning, "process exited" bar, links, search, paste warning, foreground process, context detection |
 | `profiles` | `ProfileManager` (GObject, signal `changed`): profiles, palettes, templates for the whole app |
-| `prefs` | Preferences: General, Profiles (color scheme tiles with live preview), Templates, Shortcuts |
+| `prefs` | Preferences: General, Profiles (color scheme tiles with live preview), Templates, Bookmarks, Shortcuts |
+| `prefs_dialog` | `ParkettPrefsDialog`: pages in a sidebar on the left (overlay when narrow), subpages, toasts, search over all rows (Ctrl+F); AdwViewSwitcherSidebar (libadwaita 1.9) |
 | `commands` | Command palette (prefixes `>` actions, `@` tabs/panes, `#` templates) |
 | `shortcuts` | Shortcut registry with default and custom bindings, construction of the shortcut controllers |
 | `settings`, `style` | GSettings access; manual light/dark |

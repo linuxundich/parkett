@@ -16,7 +16,7 @@ datadir = prefix / get_option('datadir')
 localedir = prefix / get_option('localedir')
 
 dependency('gtk4', version: '>= 4.18')
-dependency('libadwaita-1', version: '>= 1.8')
+dependency('libadwaita-1', version: '>= 1.9')
 dependency('vte-2.91-gtk4', version: '>= 0.80')
 
 subdir('data')
