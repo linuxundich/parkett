@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Hell/Dunkel von Hand (Wunsch Christoph): GSettings `style` = system | light | dark,
-//! angewendet über AdwStyleManager. Terminals folgen, weil sie auf `dark` des
-//! StyleManagers hören.
+//! Light/dark by hand (Christoph's request): GSettings `style` = system | light | dark,
+//! applied through AdwStyleManager. Terminals follow because they listen to the
+//! StyleManager's `dark`.
 
 use adw::prelude::*;
 
-/// Stil aus den Einstellungen anwenden und Änderungen folgen. Einmal beim Start aufrufen.
+/// Apply the style from the settings and follow changes. Call once at startup.
 pub fn init() {
     apply();
     crate::settings::settings().connect_changed(Some("style"), |_, _| apply());
@@ -20,7 +20,7 @@ fn apply() {
     adw::StyleManager::default().set_color_scheme(scheme);
 }
 
-/// Drei runde Knöpfe System/Hell/Dunkel für das Hauptmenü (Muster: GNOME Text Editor).
+/// Three round buttons System/Light/Dark for the main menu (pattern: GNOME Text Editor).
 pub fn selector() -> gtk::Widget {
     let settings = crate::settings::settings();
     let current = settings.string("style").to_string();
@@ -50,7 +50,7 @@ pub fn selector() -> gtk::Widget {
         });
         row.append(&b);
     }
-    // Änderung von außen (Einstellungen, gsettings) im Menü nachziehen
+    // Reflect outside changes (preferences, gsettings) in the menu
     let weak = row.downgrade();
     let id = settings.connect_changed(Some("style"), move |s, _| {
         let Some(row) = weak.upgrade() else { return };

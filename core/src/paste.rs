@@ -1,25 +1,25 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Prüfung vor dem Einfügen: Würde der Text in einer Shell ohne „Bracketed Paste“ sofort
-//! ausgeführt? Das ist bei jedem Zeilenumbruch so, auch bei einem einzigen am Ende.
+//! Check before pasting: would the text run immediately in a shell without "bracketed paste"?
+//! That is the case for every line break, even a single one at the end.
 
-/// Ergebnis der Prüfung: die Zeilen (ohne leere Zeile hinter dem letzten Umbruch) und ob
-/// der Text einen Umbruch enthält.
+/// Result of the check: the lines (without the empty line after the last break) and whether
+/// the text contains a line break.
 pub struct Check<'a> {
     pub lines: Vec<&'a str>,
     pub executes: bool,
 }
 
 pub fn check(text: &str) -> Check<'_> {
-    // \r führt ebenso aus wie \n (Enter); \r\n zählt als ein Umbruch
+    // \r executes just like \n (Enter); \r\n counts as one break
     let executes = text.contains(['\n', '\r']);
     let body = text.strip_suffix("\r\n").or_else(|| text.strip_suffix(['\n', '\r'])).unwrap_or(text);
     let lines = body.split("\r\n").flat_map(|l| l.split(['\n', '\r'])).collect();
     Check { lines, executes }
 }
 
-/// Erweitertes Einfügen (Tilix „Advanced Paste“): Tabulatoren durch `tab_width` Leerzeichen
-/// ersetzen (z. B. für Python im Editor, wo ein Tab sonst die Vervollständigung auslöst) und
-/// Windows-Zeilenenden (`\r\n`, auch einzelne `\r`) zu `\n` machen.
+/// Advanced paste (Tilix "Advanced Paste"): replace tabs with `tab_width` spaces
+/// (e.g. for Python in an editor, where a tab would trigger completion) and turn
+/// Windows line endings (`\r\n`, also lone `\r`) into `\n`.
 pub fn transform(text: &str, tab_width: Option<usize>, unix_newlines: bool) -> String {
     let mut out = if unix_newlines { text.replace("\r\n", "\n").replace('\r', "\n") } else { text.to_string() };
     if let Some(n) = tab_width {
@@ -48,7 +48,7 @@ mod tests {
 
     #[test]
     fn trailing_newline_executes() {
-        // QA-04: eine Zeile mit Umbruch wurde ohne Rückfrage ausgeführt
+        // QA-04: a single line with a line break was executed without asking
         for text in ["curl x | sh\n", "curl x | sh\r", "curl x | sh\r\n"] {
             let c = check(text);
             assert!(c.executes, "{text:?}");

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Sitzung sichern und beim Start wiederherstellen (Einstellung `restore-session`).
+//! Save the session and restore it at startup (setting `restore-session`).
 //!
-//! Gespeichert wird laufend, kurz nach jeder Änderung an Reitern, Aufteilung oder
-//! Verzeichnissen – so übersteht die Sitzung auch Abmelden oder Absturz. Schließt das letzte
-//! Fenster, wird sein Stand sofort geschrieben; danach (keine Fenster mehr) nichts mehr.
-//! Wer den letzten Reiter schließt, beendet die Sitzung: Der nächste Start beginnt frisch.
+//! Saved continuously, shortly after every change to tabs, layout or
+//! directories – so the session also survives logging out or a crash. When the last
+//! window closes, its state is written immediately; after that (no windows left) nothing more.
+//! Closing the last tab ends the session: the next start begins fresh.
 
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -28,7 +28,7 @@ fn enabled() -> bool {
     crate::settings::settings().boolean("restore-session")
 }
 
-/// Einstellung beobachten: ausgeschaltet → gespeicherte Sitzung löschen.
+/// Watch the setting: turned off → delete the saved session.
 pub fn init() {
     crate::settings::settings().connect_changed(Some("restore-session"), |s, _| {
         if !s.boolean("restore-session") {
@@ -51,7 +51,7 @@ fn write(app: &gtk::Application, skip: Option<&Window>) {
         .map(|w| w.to_session())
         .filter(|w| !w.tabs.is_empty())
         .collect();
-    // Kein Fenster mehr (App beendet sich): den zuletzt geschriebenen Stand behalten
+    // No window left (app is quitting): keep the last written state
     if list.is_empty() {
         return;
     }
@@ -60,9 +60,9 @@ fn write(app: &gtk::Application, skip: Option<&Window>) {
     }
 }
 
-/// Nach einer Änderung speichern, gebündelt (1,5 s nach der ersten noch nicht gespeicherten
-/// Änderung). Ein laufender Zeitgeber wird nicht neu gestartet: Ein Programm, das laufend
-/// seinen Titel setzt, würde das Speichern sonst immer weiter aufschieben (R-07).
+/// Save after a change, batched (1.5 s after the first change not yet saved).
+/// A running timer is not restarted: a program that keeps setting its title
+/// would otherwise postpone saving forever (R-07).
 pub fn schedule_save() {
     if !enabled() {
         return;
@@ -81,9 +81,9 @@ pub fn schedule_save() {
     });
 }
 
-/// Ein Fenster schließt. Gibt es weitere, deren Stand schreiben. Ist es das letzte: mit
-/// Reitern (Fensterknopf, Abmelden) seinen Stand schreiben; ohne Reiter (der letzte Reiter
-/// wurde geschlossen) war das ein bewusstes Ende – dann beginnt der nächste Start frisch.
+/// A window closes. If there are others, write their state. If it is the last one: with
+/// tabs (window button, logout) write its state; without tabs (the last tab
+/// was closed) it was a deliberate end – then the next start begins fresh.
 pub fn window_closing(window: &Window) {
     let Some(app) = window.application() else { return };
     let others = windows(&app).iter().any(|w| w != window);
@@ -101,15 +101,15 @@ pub fn window_closing(window: &Window) {
     }
 }
 
-/// Letzte Sitzung öffnen. `false`, wenn es keine gibt oder sie ausgeschaltet ist.
+/// Open the last session. `false` if there is none or it is turned off.
 pub fn restore(app: &adw::Application) -> bool {
     if !enabled() {
         return false;
     }
     let Some(session) = Session::load(&path()) else { return false };
-    // app.windows() liefert das zuletzt fokussierte Fenster zuerst. Es auch zuerst öffnen:
-    // Mutter gibt dem ersten Fenster den Fokus, spätere present() ohne Aktivierungs-Token
-    // holen ihr Fenster nicht nach vorn (in der VM gesehen)
+    // app.windows() returns the most recently focused window first. Open it first too:
+    // Mutter gives focus to the first window; later present() calls without an activation token
+    // do not bring their window to the front (seen in the VM)
     for w in &session.windows {
         let win = Window::empty(app);
         win.restore_session(w);

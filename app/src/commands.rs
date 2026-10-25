@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Befehlspalette (Konzept A+, aus C): eine Liste für Reiter, Bereiche, Aktionen, Vorlagen
-//! und Profile. Präfixe: „>“ nur Aktionen, „@“ nur Reiter/Bereiche, „~“ nur Lesezeichen,
-//! „#“ nur Vorlagen.
-//! Jede Aktion zeigt ihr Kürzel – so lernt man es nebenbei.
+//! Command palette (concept A+, from C): one list for tabs, panes, actions, templates
+//! and profiles. Prefixes: ">" actions only, "@" tabs/panes only, "~" bookmarks only,
+//! "#" templates only.
+//! Every action shows its shortcut, so you learn it along the way.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -35,10 +35,10 @@ impl Group {
     }
 }
 
-/// Was ein Eintrag ausführt
+/// What an entry runs
 type Run = Rc<dyn Fn(&Window)>;
 
-/// Eingabe, Strg+Eingabe (neuer Bereich) oder Alt+Eingabe (im aktiven Bereich)
+/// Enter, Ctrl+Enter (new pane) or Alt+Enter (in the active pane)
 #[derive(Clone, Copy)]
 enum How {
     Run,
@@ -53,9 +53,9 @@ struct Item {
     accel: String,
     icon: &'static str,
     run: Run,
-    /// Strg+Eingabe: Ziel in einem neuen Bereich (Profile, Lesezeichen); sonst wie `run`
+    /// Ctrl+Enter: target in a new pane (profiles, bookmarks); otherwise like `run`
     alt: Option<Run>,
-    /// Alt+Eingabe: im aktiven Bereich (Lesezeichen: „cd“); sonst wie `run`
+    /// Alt+Enter: in the active pane (bookmarks: `cd`); otherwise like `run`
     here: Option<Run>,
 }
 
@@ -268,7 +268,7 @@ pub fn show(win: &Window) {
         .child(&content)
         .build();
 
-    // sichtbare Treffer: Index in `items`
+    // visible matches: index into `items`
     let shown: Rc<RefCell<Vec<usize>>> = Rc::default();
     let refill = {
         let items = items.clone();
@@ -298,7 +298,7 @@ pub fn show(win: &Window) {
             if q.trim().is_empty() {
                 hits.sort_by_key(|(_, i)| (order(items[*i].group), *i));
             } else {
-                // beste Treffer zuerst, aber Gruppen zusammenhalten (Reihenfolge der besten Gruppe)
+                // best matches first, but keep groups together (order of the best group)
                 let mut best = [i32::MIN; 4];
                 for (s, i) in &hits {
                     let g = order(items[*i].group);
@@ -337,7 +337,7 @@ pub fn show(win: &Window) {
             if let Some(d) = dialog.upgrade() {
                 d.close();
             }
-            // nach dem Schließen ausführen, damit der Fokus beim Terminal landet
+            // run after closing, so the focus lands on the terminal
             let win = win.clone();
             glib::idle_add_local_once(move || {
                 if let Some(w) = win.upgrade() {
@@ -359,7 +359,7 @@ pub fn show(win: &Window) {
             d.close();
         }
     });
-    // Pfeiltasten im Suchfeld bewegen die Auswahl; der Fokus bleibt im Suchfeld
+    // Arrow keys in the search entry move the selection; the focus stays in the search entry
     let keys = gtk::EventControllerKey::new();
     let l3 = list.clone();
     let sc = scroll.clone();
@@ -391,7 +391,7 @@ pub fn show(win: &Window) {
         }
         if let Some(r) = (n > 0).then(|| l3.row_at_index((cur + delta).clamp(0, n - 1))).flatten() {
             l3.select_row(Some(&r));
-            // ins Sichtfeld scrollen, ohne der Zeile den Fokus zu geben
+            // scroll into view without giving the row the focus
             if let Some(p) = r.compute_point(&l3, &gtk::graphene::Point::new(0.0, 0.0)) {
                 let adj = sc.vadjustment();
                 let (y, h) = (p.y() as f64, r.height() as f64);

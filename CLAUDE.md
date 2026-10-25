@@ -33,8 +33,9 @@ Run `build-aux/ci.sh` before every commit. App unit tests must not call GTK func
 - UI strings are English msgids for gettext (`crate::i18n`: `gettext`, `trf("… {name} …", &[…])`,
   `ntrf`, `N_` in constants; one literal per call, on one line). German lives in `po/de.po`:
   after text changes run `po/update-pot.sh`, then fill the new `msgstr` entries (glossary:
-  tab = *Reiter*, pane = *Bereich*). Code comments stay German; docs, commit messages,
-  changelog and backlog are English. Log messages English, without gettext.
+  tab = *Reiter*, pane = *Bereich*). Code comments, file names, docs, commit messages,
+  changelog and backlog are English (comments translated 2026-10-25). Log messages English,
+  without gettext.
 - Comments explain why and name the finding (`// … (QA-11)`), matching the existing density.
 - Pure logic goes into `core` with tests; the app only wires it to widgets.
 - Files with possible secrets go through `parkett_core::paths::write_private` (mode 0600).

@@ -109,7 +109,6 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 ## Housekeeping
 
 - [ ] Check the name: trademark registers (DPMA/EUIPO), domains
-- [ ] Code comments are German; translate when the code is touched anyway
 
 ## Observations
 
@@ -122,6 +121,7 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 ### Housekeeping (2026-10-25)
 - [x] English file names: `build-aux/qa/throughput.sh`, `measure.sh`, `icon/preview.png`,
       `icon/drafts/`, screenshots under `docs/` and `qa/2026-10-19/images/`
+- [x] Code comments and script messages in English
 
 ### Phase 2: Design
 - [x] Three concepts (A GNOME Native, B Workspaces, C Terminal-centric) as HTML mockups

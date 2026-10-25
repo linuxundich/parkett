@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Parkett – Terminalemulator für GNOME mit Splits.
+//! Parkett – terminal emulator for GNOME with splits.
 
 mod bookmarks;
 mod commands;
@@ -88,7 +88,7 @@ parkett-pane.focused .parkett-badge { background: var(--accent-bg-color); color:
 }
 .parkett-ptitle button { min-width: 22px; min-height: 22px; padding: 0; }
 .parkett-ptitle.focused { background: color-mix(in srgb, var(--accent-bg-color) 14%, var(--window-bg-color)); font-weight: 600; }
-/* Stilwahl im Hauptmenü (Muster: GNOME Text Editor) */
+/* Style selector in the main menu (pattern: GNOME Text Editor) */
 .parkett-style-selector { margin: 9px 0 3px; }
 .parkett-style-selector checkbutton {
   padding: 1px; min-width: 44px; min-height: 44px;
@@ -116,9 +116,9 @@ parkett-pane.focused .parkett-badge { background: var(--accent-bg-color); color:
 ";
 
 fn main() -> glib::ExitCode {
-    // Gesetzt von GIO beim Start aus dem Menü; gilt für Parkett, nicht für die Shells darin
-    // (würde sonst an jedes daraus gestartete Programm vererbt, wie gnome-terminal es vermeidet).
-    // Hier ganz am Anfang, solange nur ein Thread läuft (R-06)
+    // Set by GIO when started from the menu; applies to Parkett, not to the shells inside
+    // (would otherwise be inherited by every program started from them, as gnome-terminal avoids).
+    // Here at the very start, while only one thread is running (R-06)
     for var in ["GIO_LAUNCHED_DESKTOP_FILE", "GIO_LAUNCHED_DESKTOP_FILE_PID"] {
         std::env::remove_var(var);
     }
@@ -134,7 +134,7 @@ fn main() -> glib::ExitCode {
         provider.load_from_string(CSS);
         let display = gdk::Display::default().expect("Display");
         gtk::style_context_add_provider_for_display(&display, &provider, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
-        // Beim Start aus dem Quellbaum die Icons in data/ finden (installiert: hicolor)
+        // When started from the source tree, find the icons in data/ (installed: hicolor)
         if option_env!("PARKETT_INSTALLED").is_none() {
             gtk::IconTheme::for_display(&display)
                 .add_search_path(concat!(env!("CARGO_MANIFEST_DIR"), "/../data/icons"));
@@ -145,7 +145,7 @@ fn main() -> glib::ExitCode {
         session::init();
     });
 
-    // Befehlszeile; kommt bei einer zweiten Instanz von deren Aufruf (Argumente, Verzeichnis)
+    // Command line; for a second instance it comes from that instance's invocation (arguments, directory)
     app.connect_command_line(|app, cmdline| {
         let args: Vec<String> = cmdline.arguments().iter().skip(1).map(|a| a.to_string_lossy().into_owned()).collect();
         let mut cli = match parkett_core::cli::parse(&args) {
@@ -182,14 +182,14 @@ fn main() -> glib::ExitCode {
     app.run_with_args(&parkett_core::cli::protect_separator(args))
 }
 
-/// Fenster oder Reiter nach der Befehlszeile; ohne Vorgaben beim ersten Fenster die letzte
-/// Sitzung.
+/// Window or tab according to the command line; without arguments the first window restores the
+/// last session.
 fn open(app: &adw::Application, cmdline: &gio::ApplicationCommandLine, cli: parkett_core::cli::Cli) -> glib::ExitCode {
     let first = app.windows().is_empty();
     if first && cli.is_plain() && !cli.tab && session::restore(app) {
         return glib::ExitCode::SUCCESS;
     }
-    // Verzeichnisse: Vorgaben (relativ zum Aufrufer, ~ aufgelöst), sonst das des Aufrufers
+    // Directories: given ones (relative to the caller, ~ resolved), otherwise the caller's
     let caller = cmdline.cwd();
     let mut dirs: Vec<Option<String>> = Vec::new();
     for d in &cli.working_directories {
@@ -222,17 +222,17 @@ fn open(app: &adw::Application, cmdline: &gio::ApplicationCommandLine, cli: park
         }
         None => manager.default_id(),
     };
-    // Aufruf an eine laufende Instanz: Umgebung des Aufrufers mitnehmen (QA-08). Beim ersten
-    // Start ist sie die von Parkett selbst.
-    // GApplication schickt sie nur mit SEND_ENVIRONMENT; leer hieße die Shell ohne PATH
-    // zu starten, dann lieber die Umgebung von Parkett.
+    // Invocation sent to a running instance: take the caller's environment along (QA-08). On first
+    // start it is Parkett's own.
+    // GApplication only sends it with SEND_ENVIRONMENT; empty would mean starting the shell without
+    // PATH, so use Parkett's environment instead.
     let environment = cmdline
         .is_remote()
         .then(|| cmdline.environ().into_iter().map(|e| e.to_string_lossy().into_owned()).collect::<Vec<_>>())
         .filter(|env| env.iter().any(|e| e.starts_with("PATH=")));
     let launch = terminal::Launch { command: cli.command.clone(), environment };
-    // --split-right/-down: aktiven Bereich des aktiven Fensters teilen; ohne Fenster wie ein
-    // normaler Aufruf
+    // --split-right/-down: split the active pane of the active window; without a window like a
+    // normal invocation
     if let Some(split) = cli.split {
         let active = app.active_window().and_downcast::<window::Window>();
         if let Some((win, tab)) = active.and_then(|w| w.current_tab().map(|t| (w, t))) {
@@ -250,7 +250,7 @@ fn open(app: &adw::Application, cmdline: &gio::ApplicationCommandLine, cli: park
     }
     let target = if cli.tab { app.active_window().and_downcast::<window::Window>() } else { None };
     let win = target.unwrap_or_else(|| window::Window::empty(app));
-    // ein Reiter je Verzeichnis (Nautilus: mehrere Ordner markiert), der erste bleibt gewählt
+    // one tab per directory (Nautilus: several folders selected), the first stays selected
     let mut first_tab = None;
     for cwd in dirs {
         let tab = win.add_tab_with(cwd, &profile, launch.clone(), cli.title.clone());
@@ -264,7 +264,7 @@ fn open(app: &adw::Application, cmdline: &gio::ApplicationCommandLine, cli: park
 }
 
 fn setup_actions(app: &adw::Application) {
-    // Klick auf „Befehl beendet“: Bereich zeigen
+    // Click on "Command finished": show the pane
     let show = gio::SimpleAction::new("show-terminal", Some(glib::VariantTy::UINT64));
     show.connect_activate({
         let app = app.downgrade();
@@ -330,8 +330,8 @@ fn setup_actions(app: &adw::Application) {
     });
     app.add_action(&shortcuts);
 
-    // Nur App-Aktionen als globale Accels; Fenster- und Terminalkürzel hängen an ihren
-    // Widgets (Capture-Phase), sonst würden sie doppelt oder gar nicht ausgelöst.
+    // Only app actions as global accels; window and terminal shortcuts hang on their
+    // widgets (capture phase), otherwise they would fire twice or not at all.
     shortcuts::apply_app_accels(app.upcast_ref());
     let weak = app.downgrade();
     settings::settings().connect_changed(Some("custom-shortcuts"), move |_, _| {
@@ -341,7 +341,7 @@ fn setup_actions(app: &adw::Application) {
     });
 }
 
-/// Übersicht aller Kürzel (AdwShortcutsDialog, libadwaita 1.8) mit der aktuellen Belegung.
+/// Overview of all shortcuts (AdwShortcutsDialog, libadwaita 1.8) with the current assignment.
 fn shortcuts_dialog() -> adw::ShortcutsDialog {
     let dialog = adw::ShortcutsDialog::new();
     for section in shortcuts::SECTIONS {
@@ -353,7 +353,7 @@ fn shortcuts_dialog() -> adw::ShortcutsDialog {
             }
         }
         match *section {
-            // Abschnittsnamen wie in shortcuts::SECTIONS
+            // Section names as in shortcuts::SECTIONS
             "Tabs and windows" => sec.add(adw::ShortcutsItem::new(&i18n::gettext("Tab 1 … 9"), "<Control><Alt>1")),
             "Panes" => sec.add(adw::ShortcutsItem::new(&i18n::gettext("Pane 1 … 9"), "<Alt>1")),
             _ => {}

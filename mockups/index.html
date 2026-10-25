@@ -76,7 +76,7 @@
   function fit() {
     document.querySelectorAll(".frame").forEach(f => {
       const ifr = f.querySelector("iframe");
-      // Fenster liegt im iframe bei (16, ~70); auf die Fensterkante zuschneiden
+      // window sits in the iframe at (16, ~70); crop to the window edge
       const s = f.clientWidth / 1280;
       const w = ifr.contentDocument && ifr.contentDocument.querySelector(".window");
       const r = w ? w.getBoundingClientRect() : { left: 16, top: 77 };

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Die TOML-Beispiele in docs/USAGE.md müssen sich laden lassen.
+//! The TOML examples in docs/USAGE.md must load.
 
 use parkett_core::profile::{ExitAction, Profile};
 use parkett_core::template::Template;
@@ -11,7 +11,7 @@ fn blocks(lang: &str) -> Vec<String> {
     DOC.split(fence.as_str()).skip(1).map(|b| b.split("```").next().unwrap().to_string()).collect()
 }
 
-/// Erster TOML-Block, der `marker` enthält (Reihenfolge in der Doku egal).
+/// First TOML block that contains `marker` (order in the docs does not matter).
 fn block_with(marker: &str) -> String {
     blocks("toml").into_iter().find(|b| b.contains(marker)).unwrap_or_else(|| panic!("kein Beispiel mit {marker}"))
 }

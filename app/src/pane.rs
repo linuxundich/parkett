@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Ein Bereich im Split-Baum: das Terminal plus schwebender Titel, Fokuslinie und Abblendung.
+//! A pane in the split tree: the terminal plus floating title, focus line and dimming.
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
@@ -19,14 +19,14 @@ mod imp {
     #[derive(Default)]
     pub struct Pane {
         pub id: Cell<u32>,
-        /// Reiter, dem der Bereich gehört; ändert sich beim Ziehen in einen anderen Reiter
+        /// Tab the pane belongs to; changes when it is dragged into another tab
         pub owner: RefCell<glib::WeakRef<crate::tab::Tab>>,
         pub terminal: OnceCell<Terminal>,
         pub pill: OnceCell<gtk::Box>,
         pub pill_label: OnceCell<gtk::Label>,
         pub focus_line: OnceCell<gtk::Box>,
         pub sync_line: OnceCell<gtk::Box>,
-        /// Zone beim Ablegen eines gezogenen Bereichs
+        /// Zone while dropping a dragged pane
         pub drop_hint: OnceCell<gtk::Box>,
         pub context_line: OnceCell<gtk::DrawingArea>,
         pub multi: Cell<bool>,
@@ -37,16 +37,16 @@ mod imp {
         pub dim: OnceCell<gtk::DrawingArea>,
         pub search: OnceCell<gtk::Revealer>,
         pub badge: OnceCell<gtk::Label>,
-        /// Schloss oben links bei Schreibschutz
+        /// Lock at the top left when read only
         pub lock: OnceCell<gtk::Image>,
         pub search_entry: OnceCell<gtk::SearchEntry>,
         pub search_count: OnceCell<gtk::Label>,
         pub search_case: OnceCell<gtk::ToggleButton>,
         pub search_regex: OnceCell<gtk::ToggleButton>,
         pub search_word: OnceCell<gtk::ToggleButton>,
-        /// Zeiger im oberen Streifen (Design V2: Titel nur dann sichtbar)
+        /// Pointer in the top strip (design V2: title visible only then)
         pub hover_top: Cell<bool>,
-        /// Kurz nach einem Fokuswechsel sichtbar; Quelle des Ausblende-Timers
+        /// Visible briefly after a focus change; source of the hide timer
         pub flash: RefCell<Option<glib::SourceId>>,
     }
 
@@ -88,8 +88,8 @@ impl Pane {
         let overlay = gtk::Overlay::new();
         overlay.set_child(Some(terminal.widget()));
 
-        // Abblendung inaktiver Bereiche: halbtransparente Fläche in der Hintergrundfarbe des
-        // Farbschemas (CSS kennt die Palette nicht, daher selbst gezeichnet)
+        // Dimming of inactive panes: semi-transparent area in the background color of the
+        // color scheme (CSS does not know the palette, hence drawn by hand)
         let dim = gtk::DrawingArea::builder().can_target(false).visible(false).build();
         {
             let t = terminal.downgrade();
@@ -109,7 +109,7 @@ impl Pane {
         });
         overlay.add_overlay(&dim);
 
-        // Fokus: 2 px Akzentlinie oben – nie nur Abblendung (Barrierefreiheit)
+        // Focus: 2 px accent line at the top – never dimming alone (accessibility)
         let focus_line = gtk::Box::builder()
             .css_classes(["parkett-focus-line"])
             .valign(gtk::Align::Start)
@@ -118,7 +118,7 @@ impl Pane {
             .visible(false)
             .build();
         overlay.add_overlay(&focus_line);
-        // gemeinsame Eingabe: kräftige Linie oben, über Fokus- und Kontextlinie
+        // shared input: strong line at the top, above the focus and context lines
         let sync_line = gtk::Box::builder()
             .css_classes(["parkett-sync-line"])
             .valign(gtk::Align::Start)
@@ -128,7 +128,7 @@ impl Pane {
             .tooltip_text(gettext("Shared input"))
             .build();
 
-        // Kontextfarbe (root/SSH): 3 px Linie oben in der Farbe des Schemas
+        // Context color (root/SSH): 3 px line at the top in the scheme's color
         let context_line = gtk::DrawingArea::builder()
             .valign(gtk::Align::Start)
             .height_request(3)
@@ -151,9 +151,9 @@ impl Pane {
         let drop_hint = gtk::Box::builder().css_classes(["parkett-drop-hint"]).can_target(false).visible(false).build();
         overlay.add_overlay(&drop_hint);
 
-        // Breite des Bereichs beobachten: schmale Bereiche blenden den Text des schwebenden
-        // Titels aus, damit er die Prompt-Zeile nicht verdeckt (QA). Unsichtbare Zeichenfläche,
-        // weil AdwBin einen Layout-Manager hat und size_allocate nicht überschreibbar ist.
+        // Watch the pane's width: narrow panes hide the text of the floating
+        // title so it does not cover the prompt line (QA). Invisible drawing area,
+        // because AdwBin has a layout manager and size_allocate cannot be overridden.
         let probe = gtk::DrawingArea::builder().can_target(false).opacity(0.0).build();
         let weak = pane.downgrade();
         probe.connect_resize(move |_, width, _| {
@@ -171,9 +171,9 @@ impl Pane {
         });
         overlay.add_overlay(&probe);
 
-        // Schwebender Titel, nur bei geteilten Tabs (Entscheidung A+: schwebend). Design V2:
-        // normalerweise ausgeblendet, damit er keine Terminalzeile verdeckt (QA-02); sichtbar
-        // kurz nach einem Fokuswechsel und solange der Zeiger im oberen Streifen steht.
+        // Floating title, only in split tabs (decision A+: floating). Design V2:
+        // hidden by default so it does not cover a terminal line (QA-02); visible
+        // briefly after a focus change and while the pointer is in the top strip.
         let pill_label = gtk::Label::builder().ellipsize(gtk::pango::EllipsizeMode::End).max_width_chars(28).build();
         let zoom = gtk::Button::builder()
             .icon_name("parkett-pane-maximize-symbolic")
@@ -212,7 +212,7 @@ impl Pane {
         motion.connect_leave(move |_| set_hover(false));
         overlay.add_controller(motion);
 
-        // Nummer im Layout-Modus (mittig, groß)
+        // Number in layout mode (centered, large)
         let badge = gtk::Label::builder()
             .css_classes(["parkett-badge"])
             .halign(gtk::Align::Center)
@@ -234,9 +234,9 @@ impl Pane {
         overlay.add_overlay(&lock);
         pane.imp().lock.set(lock).ok();
 
-        // Suchleiste oben rechts (ersetzt dort den schwebenden Titel, solange sie offen ist)
+        // Search bar at the top right (replaces the floating title there while it is open)
         let entry = gtk::SearchEntry::builder().placeholder_text(gettext("Search in terminal")).width_chars(22).build();
-        // feste Breite: sonst springt das Suchfeld bei jeder neuen Zahl
+        // fixed width: otherwise the search field jumps with every new count
         let count = gtk::Label::builder()
             .css_classes(["dim-label", "numeric"])
             .width_chars(10)
@@ -290,7 +290,7 @@ impl Pane {
             .build();
         overlay.add_overlay(&search);
 
-        // Titelzeile (Einstellung „Bereichstitel: Als Zeile“) über dem Terminal
+        // Title row (setting "Pane titles in split tabs: As a row") above the terminal
         let row_label =
             gtk::Label::builder().xalign(0.0).hexpand(true).ellipsize(gtk::pango::EllipsizeMode::End).build();
         let row_zoom = gtk::Button::builder().icon_name("parkett-pane-maximize-symbolic").css_classes(["flat"]).build();
@@ -317,7 +317,7 @@ impl Pane {
         pane.set_child(Some(&column));
         pane.imp().row.set(row).ok();
         pane.imp().row_label.set(row_label).ok();
-        // Umschalten schwebend ⇄ Zeile sofort übernehmen
+        // Apply switching floating ⇄ row immediately
         let weak = pane.downgrade();
         let id = crate::settings::settings().connect_changed(Some("pane-title"), move |_, _| {
             if let Some(p) = weak.upgrade() {
@@ -331,7 +331,7 @@ impl Pane {
             }
         });
 
-        // Knöpfe wirken auf diesen Bereich: erst fokussieren, dann die Fensteraktion
+        // Buttons act on this pane: focus it first, then run the window action
         for (button, action) in [(&zoom, "win.toggle-zoom"), (&close, "win.close-pane")] {
             let weak = pane.downgrade();
             button.connect_clicked(move |_| {
@@ -342,7 +342,7 @@ impl Pane {
             });
         }
 
-        // Rechtsklick fokussiert vorher, damit das Kontextmenü für diesen Bereich gilt
+        // Right-click focuses first, so the context menu applies to this pane
         let click = gtk::GestureClick::builder().button(0).propagation_phase(gtk::PropagationPhase::Capture).build();
         let weak = pane.downgrade();
         click.connect_pressed(move |_, _, _, _| {
@@ -362,7 +362,7 @@ impl Pane {
         };
         terminal.connect_state_changed(update.clone());
 
-        // Mindestgröße 20×5 Zellen: Trenner lassen sich nicht weiter schieben
+        // Minimum size 20×5 cells: dividers cannot be pushed further
         let set_min = {
             let weak = pane.downgrade();
             move |v: &vte::Terminal| {
@@ -393,7 +393,7 @@ impl Pane {
         imp.search_regex.set(regex.clone()).ok();
         imp.search_word.set(word.clone()).ok();
 
-        // Suche: bei jeder Änderung neu setzen und vom Ende her den ersten Treffer suchen
+        // Search: set again on every change and look for the first match from the end
         let refresh = {
             let weak = pane.downgrade();
             move || {
@@ -435,7 +435,7 @@ impl Pane {
                 p.hide_search();
             }
         });
-        // Umschalt+Eingabe = Treffer darunter
+        // Shift+Enter = match below
         let keys = gtk::EventControllerKey::new();
         let weak = pane.downgrade();
         keys.connect_key_pressed(move |_, key, _, state| {
@@ -454,12 +454,12 @@ impl Pane {
         pane
     }
 
-    /// Drag & Drop: Titel (schwebend oder Zeile) ziehen, auf einem anderen Bereich desselben
-    /// Reiters ablegen – am Rand daneben einsetzen, in der Mitte tauschen.
+    /// Drag and drop: drag the title (floating or row), drop it on another pane of the same
+    /// tab – at the edge to insert beside it, in the middle to swap.
     fn setup_drag(&self) {
         let imp = self.imp();
-        // am ganzen Titel, nicht nur am Text: In schmalen Bereichen blendet der schwebende
-        // Titel den Text aus. Die Knöpfe bleiben klickbar, gezogen wird erst nach einer Bewegung.
+        // on the whole title, not just the text: in narrow panes the floating title
+        // hides the text. The buttons stay clickable; dragging starts only after a movement.
         let pill: gtk::Widget = imp.pill.get().unwrap().clone().upcast();
         let row: gtk::Widget = imp.row.get().unwrap().clone().upcast();
         for handle in [pill, row] {
@@ -496,7 +496,7 @@ impl Pane {
             let Some(p) = weak.upgrade() else { return false };
             p.show_drop_hint(None);
             let (Ok(key), Some(tab)) = (value.get::<String>(), p.tab()) else { return false };
-            // nur aus demselben Reiter; in andere Reiter über die Reiterleiste (Window)
+            // only from the same tab; into other tabs via the tab bar (Window)
             let Some((from, source)) = parse_drag_key(&key) else { return false };
             if from != tab_key(&tab) {
                 return false;
@@ -506,8 +506,8 @@ impl Pane {
         self.add_controller(target);
     }
 
-    /// Reiter, in dem der Bereich liegt.
-    /// Reiter, dem der Bereich gehört (auch während „Rückgängig“, wenn er nicht angezeigt wird).
+    /// Tab the pane lives in.
+    /// Tab the pane belongs to (also during *Undo*, when it is not shown).
     pub fn tab(&self) -> Option<crate::tab::Tab> {
         self.imp().owner.borrow().upgrade()
     }
@@ -516,7 +516,7 @@ impl Pane {
         *self.imp().owner.borrow_mut() = tab.downgrade();
     }
 
-    /// Zone als halbtransparente Fläche zeigen: Hälfte an der Seite, Mitte zum Tauschen.
+    /// Show the zone as a semi-transparent area: half at the side, middle to swap.
     fn show_drop_hint(&self, zone: Option<DropZone>) {
         let hint = self.imp().drop_hint.get().unwrap();
         let Some(zone) = zone else {
@@ -541,7 +541,7 @@ impl Pane {
         self.imp().id.get()
     }
 
-    /// Neue Id, wenn ein Bereich beim Wiederherstellen einen anderen Platz bekommt.
+    /// New id when a pane gets a different place during restore.
     pub fn set_id(&self, id: u32) {
         self.imp().id.set(id);
     }
@@ -554,7 +554,7 @@ impl Pane {
         self.terminal().vte().grab_focus();
     }
 
-    /// Titel im schwebenden Feld, bei root/SSH mit farbigem Chip davor.
+    /// Title in the floating field, with a colored chip in front for root/SSH.
     fn refresh_title(&self) {
         self.imp().lock.get().unwrap().set_visible(self.terminal().read_only());
         let t = self.terminal();
@@ -580,12 +580,12 @@ impl Pane {
         self.update_visibility();
     }
 
-    /// Linie für die gemeinsame Eingabe: Dieser Bereich empfängt, was man in einen anderen tippt.
+    /// Line for shared input: this pane receives what is typed into another one.
     pub fn set_sync(&self, on: bool) {
         self.imp().sync_line.get().unwrap().set_visible(on);
     }
 
-    /// Nummer im Layout-Modus; `None` blendet sie aus.
+    /// Number in layout mode; `None` hides it.
     pub fn set_badge(&self, number: Option<u32>) {
         let badge = self.imp().badge.get().unwrap();
         match number {
@@ -597,8 +597,8 @@ impl Pane {
         }
     }
 
-    /// Titel-Feld und Linien: Titel bei geteilten Reitern oder Kontext (dann mit Chip),
-    /// Kontextlinie ersetzt die Fokuslinie.
+    /// Title field and lines: title in split tabs or with context (then with chip),
+    /// the context line replaces the focus line.
     pub fn update_visibility(&self) {
         let imp = self.imp();
         let context = self.terminal().context_accent().is_some();
@@ -607,7 +607,7 @@ impl Pane {
         let show = imp.multi.get() || context;
         let pill = imp.pill.get().unwrap();
         pill.set_visible(show && !row_mode && !searching);
-        // Ausgeblendet nimmt er keine Klicks an, sonst lägen unsichtbare Knöpfe über dem Text
+        // When hidden it takes no clicks, otherwise invisible buttons would lie over the text
         let revealed = imp.hover_top.get() || imp.flash.borrow().is_some();
         pill.set_can_target(revealed);
         if revealed {
@@ -623,7 +623,7 @@ impl Pane {
         } else {
             row.remove_css_class("focused");
         }
-        // In der Zeile zeigt die Einfärbung den Fokus; die Linie nur im schwebenden Modus
+        // In the row the tint shows focus; the line only in floating mode
         imp.focus_line.get().unwrap().set_visible(imp.multi.get() && imp.focused.get() && !context && !row_mode);
     }
 
@@ -631,7 +631,7 @@ impl Pane {
         self.imp().search.get().unwrap().is_visible()
     }
 
-    /// Öffnet die Suche; markierter Text wird Suchbegriff.
+    /// Opens the search; selected text becomes the search term.
     pub fn show_search(&self) {
         let imp = self.imp();
         let entry = imp.search_entry.get().unwrap();
@@ -655,7 +655,7 @@ impl Pane {
         search.set_reveal_child(false);
         search.set_visible(false);
         let _ = self.terminal().set_search(None, crate::terminal::SearchQuery::default());
-        // schwebenden Titel wiederherstellen, falls der Reiter geteilt ist
+        // restore the floating title if the tab is split
         let _ = self.activate_action("win.refresh-panes", None);
         self.focus_terminal();
     }
@@ -685,7 +685,7 @@ impl Pane {
         }
     }
 
-    /// Nächster Treffer; öffnet die Suche, wenn sie zu ist.
+    /// Next match; opens the search if it is closed.
     pub fn search_step(&self, up: bool) {
         if !self.search_visible() {
             self.show_search();
@@ -698,7 +698,7 @@ impl Pane {
         }
     }
 
-    /// `multi`: Tab hat mehr als einen sichtbaren Bereich.
+    /// `multi`: tab has more than one visible pane.
     pub fn set_state(&self, focused: bool, multi: bool) {
         let imp = self.imp();
         imp.multi.set(multi);
@@ -719,14 +719,14 @@ impl Pane {
     }
 }
 
-/// Höhe des Streifens oben im Bereich, in dem der Zeiger den Titel einblendet (px).
+/// Height of the strip at the top of the pane where the pointer reveals the title (px).
 const HOVER_STRIP: f64 = 40.0;
-/// So lange bleibt der Titel nach einem Fokuswechsel sichtbar.
+/// How long the title stays visible after a focus change.
 const FLASH: std::time::Duration = std::time::Duration::from_millis(1500);
 
 impl Pane {
-    /// Titel nach einem Fokuswechsel kurz zeigen – nicht, wenn der Cursor in der obersten
-    /// Zeile steht: Dort tippt man gerade, und genau die würde er verdecken.
+    /// Show the title briefly after a focus change – not when the cursor is in the top
+    /// row: that is where one is typing, and exactly that row would be covered.
     fn flash_title(&self) {
         let vte = self.terminal().vte();
         let top = vte.vadjustment().map_or(0.0, |a| a.value());
@@ -746,8 +746,8 @@ impl Pane {
     }
 }
 
-/// Trefferzahl neben dem Suchfeld (QA-19); gezählt beim Ändern der Suche, nicht live bei
-/// neuer Ausgabe.
+/// Match count next to the search field (QA-19); counted when the search changes, not live on
+/// new output.
 fn set_count(label: &gtk::Label, n: Option<usize>) {
     let text = match n {
         None => String::new(),
@@ -760,12 +760,12 @@ fn set_count(label: &gtk::Label, n: Option<usize>) {
     label.set_label(&text);
 }
 
-/// Inhalt beim Ziehen: Reiter (Adresse) und Bereich, damit nur im selben Reiter abgelegt wird.
+/// Drag content: tab (address) and pane, so it can only be dropped in the same tab.
 fn drag_key(tab: &crate::tab::Tab, pane: u32) -> String {
     format!("{}:{pane}", tab_key(tab))
 }
 
-/// (Reiter-Schlüssel, Bereich) aus dem Inhalt beim Ziehen.
+/// (Tab key, pane) from the drag content.
 pub fn parse_drag_key(key: &str) -> Option<(&str, u32)> {
     let (from, id) = key.rsplit_once(':')?;
     from.starts_with("parkett-pane:").then_some(())?;

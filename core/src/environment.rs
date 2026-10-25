@@ -1,25 +1,25 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Umgebung für Shells, die ein zweiter Aufruf öffnet (`FOO=1 parkett --tab`, QA-08).
+//! Environment for shells opened by a second invocation (`FOO=1 parkett --tab`, QA-08).
 //!
-//! Eine laufende Instanz bekommt die Umgebung des Aufrufers über D-Bus mit. Die neue Shell
-//! soll sie haben (venv, `SSH_AUTH_SOCK`, eigenes `PATH`), wie bei GNOME Terminal und Ptyxis –
-//! aber ohne Variablen, die zum Terminal oder Start des Aufrufers gehören.
+//! A running instance receives the caller's environment over D-Bus. The new shell
+//! should get it (venv, `SSH_AUTH_SOCK`, own `PATH`), as in GNOME Terminal and Ptyxis –
+//! but without variables that belong to the caller's terminal or launch.
 
-/// Einzelne Variablen des Aufrufers, die nicht weitergegeben werden.
+/// Individual caller variables that are not passed on.
 const DROP: &[&str] = &[
-    // setzt VTE selbst für dieses Terminal
+    // VTE sets these itself for this terminal
     "TERM",
     "COLORTERM",
     "VTE_VERSION",
     "TERM_PROGRAM",
     "TERM_PROGRAM_VERSION",
     "WINDOWID",
-    // Shell- und Prozesszustand des Aufrufers
+    // shell and process state of the caller
     "PWD",
     "OLDPWD",
     "SHLVL",
     "_",
-    // Start des Aufrufers (Desktop-Datei, Aktivierung, systemd-Unit)
+    // launch of the caller (desktop file, activation, systemd unit)
     "GIO_LAUNCHED_DESKTOP_FILE",
     "GIO_LAUNCHED_DESKTOP_FILE_PID",
     "DESKTOP_STARTUP_ID",
@@ -30,9 +30,9 @@ const DROP: &[&str] = &[
     "MANAGERPID",
 ];
 
-/// Sitzung, in der das Fenster liegt: immer von Parkett, nicht vom Aufrufer. Kommt der
-/// Aufruf aus ssh, cron oder einer systemd-Unit, fehlen sie dort, und grafische Programme
-/// aus dem neuen Reiter starteten nicht.
+/// Session the window lives in: always from Parkett, never from the caller. If the
+/// invocation comes from ssh, cron or a systemd unit, they are missing there, and graphical
+/// programs started from the new tab would not start.
 pub const SESSION: &[&str] = &[
     "WAYLAND_DISPLAY",
     "DISPLAY",
@@ -44,7 +44,7 @@ pub const SESSION: &[&str] = &[
     "DESKTOP_SESSION",
 ];
 
-/// Präfixe von Variablen anderer Terminals, aus denen der Aufruf kommen kann.
+/// Variable prefixes of other terminals the invocation may come from.
 const DROP_PREFIX: &[&str] =
     &["GNOME_TERMINAL_", "PTYXIS_", "KONSOLE_", "TILIX_", "KITTY_", "ALACRITTY_", "WEZTERM_", "GHOSTTY_"];
 
@@ -52,9 +52,9 @@ fn name(entry: &str) -> Option<&str> {
     entry.split_once('=').map(|(k, _)| k).filter(|k| !k.is_empty())
 }
 
-/// Umgebung des Aufrufers ohne die Variablen oben, dazu die Sitzung (`SESSION`) aus `own`,
-/// der Umgebung von Parkett, danach die des Profils (`NAME=wert`; gleiche Namen ersetzen
-/// die vorigen).
+/// Caller environment without the variables above, plus the session (`SESSION`) from `own`,
+/// Parkett's environment, then the profile's (`NAME=value`; equal names replace
+/// earlier ones).
 pub fn for_caller(caller: &[String], own: &[String], profile: &[String]) -> Vec<String> {
     let overridden = |k: &str| profile.iter().any(|p| name(p) == Some(k));
     let session = |k: &str| SESSION.contains(&k);
@@ -109,7 +109,7 @@ mod tests {
 
     #[test]
     fn session_comes_from_parkett() {
-        // Aufruf aus ssh: kein Wayland, fremdes DISPLAY wird ersetzt
+        // invocation from ssh: no Wayland, a foreign DISPLAY is replaced
         let env = for_caller(
             &v(&["DISPLAY=localhost:10.0", "QA=1"]),
             &v(&["WAYLAND_DISPLAY=wayland-0", "DISPLAY=:0", "HOME=/home/parkett", "XDG_RUNTIME_DIR=/run/user/1000"]),

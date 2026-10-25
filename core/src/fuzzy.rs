@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Trefferbewertung für die Befehlspalette: jedes Wort der Anfrage muss im Text vorkommen
-//! (Groß/Klein egal); Treffer am Wortanfang und im Anfang des Textes zählen mehr.
+//! Match scoring for the command palette: every word of the query must occur in the text
+//! (case-insensitive); matches at a word start and at the start of the text count more.
 
-/// Punktzahl oder `None`, wenn nicht jedes Wort vorkommt. Leere Anfrage passt immer (0).
+/// Score, or `None` if not every word occurs. An empty query always matches (0).
 pub fn score(query: &str, text: &str) -> Option<i32> {
     let text_l = text.to_lowercase();
     let mut total = 0;
@@ -14,7 +14,7 @@ pub fn score(query: &str, text: &str) -> Option<i32> {
     Some(total)
 }
 
-/// Präfix der Anfrage für eine Ergebnisart: „>“ Aktionen, „@“ Reiter und Bereiche, „#“ Vorlagen.
+/// Query prefix for a result kind: ">" actions, "@" tabs and panes, "#" templates.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Scope {
     All,
@@ -24,7 +24,7 @@ pub enum Scope {
     Bookmarks,
 }
 
-/// Trennt das Präfix ab: („> teil“) → (Actions, „teil“).
+/// Splits off the prefix: ("> teil") → (Actions, "teil").
 pub fn split_scope(query: &str) -> (Scope, &str) {
     let q = query.trim_start();
     match q.chars().next() {

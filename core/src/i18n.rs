@@ -1,30 +1,30 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Übersetzungen (gettext, Textdomäne „parkett“, gesetzt von der App). Quelltexte sind
-//! englisch, deutsche Texte stehen in po/de.po.
+//! Translations (gettext, text domain "parkett", set by the app). Source strings are
+//! English, German strings live in po/de.po.
 //!
-//! - `gettext("…")` für feste Texte
-//! - `trf("… {name} …", &[("name", wert)])` mit benannten Platzhaltern, damit eine
-//!   Übersetzung die Reihenfolge ändern kann
-//! - `ntrf("{n} pane", "{n} panes", n, &[])` für Einzahl/Mehrzahl
-//! - `N_("…")` markiert Texte in Konstanten; übersetzt wird beim Anzeigen mit `gettext`
+//! - `gettext("…")` for fixed strings
+//! - `trf("… {name} …", &[("name", value)])` with named placeholders, so a
+//!   translation can change the order
+//! - `ntrf("{n} pane", "{n} panes", n, &[])` for singular/plural
+//! - `N_("…")` marks strings in constants; they are translated with `gettext` when shown
 //!
-//! Lange Texte in eine Zeile schreiben (`\n` statt Zeilenfortsetzung): po/extract_rust.py
-//! erkennt nur Aufrufe mit einem einzelnen Literal.
+//! Write long strings on one line (`\n` instead of line continuation): po/extract_rust.py
+//! only recognizes calls with a single literal.
 
 pub use gettextrs::gettext;
 
-/// Markiert einen Text für die Übersetzung, ohne ihn zu übersetzen (für Konstanten).
+/// Marks a string for translation without translating it (for constants).
 #[allow(non_snake_case)]
 pub const fn N_(s: &'static str) -> &'static str {
     s
 }
 
-/// Übersetzt `msgid` und setzt die Werte für `{name}` ein.
+/// Translates `msgid` and fills in the values for `{name}`.
 pub fn trf(msgid: &str, args: &[(&str, &str)]) -> String {
     fill(gettext(msgid), args)
 }
 
-/// Wie `trf` mit Einzahl/Mehrzahl nach `n`; `{n}` wird mit `n` ersetzt.
+/// Like `trf` with singular/plural by `n`; `{n}` is replaced with `n`.
 pub fn ntrf(singular: &str, plural: &str, n: u32, args: &[(&str, &str)]) -> String {
     fill(gettextrs::ngettext(singular, plural, n), args).replace("{n}", &n.to_string())
 }
@@ -42,7 +42,7 @@ mod tests {
 
     #[test]
     fn placeholders() {
-        // ohne Textdomäne liefert gettext den Quelltext
+        // without a text domain gettext returns the source string
         assert_eq!(trf("Bookmark “{name}” added", &[("name", "~/src")]), "Bookmark “~/src” added");
         assert_eq!(trf("{a} {b} {a}", &[("a", "1"), ("b", "2")]), "1 2 1");
         assert_eq!(ntrf("{n} pane", "{n} panes", 3, &[]), "3 panes");

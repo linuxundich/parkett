@@ -5,7 +5,7 @@ desktop_configured = configure_file(
   output: app_id + '.desktop.translated.in',
   configuration: desktop_conf,
 )
-# Übersetzungen aus po/ in Desktop-Datei und Metainfo einsetzen
+# Merge translations from po/ into the desktop file and metainfo
 desktop_file = i18n.merge_file(
   input: desktop_configured,
   output: app_id + '.desktop',
@@ -28,7 +28,7 @@ install_data('icons/hicolor/scalable/apps/' + app_id + '.svg', install_dir: data
 install_data('icons/hicolor/symbolic/apps/' + app_id + '-symbolic.svg', install_dir: datadir / 'icons/hicolor/symbolic/apps')
 install_data('icons/hicolor/scalable/actions/parkett-split-right-symbolic.svg', 'icons/hicolor/scalable/actions/parkett-split-down-symbolic.svg', 'icons/hicolor/scalable/actions/parkett-pane-maximize-symbolic.svg', install_dir: datadir / 'icons/hicolor/scalable/actions')
 
-# Kontextmenü in Nautilus; wirkt nur mit nautilus-python, schadet ohne nicht
+# Nautilus context menu; only works with nautilus-python, harmless without it
 nautilus_ext = configure_file(
   input: 'nautilus/parkett-nautilus.py.in',
   output: 'parkett-nautilus.py',

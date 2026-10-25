@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Sitzung: offene Fenster und Reiter, damit sie nach einem Neustart wiederkommen.
+//! Session: open windows and tabs, so they come back after a restart.
 //!
-//! Ein Reiter wird als [`Template`] gespeichert: Verzeichnis `/`, das Arbeitsverzeichnis je
-//! Bereich als Unterverzeichnis (absoluter Pfad ohne führenden Schrägstrich), keine
-//! Startbefehle – Prozesse kommen nicht zurück, nur Aufteilung, Profile, Verzeichnisse und
-//! eigene Titel. Gespeichert als JSON (`$XDG_STATE_HOME/parkett/session.json`).
+//! A tab is stored as a [`Template`]: directory `/`, the working directory of each
+//! pane as a subdirectory (absolute path without leading slash), no
+//! startup commands – processes do not come back, only arrangement, profiles, directories and
+//! custom titles. Stored as JSON (`$XDG_STATE_HOME/parkett/session.json`).
 
 use std::io;
 use std::path::Path;
@@ -23,12 +23,12 @@ pub struct Session {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct SessionWindow {
-    /// Index des gewählten Reiters
+    /// index of the selected tab
     pub selected: usize,
     pub tabs: Vec<Template>,
 }
 
-/// Angaben eines Bereichs für die Sitzung.
+/// Settings of a pane for the session.
 pub fn pane(profile: &str, cwd: Option<&str>) -> PaneSpec {
     PaneSpec {
         profile: profile.to_string(),
@@ -38,7 +38,7 @@ pub fn pane(profile: &str, cwd: Option<&str>) -> PaneSpec {
 }
 
 impl Session {
-    /// Fehlende oder kaputte Datei = keine Sitzung (`None`); eine neuere Version auch.
+    /// A missing or broken file = no session (`None`); a newer version too.
     pub fn load(path: &Path) -> Option<Session> {
         let text = std::fs::read_to_string(path).ok()?;
         let mut s: Session = serde_json::from_str(&text).ok()?;
@@ -49,8 +49,8 @@ impl Session {
         for w in &mut s.windows {
             w.selected = w.selected.min(w.tabs.len() - 1);
             for t in &mut w.tabs {
-                // Verzeichnis steht immer auf „/“; eine Datei von Hand mit etwas anderem nicht
-                // als Basis für beliebige Orte nutzen
+                // the directory is always "/"; do not use a hand-edited file with something else
+                // as the base for arbitrary locations
                 t.directory = "/".into();
                 for p in t.layout.panes_mut() {
                     p.command.clear();
@@ -60,7 +60,7 @@ impl Session {
         (!s.windows.is_empty()).then_some(s)
     }
 
-    /// Schreibt atomar (temporäre Datei + Umbenennen).
+    /// Writes atomically (temporary file + rename).
     pub fn save(&self, path: &Path) -> io::Result<()> {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;

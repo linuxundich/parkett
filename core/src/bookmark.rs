@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Lesezeichen für Ordner, Befehle und SSH-Ziele (wie Tilix): `~/.config/parkett/bookmarks.toml`,
-//! von Hand bearbeitbar.
+//! Bookmarks for folders, commands and SSH targets (like Tilix): `~/.config/parkett/bookmarks.toml`,
+//! editable by hand.
 //!
 //! ```toml
 //! [[bookmark]]
@@ -23,14 +23,14 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Bookmark {
     pub name: String,
-    /// Ordner; bei Befehl und SSH das Startverzeichnis (leer = wie ein neuer Reiter).
-    /// `~` erlaubt (siehe `paths::expand_home`)
+    /// Folder; for a command or SSH the start directory (empty = like a new tab).
+    /// `~` allowed (see `paths::expand_home`)
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub path: String,
-    /// Befehl, der in die Shell getippt wird – die Shell bleibt danach nutzbar
+    /// Command typed into the shell – the shell stays usable afterwards
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub command: String,
-    /// SSH-Ziel samt Optionen, alles nach `ssh` (z. B. `-p 2222 toff@bender`)
+    /// SSH target with options, everything after `ssh` (e.g. `-p 2222 toff@bender`)
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub host: String,
 }
@@ -53,7 +53,7 @@ impl Bookmark {
         }
     }
 
-    /// Was in die Shell getippt wird; `None` bei einem Ordner.
+    /// What gets typed into the shell; `None` for a folder.
     pub fn shell_line(&self) -> Option<String> {
         match self.kind() {
             Kind::Folder => None,
@@ -69,7 +69,7 @@ struct File {
     bookmarks: Vec<Bookmark>,
 }
 
-/// Liest die Datei; fehlt sie, gibt es keine Lesezeichen.
+/// Reads the file; if it is missing, there are no bookmarks.
 pub fn parse(text: &str) -> Result<Vec<Bookmark>, toml::de::Error> {
     Ok(toml::from_str::<File>(text)?.bookmarks)
 }
@@ -78,8 +78,8 @@ pub fn to_toml(list: &[Bookmark]) -> String {
     toml::to_string_pretty(&File { bookmarks: list.to_vec() }).expect("Lesezeichen lassen sich immer serialisieren")
 }
 
-/// Fügt `path` hinzu (Name = letzter Ordner, `~` für den Persönlichen Ordner); ein Pfad steht
-/// nur einmal in der Liste. `false`, wenn er schon da war.
+/// Adds `path` (name = last folder, `~` for the home folder); a path appears
+/// only once in the list. `false` if it was already there.
 pub fn add(list: &mut Vec<Bookmark>, path: &str, home: &Path) -> bool {
     let shown = crate::paths::tilde(path, home);
     let same = |b: &Bookmark| crate::paths::expand_home(&b.path, home) == crate::paths::expand_home(&shown, home);
@@ -131,7 +131,7 @@ mod tests {
         assert_eq!(list[0].shell_line().as_deref(), Some("journalctl -f"));
         assert_eq!(list[1].kind(), Kind::Remote);
         assert_eq!(list[1].shell_line().as_deref(), Some("ssh -p 2222 toff@bender"));
-        // leere Felder landen nicht in der Datei
+        // empty fields do not end up in the file
         let text = to_toml(&list);
         assert!(!text.contains("path"), "{text}");
         assert_eq!(parse(&text).unwrap(), list);

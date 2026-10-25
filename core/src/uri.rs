@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! `file:`-URIs aus dem Terminal (OSC 7 für das Arbeitsverzeichnis, OSC 8 für Links):
-//! gehören sie zu diesem Rechner, und welcher Pfad steht darin?
+//! `file:` URIs from the terminal (OSC 7 for the working directory, OSC 8 for links):
+//! do they belong to this host, and which path do they contain?
 
-/// `file:/pfad`, `file:///pfad`, `file://localhost/…` oder `file://<host>/…` mit dem eigenen
-/// Rechnernamen `host`. Alles andere stammt z. B. aus einer SSH-Sitzung.
+/// `file:/path`, `file:///path`, `file://localhost/…` or `file://<host>/…` with this
+/// machine's hostname `host`. Anything else comes e.g. from an SSH session.
 pub fn is_local_file(uri: &str, host: &str) -> bool {
     let Some(rest) = uri.get(5..).and_then(|r| r.strip_prefix("//")) else { return true };
     let h = rest.split('/').next().unwrap_or("");
     h.is_empty() || h.eq_ignore_ascii_case("localhost") || h.eq_ignore_ascii_case(host)
 }
 
-/// Lokaler Pfad einer `file:`-URI, Prozent-Kodierung aufgelöst (`%20` → Leerzeichen,
-/// `%C3%9C` → Ü). `None` für fremde Rechner, andere Schemata, leere Pfade und Pfade, die
-/// kein gültiges UTF-8 ergeben.
+/// Local path of a `file:` URI, percent-encoding decoded (`%20` → space,
+/// `%C3%9C` → Ü). `None` for other hosts, other schemes, empty paths and paths that
+/// do not yield valid UTF-8.
 pub fn local_path(uri: &str, host: &str) -> Option<String> {
     if !uri.get(..5).is_some_and(|s| s.eq_ignore_ascii_case("file:")) || !is_local_file(uri, host) {
         return None;
@@ -22,7 +22,7 @@ pub fn local_path(uri: &str, host: &str) -> Option<String> {
         Some(r) => &r[r.find('/')?..],
         None => rest,
     };
-    // Abfrage und Fragment gehören nicht zum Pfad
+    // query and fragment are not part of the path
     let path = path.split(['?', '#']).next().unwrap_or("");
     let decoded = percent_decode(path)?;
     (decoded.starts_with('/') && !decoded.contains('\0')).then_some(decoded)
@@ -67,7 +67,7 @@ mod tests {
 
     #[test]
     fn rejects_foreign_and_broken() {
-        // OSC 7 aus einer SSH-Sitzung: Pfad gehört dem Server (QA-06)
+        // OSC 7 from an SSH session: the path belongs to the server (QA-06)
         assert_eq!(local_path("file://entfernter-server/etc", "rechner"), None);
         assert_eq!(local_path("https://example.org/etc", "rechner"), None);
         assert_eq!(local_path("file:///tmp/%ZZ", "rechner"), None);

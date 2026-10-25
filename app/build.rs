@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Kompiliert das GSettings-Schema nach $OUT_DIR/schemas und die Übersetzungen nach
-//! $OUT_DIR/locale, damit `cargo run` ohne Installation funktioniert. Ein Meson-Build
-//! (PARKETT_INSTALLED, PARKETT_LOCALEDIR gesetzt) nutzt die installierten Dateien.
+//! Compiles the GSettings schema to $OUT_DIR/schemas and the translations to
+//! $OUT_DIR/locale, so that `cargo run` works without installing. A Meson build
+//! (PARKETT_INSTALLED, PARKETT_LOCALEDIR set) uses the installed files.
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -18,7 +18,7 @@ fn main() {
     compile_translations(&PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR")));
 }
 
-/// po/*.po → $OUT_DIR/locale/<sprache>/LC_MESSAGES/parkett.mo (fehlt msgfmt: ohne Übersetzung)
+/// po/*.po → $OUT_DIR/locale/<lang>/LC_MESSAGES/parkett.mo (without msgfmt: no translations)
 fn compile_translations(out_dir: &std::path::Path) {
     println!("cargo:rerun-if-changed=../po");
     println!("cargo:rerun-if-env-changed=PARKETT_LOCALEDIR");

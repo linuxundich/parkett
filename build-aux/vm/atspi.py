@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Fragt Parkett über AT-SPI ab (in der Test-VM, für smoke.sh).
+"""Queries Parkett via AT-SPI (in the test VM, for smoke.sh).
 
-  atspi.py tabs              Reiter-Namen, einer je Zeile
-  atspi.py focused           Rolle und Name des Elements mit Fokus
-  atspi.py texts             letzte Zeile mit Text je Terminal (Bereiche in Baumreihenfolge)
-  atspi.py press NAME [ROLE] erste Aktion des ersten Elements mit diesem Namen
-                             (ROLE mit _ statt Leerzeichen, z. B. toggle_button)
+  atspi.py tabs              tab names, one per line
+  atspi.py focused           role and name of the focused element
+  atspi.py texts             last lines with text per terminal (panes in tree order)
+  atspi.py press NAME [ROLE] first action of the first element with this name
+                             (ROLE with _ instead of spaces, e.g. toggle_button)
 """
 import sys
 
@@ -27,7 +27,7 @@ def nodes():
                 c = o.get_child_at_index(i)
                 if c:
                     walk(c)
-        except Exception:  # Elemente verschwinden während des Durchlaufs
+        except Exception:  # elements vanish during the walk
             pass
 
     for i in range(desktop.get_child_count()):
@@ -40,7 +40,7 @@ def nodes():
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     if cmd == "tabs":
-        # Seiten der Reiterleiste: Name beginnt mit der Nummer („1 bash · ~“)
+        # Pages of the tab bar: the name starts with the number ("1 bash · ~")
         for o in nodes():
             name = o.get_name() or ""
             if o.get_role_name() == "panel" and name[:1].isdigit() and " " in name:
@@ -62,7 +62,7 @@ def main():
             if o.get_name() == name and (role is None or o.get_role_name() == role):
                 Atspi.Action.do_action(o, 0)
                 return
-        sys.exit(f"nicht gefunden: {name}")
+        sys.exit(f"not found: {name}")
     else:
         sys.exit(__doc__)
 

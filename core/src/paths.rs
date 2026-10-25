@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Pfade in Profilen und Vorlagen: `~` auflösen und anzeigen, Unterverzeichnisse anhängen;
-//! Dateien atomar und nur für den Benutzer lesbar schreiben.
+//! Paths in profiles and templates: resolve and display `~`, append subdirectories;
+//! write files atomically and readable only by the user.
 
 use std::io::{self, Write};
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Component, Path, PathBuf};
 
-/// Schreibt atomar (temporäre Datei `tmp` + Umbenennen) mit Modus 0600 – unabhängig von der
-/// umask, denn Profile können in Umgebungsvariablen Zugangsdaten tragen (R-12).
+/// Writes atomically (temporary file `tmp` + rename) with mode 0600 – regardless of the
+/// umask, because profiles can carry credentials in environment variables (R-12).
 pub fn write_private(tmp: &Path, target: &Path, contents: &str) -> io::Result<()> {
-    // Reste eines abgebrochenen Laufs hätten noch den alten Modus; `mode` gilt nur beim Anlegen
+    // leftovers of an aborted run would still have the old mode; `mode` only applies on creation
     let _ = std::fs::remove_file(tmp);
     let mut f = std::fs::OpenOptions::new().write(true).create_new(true).mode(0o600).open(tmp)?;
     f.write_all(contents.as_bytes())?;
@@ -17,7 +17,7 @@ pub fn write_private(tmp: &Path, target: &Path, contents: &str) -> io::Result<()
     std::fs::rename(tmp, target)
 }
 
-/// `~` und `~/…` gegen `home` auflösen; `~name` bleibt (fremder Benutzer, nicht unterstützt).
+/// Resolve `~` and `~/…` against `home`; `~name` stays (other user, not supported).
 pub fn expand_home(dir: &str, home: &Path) -> PathBuf {
     match dir.strip_prefix('~') {
         Some("") => home.to_path_buf(),
@@ -26,7 +26,7 @@ pub fn expand_home(dir: &str, home: &Path) -> PathBuf {
     }
 }
 
-/// Umkehrung für die Anzeige: `$HOME/x` → `~/x`.
+/// Inverse for display: `$HOME/x` → `~/x`.
 pub fn tilde(path: &str, home: &Path) -> String {
     match home.to_str() {
         Some(h) if path == h => "~".into(),
@@ -35,12 +35,12 @@ pub fn tilde(path: &str, home: &Path) -> String {
     }
 }
 
-/// Pfad aus der Ausgabe (Strg+Klick): `:Zeile` und `:Zeile:Spalte` am Ende entfallen,
-/// `~` wird zum Persönlichen Ordner, `./` und `../` gelten relativ zu `cwd`. Ohne bekanntes
-/// Verzeichnis gibt es für relative Pfade kein Ziel.
+/// Path from the output (Ctrl+click): a trailing `:line` or `:line:column` is dropped,
+/// `~` becomes the home folder, `./` and `../` are relative to `cwd`. Without a known
+/// directory, relative paths have no target.
 pub fn output_path(text: &str, cwd: Option<&str>, home: &Path) -> Option<PathBuf> {
     let mut t = text.trim();
-    // „src/main.rs:42:7“ aus Compiler-Meldungen
+    // "src/main.rs:42:7" from compiler messages
     for _ in 0..2 {
         if let Some((head, tail)) = t.rsplit_once(':') {
             if !tail.is_empty() && tail.chars().all(|c| c.is_ascii_digit()) {
@@ -60,7 +60,7 @@ pub fn output_path(text: &str, cwd: Option<&str>, home: &Path) -> Option<PathBuf
     } else {
         return None;
     };
-    // „..“ und „.“ auflösen, ohne das Dateisystem zu fragen
+    // resolve ".." and "." without asking the file system
     let mut out = PathBuf::new();
     for c in path.components() {
         match c {
@@ -74,8 +74,8 @@ pub fn output_path(text: &str, cwd: Option<&str>, home: &Path) -> Option<PathBuf
     Some(out)
 }
 
-/// Unterverzeichnis einer Vorlage an `base` hängen. Nur relative Pfade ohne „..“ – sonst
-/// könnte eine Vorlage ihre Bereiche an beliebigen Orten starten; dann bleibt es bei `base`.
+/// Append a template's subdirectory to `base`. Only relative paths without ".." – otherwise
+/// a template could start its panes anywhere; in that case it stays at `base`.
 pub fn join_subdir(base: &Path, sub: &str) -> PathBuf {
     let sub = sub.trim();
     let p = Path::new(sub);

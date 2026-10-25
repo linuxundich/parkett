@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Einstellungsdialog (AdwPreferencesDialog): Seiten „Allgemein“ und „Profile“.
-//! Änderungen gelten sofort (GNOME-Stil); ein gewähltes Farbschema färbt laufende
-//! Terminals des Profils gleich mit um (Live-Vorschau).
+//! Preferences dialog (AdwPreferencesDialog): pages "General" and "Profiles".
+//! Changes apply immediately (GNOME style); a chosen color scheme recolors running
+//! terminals of the profile right away (live preview).
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -235,11 +235,10 @@ fn profiles_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
     page
 }
 
-/// Ändert das gespeicherte Profil `id` und speichert sofort.
-/// Trennt einen Handler an einem Objekt, das so lange lebt wie die App (ProfileManager,
-/// GSettings), spätestens wenn `owner` zerstört wird; die zurückgegebene Funktion trennt
-/// früher (bei „closed“ bzw. „hidden“), aber nur einmal. Endet der Dialog anders, etwa mit
-/// dem Fenster, hielte der Handler sonst Gruppen und Zeilen fest (L1).
+/// Disconnects a handler on an object that lives as long as the app (ProfileManager,
+/// GSettings), at the latest when `owner` is destroyed; the returned function disconnects
+/// earlier (on `closed` or `hidden`), but only once. If the dialog ends otherwise, e.g. with
+/// the window, the handler would keep groups and rows alive (L1).
 fn release_on_destroy(
     owner: &impl IsA<gtk::Widget>,
     source: &impl IsA<glib::Object>,
@@ -260,7 +259,7 @@ fn update(dialog: &adw::PreferencesDialog, id: &str, f: impl FnOnce(&mut Profile
     let manager = ProfileManager::get();
     let mut p = manager.profile(id);
     if p.id != id {
-        return; // inzwischen gelöscht
+        return; // deleted in the meantime
     }
     f(&mut p);
     if let Err(e) = manager.save(&p) {
@@ -268,14 +267,14 @@ fn update(dialog: &adw::PreferencesDialog, id: &str, f: impl FnOnce(&mut Profile
     }
 }
 
-/// `new`: frisch angelegt – dann bleibt der Name markiert, um ihn gleich zu überschreiben.
+/// `new`: freshly created – then the name stays selected so it can be overwritten right away.
 fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::NavigationPage {
     let manager = ProfileManager::get();
     let profile = manager.profile(id);
     let id = profile.id.clone();
     let page = adw::PreferencesPage::new();
 
-    // Allgemein
+    // General
     let general = adw::PreferencesGroup::new();
     let name = adw::EntryRow::builder().title(gettext("Name")).text(&profile.name).build();
     let d = dialog.downgrade();
@@ -304,7 +303,7 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
     general.add(&default);
     page.add(&general);
 
-    // Farbschema als Kacheln
+    // Color scheme as tiles
     let import = gtk::Button::builder()
         .label(gettext("Import…"))
         .css_classes(["flat"])
@@ -364,8 +363,8 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
         }
     });
     let handler = ProfileManager::get().connect_changed({
-        // nach Import neu füllen (Anzahl der Paletten geändert), sonst nur die Auswahl
-        // an das Profil angleichen – Import und Profilwechsel kommen als zwei Änderungen
+        // refill after an import (number of palettes changed), otherwise just sync the selection
+        // with the profile – import and profile switch arrive as two changes
         let fill = fill.clone();
         let flow = flow.downgrade();
         let id = id.clone();
@@ -428,7 +427,7 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
         });
     });
 
-    // Schrift, Cursor, Glocke
+    // Font, cursor, bell
     let look = adw::PreferencesGroup::builder().title(gettext("Font and cursor")).build();
     let system_font = adw::SwitchRow::builder()
         .title(gettext("Use system font"))
@@ -436,7 +435,7 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
         .active(profile.font.trim().is_empty())
         .build();
     let font_dialog = gtk::FontDialog::builder().title(gettext("Terminal font")).modal(true).build();
-    // nur Festbreitenschriften anbieten
+    // only offer monospace fonts
     font_dialog.set_filter(Some(&gtk::CustomFilter::new(|item| {
         item.downcast_ref::<pango::FontFamily>().is_none_or(|f| f.is_monospace())
     })));
@@ -513,7 +512,7 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
         }
     });
     look.add(&scrollbar);
-    // Textoptionen (Tilix: Fett als hell, Abstände, Bildlauf)
+    // Text options (Tilix: bold as bright, spacing, scrolling)
     let switch = |title: &str, subtitle: &str, on: bool, set: fn(&mut Profile, bool)| {
         let row = adw::SwitchRow::builder().title(title).subtitle(subtitle).active(on).build();
         let d = dialog.downgrade();
@@ -596,7 +595,7 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
     ));
     page.add(&look);
 
-    // Start
+    // Startup
     let start = adw::PreferencesGroup::builder().title(gettext("Startup")).build();
     let login = adw::SwitchRow::builder().title(gettext("Run as login shell")).active(profile.login_shell).build();
     let d = dialog.downgrade();
@@ -625,7 +624,7 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
         row.connect_changed(move |e| {
             let text = e.text().to_string();
             let Some(d) = d.upgrade() else { return };
-            // Umgebung: halb getippte Anführungszeichen nicht als „keine Variablen“ speichern
+            // Environment: do not save half-typed quotes as "no variables"
             let env = if which == 2 && !text.trim().is_empty() {
                 match glib::shell_parse_argv(text.trim()) {
                     Ok(v) => v.into_iter().map(|s| s.to_string_lossy().into_owned()).collect(),
@@ -651,7 +650,7 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
     start.add(&env);
     page.add(&start);
 
-    // Automatischer Wechsel: Aussehen dieses Profils für bestimmte Rechner und Ordner
+    // Automatic switching: appearance of this profile for specific hosts and directories
     let auto = adw::PreferencesGroup::builder()
         .title(gettext("Use automatically"))
         .description(gettext("Panes show the color scheme, font and opacity of this profile while a rule matches – for example while “ssh bender” is running. Separate several entries with commas, * as wildcard."))
@@ -682,7 +681,7 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
 
     page.add(&custom_links_group(dialog, &id));
 
-    // eigene Vorlage für den Reiter-Namen (leer = Einstellung unter Allgemein)
+    // custom template for the tab name (empty = setting under General)
     let tab_label = adw::EntryRow::builder()
         .title(gettext("Tab name template (empty = preferences)"))
         .text(profile.tab_label.as_str())
@@ -700,7 +699,7 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
     labels.add(&tab_label);
     page.add(&labels);
 
-    // Prozessende
+    // Process exit
     let end = adw::PreferencesGroup::new();
     let exit = adw::ComboRow::builder()
         .title(gettext("When the process exits"))
@@ -730,7 +729,7 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
     end.add(&exit);
     page.add(&end);
 
-    // Löschen
+    // Delete
     let danger = adw::PreferencesGroup::new();
     let delete = gtk::Button::builder()
         .label(gettext("Delete profile"))
@@ -745,9 +744,9 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
     toolbar.add_top_bar(&adw::HeaderBar::new());
     toolbar.set_content(Some(&page));
     let nav = adw::NavigationPage::builder().title(profile.name.as_str()).child(&toolbar).build();
-    // Beim Öffnen landet der Fokus im Namensfeld, der Name ist markiert: ein Tastendruck
-    // überschriebe ihn, und gespeichert wird sofort (QA-16). Bei einem vorhandenen Profil
-    // die Markierung aufheben, Schreibmarke ans Ende.
+    // On open, focus lands in the name field with the name selected: one key press
+    // would overwrite it, and saving is immediate (QA-16). For an existing profile
+    // clear the selection and put the cursor at the end.
     if !new {
         let name = name.clone();
         nav.connect_shown(move |_| {
@@ -772,8 +771,8 @@ fn profile_editor(dialog: &adw::PreferencesDialog, id: &str, new: bool) -> adw::
     nav
 }
 
-/// Kachel: links helle, rechts dunkle Fassung, darunter der Name. Der Widget-Name trägt die
-/// Paletten-Id, damit die Auswahl sie ohne Nachschlagen kennt.
+/// Tile: light variant on the left, dark on the right, the name below. The widget name carries the
+/// palette id, so the selection knows it without a lookup.
 fn scheme_tile(pal: &Palette) -> gtk::Box {
     let preview =
         gtk::DrawingArea::builder().content_width(132).content_height(64).css_classes(["parkett-tile-preview"]).build();
@@ -801,7 +800,7 @@ fn scheme_tile(pal: &Palette) -> gtk::Box {
     tile
 }
 
-/// Zeichnet eine Fassung: Hintergrund, eine „Textzeile“ in Vordergrundfarbe und Farbfelder.
+/// Draws one variant: background, a "text line" in the foreground color and color swatches.
 fn draw_face(cr: &gtk::cairo::Context, face: &Face, x: f64, w: f64, h: f64) {
     let set = |c: &parkett_core::palette::Rgb| {
         let (r, g, b) = c.to_f64();
@@ -827,7 +826,7 @@ fn draw_face(cr: &gtk::cairo::Context, face: &Face, x: f64, w: f64, h: f64) {
     let _ = cr.fill();
 }
 
-/// Zeile, Kürzel-Anzeige und Aktion einer Zeile auf der Kürzel-Seite.
+/// Row, shortcut label and action of a row on the shortcuts page.
 type ShortcutRow = (adw::ActionRow, gtk::Label, &'static str);
 
 fn shortcuts_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
@@ -879,8 +878,8 @@ fn shortcuts_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
     page
 }
 
-/// Nimmt eine neue Tastenkombination auf. Esc bricht ab, Rücktaste schaltet das Kürzel aus.
-/// Während der Aufnahme sind Fenster- und App-Kürzel abgeschaltet, sonst lösten sie aus.
+/// Records a new key combination. Esc cancels, Backspace disables the shortcut.
+/// During recording, window and app shortcuts are disabled, otherwise they would fire.
 fn capture_shortcut(prefs: &adw::PreferencesDialog, action: &'static str) {
     use crate::shortcuts;
     let Some(entry) = shortcuts::entry(action) else { return };
@@ -960,11 +959,11 @@ fn capture_shortcut(prefs: &adw::PreferencesDialog, action: &'static str) {
     dialog.present(Some(prefs));
 }
 
-/// Funktion, die eine Liste neu aufbaut; von ihren eigenen Knöpfen aus aufrufbar.
+/// Function that rebuilds a list; callable from its own buttons.
 type Refill = Rc<RefCell<Option<Rc<dyn Fn()>>>>;
 
-/// Eigene Links des Profils (Tilix „Custom Hyperlinks“): je Eintrag Ausdruck und Ziel.
-/// Jede Änderung wird sofort gespeichert; Hinzufügen und Löschen bauen die Liste neu auf.
+/// Custom links of the profile (Tilix "Custom Hyperlinks"): pattern and target per entry.
+/// Every change is saved immediately; adding and deleting rebuild the list.
 fn custom_links_group(dialog: &adw::PreferencesDialog, id: &str) -> adw::PreferencesGroup {
     let add = gtk::Button::builder()
         .icon_name("list-add-symbolic")
@@ -1049,7 +1048,7 @@ fn custom_links_group(dialog: &adw::PreferencesDialog, id: &str) -> adw::Prefere
                             p.links.remove(n);
                         }
                     });
-                    // nach dem Klick neu aufbauen, nicht mitten im Signal des Knopfs
+                    // rebuild after the click, not in the middle of the button's signal
                     let fill = fill.clone();
                     glib::idle_add_local_once(move || {
                         if let Some(f) = fill.borrow().clone() {
@@ -1057,7 +1056,7 @@ fn custom_links_group(dialog: &adw::PreferencesDialog, id: &str) -> adw::Prefere
                         }
                     });
                 });
-                // Abstand zwischen den Einträgen: jedes Paar in einer eigenen Liste
+                // spacing between entries: each pair in its own list
                 let pair = gtk::ListBox::builder()
                     .css_classes(["boxed-list"])
                     .selection_mode(gtk::SelectionMode::None)
@@ -1078,7 +1077,7 @@ fn custom_links_group(dialog: &adw::PreferencesDialog, id: &str) -> adw::Prefere
         let Some(d) = d.upgrade() else { return };
         update(&d, &i, |p| p.links.push(Default::default()));
         f();
-        // Fokus ins neue Feld
+        // focus into the new field
         if let Some(pair) = rows.borrow().last().and_then(|w| w.first_child()) {
             pair.grab_focus();
         }
@@ -1086,18 +1085,18 @@ fn custom_links_group(dialog: &adw::PreferencesDialog, id: &str) -> adw::Prefere
     if let Some(f) = fill.borrow().clone() {
         f();
     }
-    // fill hält sich über die Knöpfe selbst fest; mit der Gruppe auflösen
+    // fill holds itself via the buttons; release it together with the group
     group.connect_destroy(move |_| {
         fill.borrow_mut().take();
     });
     group
 }
 
-/// Lesezeichen umbenennen, sortieren, löschen und Ordner hinzufügen. Jede Änderung wird
-/// sofort gespeichert; die Liste wird danach neu aufgebaut.
+/// Rename, sort and delete bookmarks and add folders. Every change is
+/// saved immediately; the list is rebuilt afterwards.
 fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
     let page = adw::PreferencesPage::builder().title(gettext("Bookmarks")).icon_name("user-bookmarks-symbolic").build();
-    // ein „+“ mit Auswahl: zwei Knöpfe nebeneinander ließen der Beschreibung kaum Platz
+    // one "+" with a choice: two buttons side by side would leave the description little room
     let add = gtk::Button::builder().label(gettext("Add folder…")).css_classes(["flat"]).build();
     let add_command = gtk::Button::builder().label(gettext("Add command…")).css_classes(["flat"]).build();
     let choices = gtk::Box::builder().orientation(gtk::Orientation::Vertical).build();
@@ -1126,7 +1125,7 @@ fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
         .build();
     page.add(&group);
     let rows: Rc<RefCell<Vec<gtk::Widget>>> = Rc::default();
-    // Fehler beim Speichern als Einblendung im Dialog
+    // errors while saving as a toast in the dialog
     let store = {
         let dialog = dialog.downgrade();
         move |list: &[parkett_core::bookmark::Bookmark]| {
@@ -1164,7 +1163,7 @@ fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
             }
             let n = list.len();
             for (i, b) in list.iter().enumerate() {
-                // Name bearbeitbar, Pfad bzw. Befehl als Überschrift
+                // name editable, path or command as title
                 let row =
                     adw::EntryRow::builder().title(crate::bookmarks::detail(b).as_str()).text(b.name.as_str()).build();
                 row.add_prefix(&gtk::Image::from_icon_name(crate::bookmarks::icon(b)));
@@ -1206,7 +1205,7 @@ fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
                             d => list.swap(i, (i as i32 + d) as usize),
                         }
                         store(&list);
-                        // nach dem Klick neu aufbauen, nicht mitten im Signal des Knopfs
+                        // rebuild after the click, not in the middle of the button's signal
                         let fill = fill.clone();
                         glib::idle_add_local_once(move || {
                             if let Some(f) = fill.borrow().clone() {
@@ -1224,7 +1223,7 @@ fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
     let f: Rc<dyn Fn()> = Rc::new(f);
     *fill.borrow_mut() = Some(f.clone());
     f();
-    // fill hält sich über die Knöpfe selbst fest; mit der Seite auflösen
+    // fill holds itself via the buttons; release it together with the page
     page.connect_destroy(move |_| {
         fill.borrow_mut().take();
     });
@@ -1257,7 +1256,7 @@ fn bookmarks_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
     page
 }
 
-/// Befehl oder SSH-Ziel als Lesezeichen: Art, Name, Befehl bzw. Ziel.
+/// Command or SSH target as a bookmark: kind, name, command or target.
 fn add_command_bookmark(prefs: &adw::PreferencesDialog, refill: Rc<dyn Fn()>) {
     let kind = adw::ComboRow::builder()
         .title(gettext("Type"))
@@ -1375,7 +1374,7 @@ fn templates_page(dialog: &adw::PreferencesDialog) -> adw::PreferencesPage {
                 let dialog = dialog.clone();
                 row.connect_activated(move |_| {
                     let Some(d) = dialog.upgrade() else { return };
-                    // inzwischen gelöscht (z. B. aus einem zweiten Fenster)?
+                    // deleted in the meantime (e.g. from a second window)?
                     match template_editor(&d, &id) {
                         Some(page) => d.push_subpage(&page),
                         None => d.add_toast(crate::window::plain_toast(&gettext("The template no longer exists"))),
@@ -1434,7 +1433,7 @@ fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::Nav
     general.add(&dir);
     page.add(&general);
 
-    // Vorschau der Aufteilung mit Nummern
+    // preview of the layout with numbers
     let preview = gtk::DrawingArea::builder().content_height(140).css_classes(["parkett-tile-preview"]).build();
     preview.set_overflow(gtk::Overflow::Hidden);
     let (layout, specs) = template.instantiate();
@@ -1453,7 +1452,7 @@ fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::Nav
             let _ = cr.show_text(&format!("{}  {}", n + 1, names.get(n).map(String::as_str).unwrap_or("")));
         }
     });
-    // Aufteilung ändern: je Bereich teilen/entfernen, hier angleichen; danach die Seite neu
+    // change the layout: split/remove per pane, equalize here; then rebuild the page
     let equalize =
         gtk::Button::builder().label(gettext("Equalize")).css_classes(["flat"]).valign(gtk::Align::Center).build();
     let pg = adw::PreferencesGroup::builder()
@@ -1470,7 +1469,7 @@ fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::Nav
             let Some(d) = d.upgrade() else { return };
             update_template(&d, &i, |t| f(&mut t.layout));
             let (d2, i2) = (d.clone(), i.clone());
-            // neu aufbauen nach dem Klick, nicht mitten im Signal des Knopfs
+            // rebuild after the click, not in the middle of the button's signal
             glib::idle_add_local_once(move || {
                 d2.pop_subpage();
                 if let Some(page) = template_editor(&d2, &i2) {
@@ -1585,7 +1584,7 @@ fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::Nav
     toolbar.add_top_bar(&adw::HeaderBar::new());
     toolbar.set_content(Some(&page));
     let nav = adw::NavigationPage::builder().title(template.name.as_str()).child(&toolbar).build();
-    // wie bei Profilen (QA-16): Name nicht markiert, sonst überschreibt ihn ein Tastendruck
+    // as with profiles (QA-16): name not selected, otherwise one key press overwrites it
     nav.connect_shown(move |_| {
         let name = name.clone();
         glib::idle_add_local_once(move || {
@@ -1596,7 +1595,7 @@ fn template_editor(dialog: &adw::PreferencesDialog, id: &str) -> Option<adw::Nav
     Some(nav)
 }
 
-/// Auswahlzeile für ein Profilfeld; `set` bekommt den gewählten Index.
+/// Choice row for a profile field; `set` receives the selected index.
 fn choice_row(
     dialog: &adw::PreferencesDialog,
     id: &str,

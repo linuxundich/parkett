@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Ein Terminal-Bereich: VTE-Widget, Shell-Prozess und die Leiste „Prozess beendet“.
+//! A terminal pane: VTE widget, shell process and the "Process exited" bar.
 //!
-//! Zustand (Titel, Verzeichnis) kommt aus den VTE-Termprops (`xterm.title`, `vte.cwd`),
-//! nicht aus den seit VTE 0.78 veralteten Signalen.
+//! State (title, directory) comes from the VTE termprops (`xterm.title`, `vte.cwd`),
+//! not from the signals deprecated since VTE 0.78.
 
 use std::cell::{Cell, RefCell};
 use std::os::fd::AsRawFd;
@@ -22,7 +22,7 @@ use parkett_core::profile::{Bell, CursorBlink, CursorShape, ExitAction, Profile}
 use crate::i18n::{gettext, ntrf, trf, N_};
 use crate::profiles::ProfileManager;
 
-/// Kleinste sinnvolle Größe eines Bereichs in Zellen (siehe docs/ANALYSIS.md, Funktionsmatrix).
+/// Smallest sensible size of a pane in cells (see docs/ANALYSIS.md, feature matrix).
 pub const MIN_COLUMNS: i64 = 20;
 pub const MIN_ROWS: i64 = 5;
 
@@ -43,66 +43,66 @@ struct Inner {
     started_at: Cell<Option<Instant>>,
     background: Cell<Rgb>,
     on_colors_changed: RefCell<Vec<Callback>>,
-    /// Link unter dem Zeiger beim Rechtsklick (für „Link öffnen/kopieren“ im Kontextmenü)
+    /// Link under the pointer at right-click (for *Open link*/*Copy link* in the context menu)
     menu_link: RefCell<Option<String>>,
-    /// eigener Link des Profils unter dem Zeiger beim Rechtsklick
+    /// custom link of the profile under the pointer at right-click
     menu_custom: RefCell<Option<LinkAction>>,
-    /// eigene Links des Profils mit ihrem VTE-Tag
+    /// custom links of the profile with their VTE tag
     custom_links: RefCell<Vec<(i32, CustomLink)>>,
     actions: gio::SimpleActionGroup,
     shortcut_controller: RefCell<Option<gtk::ShortcutController>>,
-    /// Text, der nach dem Start in die Shell getippt wird (Startbefehl einer Vorlage)
+    /// Text typed into the shell after start (startup command of a template)
     pending_input: RefCell<Option<String>>,
-    /// letzte Ausgabe im Terminal (Startbefehl erst, wenn sie ruht, R-09)
+    /// last output in the terminal (startup command only once it is quiet, R-09)
     last_output: Cell<Instant>,
-    /// root/SSH im Vordergrund (Kontextfarbe)
+    /// root/SSH in the foreground (context color)
     context: RefCell<Context>,
-    /// Akzentfarbe des Kontexts für Linie und Chip
+    /// Accent color of the context for line and chip
     accent: Cell<Option<(Rgb, Rgb)>>,
     child_pid: Cell<Option<glib::Pid>>,
     exit: Cell<Option<ExitStatus>>,
     on_state_changed: RefCell<Vec<Callback>>,
-    /// Eingabe des Nutzers (Tasten, Einfügen), für die gemeinsame Eingabe im Reiter
+    /// User input (keys, paste), for the shared input in the tab
     on_input: RefCell<Vec<InputCallback>>,
-    /// von der gemeinsamen Eingabe des Reiters ausgenommen
+    /// excluded from the tab's shared input
     sync_excluded: Cell<bool>,
-    /// Profil, dessen Aussehen gerade gilt (automatischer Wechsel nach Rechner/Ordner)
+    /// Profile whose appearance currently applies (automatic switch by host/folder)
     appearance: RefCell<String>,
-    /// Überwachen wie Tilix: neue Ausgabe bzw. Ruhe melden, wenn der Bereich nicht zu sehen ist
+    /// Monitor like Tilix: report new output or silence when the pane is not visible
     monitor_activity: Cell<bool>,
     monitor_silence: Cell<bool>,
-    /// Aktivität schon gemeldet; wieder scharf, sobald man den Bereich sieht
+    /// Activity already reported; armed again as soon as the pane is seen
     activity_reported: Cell<bool>,
     silence_timer: RefCell<Option<glib::SourceId>>,
     on_close: RefCell<Vec<Callback>>,
-    /// Glocke oder Befehlsende, seit der Reiter zuletzt angesehen wurde
+    /// Bell or command end since the tab was last viewed
     attention: Cell<bool>,
-    /// fortlaufende Nummer, um das Terminal aus einer Benachrichtigung wiederzufinden
+    /// sequential number to find the terminal again from a notification
     uid: u64,
-    /// Start des laufenden Befehls (Termprop vte.shell.preexec aus vte.sh)
+    /// Start of the running command (termprop vte.shell.preexec from vte.sh)
     command_started: Cell<Option<Instant>>,
-    /// Name des laufenden Befehls, sekündlich gemerkt (für die Benachrichtigung)
+    /// Name of the running command, remembered every second (for the notification)
     command_name: RefCell<Option<String>>,
-    /// Programm im kurzen Reiter-Label, zuletzt gemeldet (QA-17)
+    /// Program in the short tab label, last reported (QA-17)
     label_program: RefCell<Option<String>>,
-    /// nächste Abfrage des Vordergrundprozesses (`watch_context`)
+    /// next poll of the foreground process (`watch_context`)
     poll_source: RefCell<Option<glib::SourceId>>,
-    /// vorgezogene Abfrage nach Ausgabe oder Shell-Marke (`poll_soon`)
+    /// early poll after output or a shell mark (`poll_soon`)
     quick_poll: RefCell<Option<glib::SourceId>>,
-    /// letzte Abfrage, zum Drosseln von `poll_soon`
+    /// last poll, to throttle `poll_soon`
     last_poll: Cell<Instant>,
-    /// Deckkraft des Hintergrunds aus dem Profil
+    /// Background opacity from the profile
     opacity: Cell<f64>,
-    /// Von Parkett beendet (Schließen): kein Neustart, keine Leiste (QA-03)
+    /// Ended by Parkett (closing): no restart, no bar (QA-03)
     terminated: Cell<bool>,
 }
 
-/// Ab dieser Laufzeit meldet ein Befehl sein Ende, wenn sein Bereich nicht zu sehen ist.
+/// From this run time on, a command reports its end when its pane is not visible.
 const NOTIFY_AFTER: std::time::Duration = std::time::Duration::from_secs(10);
-/// So lange ohne Ausgabe gilt als Stille (Tilix: 10 s)
+/// This long without output counts as silence (Tilix: 10 s)
 const SILENCE_AFTER: std::time::Duration = std::time::Duration::from_secs(10);
-/// Vorgezogene Kontextabfrage: Wartezeit, bis ssh/sudo per exec gestartet ist, und
-/// Mindestabstand zweier Abfragen bei laufender Ausgabe
+/// Early context poll: wait time until ssh/sudo has been started via exec, and
+/// minimum gap between two polls while output is running
 const QUICK_DELAY: Duration = Duration::from_millis(40);
 const QUICK_GAP: Duration = Duration::from_millis(200);
 
@@ -111,18 +111,18 @@ static NEXT_UID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::ne
 #[derive(Clone)]
 pub struct Terminal(Rc<Inner>);
 
-/// Vordergrund der PTY (`read_foreground`).
+/// Foreground of the PTY (`read_foreground`).
 struct Foreground {
     pgid: i32,
-    /// die Shell selbst wartet am Prompt
+    /// the shell itself is waiting at the prompt
     is_shell: bool,
     comm: String,
     args: Vec<String>,
     euid: Option<u32>,
 }
 
-/// Schwache Referenz für Closures an Widgets des Bereichs (Draw-Funktionen): eine starke
-/// hielte das Terminal fest, solange das Widget lebt (L2).
+/// Weak reference for closures on the pane's widgets (draw functions): a strong one
+/// would hold the terminal as long as the widget lives (L2).
 #[derive(Clone)]
 pub struct WeakTerminal(std::rc::Weak<Inner>);
 
@@ -132,13 +132,13 @@ impl WeakTerminal {
     }
 }
 
-/// Was ein Bereich abweichend vom Profil startet (Befehlszeile).
+/// What a pane starts differently from the profile (command line).
 #[derive(Clone, Default)]
 pub struct Launch {
-    /// statt Shell bzw. Profilbefehl ausführen (`parkett -- …`)
+    /// run instead of the shell or profile command (`parkett -- …`)
     pub command: Option<Vec<String>>,
-    /// Umgebung des Aufrufers, wenn eine laufende Instanz den Aufruf bekommt (QA-08);
-    /// `None` = die Umgebung von Parkett
+    /// Environment of the caller when a running instance receives the call (QA-08);
+    /// `None` = Parkett's environment
     pub environment: Option<Vec<String>>,
 }
 
@@ -153,7 +153,7 @@ impl Terminal {
             .enable_a11y(true)
             .build();
         vte.set_size(100, 30);
-        // Setter statt Builder: nur er nimmt -1 (unbegrenzt) an
+        // Setter instead of builder: only it accepts -1 (unlimited)
         vte.set_scrollback_lines(crate::settings::scrollback_lines());
 
         let exit_label = gtk::Label::builder().xalign(0.0).hexpand(true).ellipsize(pango::EllipsizeMode::End).build();
@@ -165,15 +165,15 @@ impl Terminal {
         bar.append(&exit_label);
         bar.append(&restart);
         bar.append(&close);
-        // Verborgen auch unsichtbar schalten: ein zugeklappter GtkRevealer fordert sonst
-        // weiter die Breite der Leiste an, und Bereiche könnten nicht schmaler werden.
+        // When hidden, also make it invisible: a collapsed GtkRevealer otherwise keeps
+        // requesting the bar's width, and panes could not get narrower.
         let exit_bar = gtk::Revealer::builder()
             .transition_type(gtk::RevealerTransitionType::SlideUp)
             .child(&bar)
             .visible(false)
             .build();
 
-        // Bildlaufleiste wie bei Ptyxis: VTE in einem ScrolledWindow, überlagernd und schmal
+        // Scrollbar like Ptyxis: VTE in a ScrolledWindow, overlay and narrow
         let scroller =
             gtk::ScrolledWindow::builder().child(&vte).hscrollbar_policy(gtk::PolicyType::Never).vexpand(true).build();
         let root = gtk::Box::new(gtk::Orientation::Vertical, 0);
@@ -261,19 +261,19 @@ impl Terminal {
         self.0.on_state_changed.borrow_mut().push(Box::new(f));
     }
 
-    /// Text, den der Nutzer in dieses Terminal tippt oder einfügt (VTE „commit“).
+    /// Text the user types or pastes into this terminal (VTE `commit`).
     pub fn connect_input(&self, f: impl Fn(&str) + 'static) {
         self.0.on_input.borrow_mut().push(Box::new(f));
     }
 
-    /// Text an den Prozess schicken, als hätte der Nutzer ihn hier getippt.
+    /// Send text to the process as if the user had typed it here.
     pub fn feed(&self, text: &str) {
         if self.0.exit.get().is_none() {
             self.0.vte.feed_child(text.as_bytes());
         }
     }
 
-    /// Schreibgeschützt (Eingaben gesperrt)?
+    /// Read only (input blocked)?
     pub fn read_only(&self) -> bool {
         !self.0.vte.is_input_enabled()
     }
@@ -298,15 +298,15 @@ impl Terminal {
         self.0.profile_id.borrow().clone()
     }
 
-    /// Wechselt das Profil für Farben und künftige Neustarts (laufender Prozess bleibt).
+    /// Switches the profile for colors and future restarts (running process stays).
     pub fn set_profile(&self, id: &str) {
         *self.0.profile_id.borrow_mut() = id.to_string();
         self.apply_colors();
         self.emit_state_changed();
     }
 
-    /// Hintergrundfarbe der aktiven Fassung (für die Abblendung im Bereich).
-    /// Hintergrund nicht voll deckend (Profil „Deckkraft“ unter 100 %).
+    /// Background color of the active variant (for dimming in the pane).
+    /// Background not fully opaque (profile *Background opacity* below 100 %).
     pub fn is_translucent(&self) -> bool {
         self.0.opacity.get() < 1.0
     }
@@ -319,10 +319,10 @@ impl Terminal {
         self.0.on_close.borrow_mut().push(Box::new(f));
     }
 
-    /// Fenstertitel, den die Shell per OSC 0/2 gesetzt hat; sonst der Befehl des Profils.
+    /// Window title the shell set via OSC 0/2; otherwise the profile's command.
     pub fn title(&self) -> Option<String> {
         self.0.vte.termprop_string("xterm.title").0.map(String::from).filter(|s| !s.is_empty()).or_else(|| {
-            // Befehl von der Befehlszeile, sonst der des Profils
+            // Command from the command line, otherwise the profile's
             let command = match &self.0.command {
                 Some(c) => c.join(" "),
                 None => ProfileManager::get().profile(&self.profile_id()).command,
@@ -331,8 +331,8 @@ impl Terminal {
         })
     }
 
-    /// Arbeitsverzeichnis für die Sitzung: `vte.cwd`, sonst das des Prozesses (/proc), sonst
-    /// das beim Start – Bereiche ohne Shell-Integration melden kein `vte.cwd`.
+    /// Working directory for the session: `vte.cwd`, otherwise the process's (/proc), otherwise
+    /// the one at start – panes without shell integration report no `vte.cwd`.
     pub fn working_directory(&self) -> Option<String> {
         self.cwd()
             .or_else(|| {
@@ -342,10 +342,10 @@ impl Terminal {
             .or_else(|| self.0.cwd_at_start.clone())
     }
 
-    /// Arbeitsverzeichnis aus `vte.cwd` (OSC 7, setzt vte.sh in der Shell voraus).
-    /// vte4-rs bindet `ref_termprop_uri` nicht; daher der eine FFI-Aufruf.
-    /// Nur Pfade dieses Rechners, dekodiert: Ein OSC 7 aus einer SSH-Sitzung nennt den Pfad
-    /// auf dem Server und darf kein lokales Startverzeichnis setzen (QA-05, QA-06).
+    /// Working directory from `vte.cwd` (OSC 7, requires vte.sh in the shell).
+    /// vte4-rs does not bind `ref_termprop_uri`; hence the one FFI call.
+    /// Only paths on this host, decoded: an OSC 7 from an SSH session names the path
+    /// on the server and must not set a local start directory (QA-05, QA-06).
     pub fn cwd(&self) -> Option<String> {
         let uri: Option<glib::Uri> = unsafe {
             from_glib_full(vte::ffi::vte_terminal_ref_termprop_uri(self.0.vte.to_glib_none().0, c"vte.cwd".as_ptr()))
@@ -353,14 +353,14 @@ impl Terminal {
         uri.and_then(|u| parkett_core::uri::local_path(u.to_str().as_str(), glib::host_name().as_str()))
     }
 
-    /// Wie der Prozess geendet hat; `None`, solange er läuft.
+    /// How the process ended; `None` while it is running.
     pub fn exit_status(&self) -> Option<ExitStatus> {
         self.0.exit.get()
     }
 
-    /// Beendet die Shell (SIGHUP wie beim Schließen eines Terminalfensters; die Shell gibt
-    /// es an ihre Jobs weiter). VTE tut das auch beim Freigeben des Widgets – hier
-    /// ausdrücklich, damit kein Prozess an einer übersehenen Referenz hängen bleibt.
+    /// Ends the shell (SIGHUP as when closing a terminal window; the shell passes
+    /// it on to its jobs). VTE does that too when the widget is freed – done here
+    /// explicitly so no process stays alive through an overlooked reference.
     pub fn terminate(&self) {
         self.0.terminated.set(true);
         if self.0.exit.get().is_none() {
@@ -374,14 +374,14 @@ impl Terminal {
         self.0.uid
     }
 
-    /// Ist das Terminal gerade zu sehen (Reiter gewählt, Fenster aktiv)?
+    /// Is the terminal visible right now (tab selected, window active)?
     fn is_seen(&self) -> bool {
         let vte = &self.0.vte;
         vte.is_mapped() && vte.root().and_downcast::<gtk::Window>().is_some_and(|w| w.is_active())
     }
 
-    /// Ein Befehl ist fertig: lief er lange und ist der Bereich nicht zu sehen, Reiter
-    /// markieren und eine Benachrichtigung schicken (Klick darauf zeigt den Bereich).
+    /// A command finished: if it ran long and the pane is not visible, mark the tab
+    /// and send a notification (clicking it shows the pane).
     fn command_finished(&self, took: std::time::Duration) {
         if took < NOTIFY_AFTER || self.is_seen() {
             return;
@@ -402,7 +402,7 @@ impl Terminal {
         app.send_notification(Some(&format!("command-{}", self.0.uid)), &n);
     }
 
-    /// Neue Ausgabe: Aktivität melden, Zeitgeber für Stille neu starten (je Bereich ein).
+    /// New output: report activity, restart the silence timer (one per pane).
     fn watch_output(&self) {
         let inner = &self.0;
         if inner.monitor_activity.get() {
@@ -432,7 +432,7 @@ impl Terminal {
         }
     }
 
-    /// Reiter markieren und Benachrichtigung mit Klick auf den Bereich.
+    /// Mark the tab and send a notification that shows the pane on click.
     fn notify_monitor(&self, kind: &str, title: &str) {
         self.0.attention.set(true);
         self.emit_state_changed();
@@ -443,7 +443,7 @@ impl Terminal {
         app.send_notification(Some(&format!("{kind}-{}", self.0.uid)), &n);
     }
 
-    /// Liefert und löscht die Markierung (Glocke, Befehlsende).
+    /// Returns and clears the mark (bell, command end).
     pub fn take_attention(&self) -> bool {
         self.0.attention.replace(false)
     }
@@ -452,16 +452,16 @@ impl Terminal {
         self.0.context.borrow().clone()
     }
 
-    /// (Linie, Chip-Hintergrund) für den aktuellen Kontext; `None` = lokal oder abgeschaltet.
+    /// (Line, chip background) for the current context; `None` = local or turned off.
     pub fn context_accent(&self) -> Option<(Rgb, Rgb)> {
         self.0.accent.get()
     }
 
-    /// Fragt den Vordergrundprozess ab (wie Ptyxis, aber je Bereich): jede Sekunde, solange
-    /// der Bereich zu sehen und sein Fenster aktiv ist, sonst alle 5 s – Reiter im Hintergrund
-    /// und Fenster ohne Fokus wecken die CPU seltener (L3). Kommt der Bereich in Sicht oder
-    /// bekommt er den Fokus, sofort. 5 s reichen auch für die Benachrichtigung: Sie meldet nur
-    /// Befehle ab 10 s Laufzeit, deren Namen kennt die Abfrage bis dahin.
+    /// Polls the foreground process (like Ptyxis, but per pane): every second while
+    /// the pane is visible and its window active, otherwise every 5 s – background tabs
+    /// and unfocused windows wake the CPU less often (L3). When the pane comes into view or
+    /// gets focus, immediately. 5 s is enough for the notification too: it only reports
+    /// commands running 10 s or longer, and the poll knows their names by then.
     fn watch_context(&self) {
         let weak = Rc::downgrade(&self.0);
         self.0.vte.connect_map(move |_| {
@@ -478,7 +478,7 @@ impl Terminal {
         self.poll_now();
     }
 
-    /// Abfrage jetzt, dann die nächste planen (eine geplante wird ersetzt).
+    /// Poll now, then schedule the next one (a scheduled one is replaced).
     fn poll_now(&self) {
         if let Some(id) = self.0.poll_source.borrow_mut().take() {
             id.remove();
@@ -489,7 +489,7 @@ impl Terminal {
         let weak = Rc::downgrade(&self.0);
         let id = glib::timeout_add_local_once(Duration::from_millis(if watched { 1000 } else { 5000 }), move || {
             if let Some(inner) = weak.upgrade() {
-                // schon abgelaufen: nur vergessen, nicht entfernen
+                // already expired: just forget it, do not remove it
                 inner.poll_source.borrow_mut().take();
                 Terminal(inner).poll_now();
             }
@@ -497,10 +497,10 @@ impl Terminal {
         *self.0.poll_source.borrow_mut() = Some(id);
     }
 
-    /// Abfrage gleich vorziehen: Nach `ssh host` oder `sudo -i` färbte der sekündliche Takt
-    /// erst bis zu 1 s später ein. Ausgabe (Echo der Eingabe, Passwortabfrage, Banner) und die
-    /// Shell-Marken lösen sie aus; höchstens alle `QUICK_GAP`, und nur im sichtbaren Bereich,
-    /// damit Dauerausgabe im Hintergrund die CPU nicht weckt (L3).
+    /// Bring the poll forward: after `ssh host` or `sudo -i` the one-second tick colored
+    /// up to 1 s late. Output (echo of the input, password prompt, banner) and the
+    /// shell marks trigger it; at most every `QUICK_GAP`, and only in the visible pane,
+    /// so constant output in the background does not wake the CPU (L3).
     fn poll_soon(&self) {
         if self.0.quick_poll.borrow().is_some() || !self.is_seen() {
             return;
@@ -518,7 +518,7 @@ impl Terminal {
 
     fn poll(&self) {
         self.0.last_poll.set(Instant::now());
-        // Vordergrund einmal lesen, für Benachrichtigung, Kontext und Label (D2)
+        // Read the foreground once, for notification, context and label (D2)
         let fg = self.read_foreground();
         let foreground = Self::name_of(fg.as_ref());
         if self.0.command_started.get().is_some() {
@@ -533,7 +533,7 @@ impl Terminal {
             self.apply_colors();
             changed = true;
         } else {
-            // Ordnerregeln: Ein cd ohne Shell-Integration meldet niemand, also hier nachsehen
+            // Folder rules: nobody reports a cd without shell integration, so check here
             self.check_appearance();
         }
         let program = self.label_program_with(foreground);
@@ -546,8 +546,8 @@ impl Terminal {
         }
     }
 
-    /// Befehl in die Shell tippen und mit Eingabe abschicken (Vorschlag 5: Shell bleibt
-    /// danach nutzbar). Läuft die Shell noch nicht, wird er nach dem Start getippt.
+    /// Type a command into the shell and submit it with Enter (proposal 5: the shell stays
+    /// usable afterwards). If the shell is not running yet, it is typed after start.
     pub fn type_command(&self, command: &str) {
         let text = format!("{}\n", command.trim_end());
         if self.0.child_pid.get().is_some() && self.0.exit.get().is_none() {
@@ -557,9 +557,9 @@ impl Terminal {
         }
     }
 
-    /// Vordergrund der PTY, einmal gelesen für Kontext, Label, Benachrichtigung und
-    /// Vorlage (D2). Muster wie Ptyxis (`agent/ptyxis-process-impl.c`): tcgetpgrp auf der
-    /// PTY, Angaben aus /proc. Nur ohne Flatpak-Sandbox aussagekräftig.
+    /// Foreground of the PTY, read once for context, label, notification and
+    /// template (D2). Pattern like Ptyxis (`agent/ptyxis-process-impl.c`): tcgetpgrp on the
+    /// PTY, details from /proc. Only meaningful without the Flatpak sandbox.
     fn read_foreground(&self) -> Option<Foreground> {
         if self.0.exit.get().is_some() {
             return None;
@@ -576,7 +576,7 @@ impl Terminal {
             .filter(|a| !a.is_empty())
             .map(|a| String::from_utf8_lossy(a).into_owned())
             .collect();
-        // „Uid:\treal\teffektiv\t…“
+        // `Uid:\treal\teffective\t…`
         let euid = std::fs::read_to_string(format!("/proc/{pgid}/status")).ok().and_then(|s| {
             s.lines()
                 .find(|l| l.starts_with("Uid:"))
@@ -598,14 +598,14 @@ impl Terminal {
         }
     }
 
-    /// Befehlszeile des Vordergrundprozesses (für „Als Vorlage speichern“), sonst `None`.
+    /// Command line of the foreground process (for *Save tab as template*), otherwise `None`.
     pub fn foreground_command(&self) -> Option<String> {
         let fg = self.read_foreground().filter(|f| !f.is_shell)?;
         let args: Vec<String> = fg
             .args
             .into_iter()
             .map(|a| {
-                // nur quoten, wo die Shell es braucht – „npm run dev“ statt „'npm' 'run' 'dev'“
+                // quote only where the shell needs it – `npm run dev` instead of `'npm' 'run' 'dev'`
                 if !a.is_empty() && a.chars().all(|c| c.is_alphanumeric() || "-_./:=@%+,".contains(c)) {
                     a
                 } else {
@@ -616,8 +616,8 @@ impl Terminal {
         Some(args.join(" ")).filter(|s| !s.is_empty())
     }
 
-    /// Programm für das kurze Reiter-Label: bei SSH „ssh host“, sonst das Programm im
-    /// Vordergrund, am Prompt die Shell selbst.
+    /// Program for the short tab label: with SSH `ssh host`, otherwise the program in the
+    /// foreground, at the prompt the shell itself.
     pub fn label_program(&self) -> Option<String> {
         self.label_program_with(self.foreground_process())
     }
@@ -637,7 +637,7 @@ impl Terminal {
         })
     }
 
-    /// Name des Vordergrundprozesses, wenn er nicht die Shell selbst ist (z. B. „vim“, „ssh“).
+    /// Name of the foreground process if it is not the shell itself (e.g. `vim`, `ssh`).
     pub fn foreground_process(&self) -> Option<String> {
         Self::name_of(self.read_foreground().as_ref())
     }
@@ -659,7 +659,7 @@ impl Terminal {
         }
     }
 
-    /// `focus`: danach den Fokus ins Terminal (nicht beim automatischen Neustart im Hintergrund).
+    /// `focus`: move focus into the terminal afterwards (not on automatic restart in the background).
     fn spawn(&self, focus: bool) {
         self.0.terminated.set(false);
         self.0.exit_bar.set_reveal_child(false);
@@ -669,7 +669,7 @@ impl Terminal {
         self.0.started_at.set(Some(Instant::now()));
         let profile = ProfileManager::get().profile(&self.profile_id());
 
-        // Befehl aus dem Profil (wie in einer Shell zerlegt), sonst die Login-Shell des Nutzers
+        // Command from the profile (split like in a shell), otherwise the user's login shell
         let argv: Vec<String> = if let Some(cmd) = &self.0.command {
             cmd.clone()
         } else if profile.command.trim().is_empty() {
@@ -690,7 +690,7 @@ impl Terminal {
         let dir = expand_home(profile.directory.trim())
             .or_else(|| self.0.cwd_at_start.clone())
             .or_else(|| glib::home_dir().to_str().map(String::from));
-        // Aufruf an eine laufende Instanz: dessen Umgebung statt der von Parkett (QA-08)
+        // Call to a running instance: its environment instead of Parkett's (QA-08)
         let (env, flags) = match &self.0.environment {
             Some(caller) => (
                 parkett_core::environment::for_caller(caller, &own_environment(), &profile.valid_environment()),
@@ -729,9 +729,9 @@ impl Terminal {
         }
     }
 
-    /// Startbefehl tippen, sobald die Shell bereit ist (R-09): mit Shell-Integration beim
-    /// ersten Prompt (siehe `vte.shell.precmd`), sonst wenn die Ausgabe ruht und die PTY nicht
-    /// auf ein Passwort wartet – sofort getippt landete er in der Passwortabfrage von ssh.
+    /// Type the startup command once the shell is ready (R-09): with shell integration at the
+    /// first prompt (see `vte.shell.precmd`), otherwise when output is quiet and the PTY is not
+    /// waiting for a password – typed immediately it ended up in ssh's password prompt.
     fn wait_to_type(&self) {
         use parkett_core::startup;
         let weak = Rc::downgrade(&self.0);
@@ -760,11 +760,11 @@ impl Terminal {
         }
     }
 
-    /// termios der PTY: zeilenweise Eingabe und Echo (Passwortabfrage erkennen).
+    /// termios of the PTY: line-wise input and echo (detects a password prompt).
     fn tty_mode(&self) -> Option<parkett_core::startup::TtyMode> {
         let pty = self.0.vte.pty()?;
         let mut t: libc::termios = unsafe { std::mem::zeroed() };
-        // SAFETY: gültiger Deskriptor der PTY, `t` ist ein vollständiges termios
+        // SAFETY: valid descriptor of the PTY, `t` is a complete termios
         if unsafe { libc::tcgetattr(pty.fd().as_raw_fd(), &mut t) } != 0 {
             return None;
         }
@@ -786,8 +786,8 @@ impl Terminal {
         self.emit_state_changed();
     }
 
-    /// `error`: Warnsymbol und rote Tönung; ein normales Ende (Exit-Code 0) bekommt eine
-    /// neutrale Leiste, sonst sieht `exit` wie ein Fehler aus (QA-11).
+    /// `error`: warning icon and red tint; a normal exit (exit code 0) gets a
+    /// neutral bar, otherwise `exit` looks like an error (QA-11).
     fn show_exit(&self, markup: &str, error: bool) {
         self.0.exit_label.set_markup(markup);
         self.0.exit_icon.set_visible(error);
@@ -809,8 +809,8 @@ impl Terminal {
             let t = Terminal(inner);
             let exit = decode_wait_status(status);
             t.0.exit.set(Some(exit));
-            // bewusst beendet: nicht neu starten, sonst liefe im geschlossenen Reiter
-            // unsichtbar ein neuer Prozess (QA-03, z. B. eine ssh-Verbindung)
+            // ended on purpose: do not restart, otherwise a new process would run invisibly
+            // in the closed tab (QA-03, e.g. an ssh connection)
             if t.0.terminated.get() {
                 return;
             }
@@ -818,10 +818,10 @@ impl Terminal {
             let quick = t.0.started_at.get().is_some_and(|s| s.elapsed() < Duration::from_secs(2));
             match action {
                 ExitAction::Close if exit == ExitStatus::Code(0) => {
-                    // Leiste schon jetzt füllen: Holt „Rückgängig“ den Bereich zurück, ist er
-                    // sonst ein totes Terminal ohne Hinweis und ohne „Neu starten“ (R-05)
+                    // Fill the bar right away: if *Undo* brings the pane back, it is otherwise
+                    // a dead terminal without a hint and without *Restart* (R-05)
                     t.show_exit(&gettext("<b>Process exited</b>"), false);
-                    // nach dem Signal-Handler schließen, nicht mitten im VTE-Callback
+                    // close after the signal handler, not in the middle of the VTE callback
                     let weak = Rc::downgrade(&t.0);
                     glib::idle_add_local_once(move || {
                         if let Some(inner) = weak.upgrade() {
@@ -831,7 +831,7 @@ impl Terminal {
                     t.emit_state_changed();
                     return;
                 }
-                // Neustart, außer der Prozess endet sofort wieder (sonst Endlosschleife)
+                // Restart, unless the process ends again immediately (otherwise an endless loop)
                 ExitAction::Restart if !quick => {
                     t.spawn(false);
                     return;
@@ -848,12 +848,12 @@ impl Terminal {
             } else {
                 text
             };
-            // ein Neustart-Profil, dessen Prozess sofort endet, ist ein Problem, auch mit Code 0
+            // a restart profile whose process ends immediately is a problem, even with code 0
             t.show_exit(&text, exit != ExitStatus::Code(0) || action == ExitAction::Restart);
             t.emit_state_changed();
         });
 
-        // Glocke: Reiter markieren (Ton selbst macht VTE, siehe set_audible_bell)
+        // Bell: mark the tab (VTE makes the sound itself, see set_audible_bell)
         let weak = Rc::downgrade(&self.0);
         self.0.vte.connect_bell(move |_| {
             let Some(inner) = weak.upgrade() else { return };
@@ -864,7 +864,7 @@ impl Terminal {
             }
         });
 
-        // Eingabe für die gemeinsame Eingabe im Reiter weiterreichen
+        // Pass input on for the shared input in the tab
         let weak = Rc::downgrade(&self.0);
         self.0.vte.connect_commit(move |_, text, _| {
             if let Some(inner) = weak.upgrade() {
@@ -874,14 +874,14 @@ impl Terminal {
             }
         });
 
-        // Beim Markieren kopieren (Einstellung, wie Tilix)
+        // Copy on select (setting, like Tilix)
         self.0.vte.connect_selection_changed(|v| {
             if v.has_selection() && crate::settings::settings().boolean("copy-on-select") {
                 v.copy_clipboard_format(vte::Format::Text);
             }
         });
 
-        // Zeitpunkt der letzten Ausgabe für den Startbefehl (R-09)
+        // Time of the last output for the startup command (R-09)
         let weak = Rc::downgrade(&self.0);
         self.0.vte.connect_contents_changed(move |_| {
             if let Some(inner) = weak.upgrade() {
@@ -902,19 +902,19 @@ impl Terminal {
                     t.check_appearance();
                     t.emit_state_changed();
                 }
-                // Shell-Integration (vte.sh): Befehl beginnt bzw. Prompt kommt wieder
+                // Shell integration (vte.sh): command starts or prompt returns
                 "vte.shell.preexec" => {
                     inner.command_started.set(Some(Instant::now()));
                     inner.command_name.borrow_mut().take();
                     Terminal(inner).poll_soon();
                 }
                 "vte.shell.precmd" => {
-                    // erster Prompt: wartender Startbefehl kann jetzt kommen (R-09)
+                    // first prompt: a waiting startup command can come now (R-09)
                     Terminal(inner.clone()).feed_pending();
                     if let Some(start) = inner.command_started.take() {
                         Terminal(inner.clone()).command_finished(start.elapsed());
                     }
-                    // zurück am Prompt: Kontextfarbe sofort lösen
+                    // back at the prompt: release the context color immediately
                     Terminal(inner).poll_soon();
                 }
                 _ => {}
@@ -922,9 +922,9 @@ impl Terminal {
         });
     }
 
-    /// Profil fürs Aussehen: ein Profil mit passender Regel (Rechner der SSH-Verbindung,
-    /// sonst lokaler Ordner), sonst das eigene. Verhalten (Glocke, Prozessende, Neustart)
-    /// bleibt beim eigenen Profil.
+    /// Profile for the appearance: a profile with a matching rule (host of the SSH connection,
+    /// otherwise local folder), otherwise its own. Behavior (bell, process exit, restart)
+    /// stays with its own profile.
     fn appearance_profile(&self) -> Profile {
         let manager = ProfileManager::get();
         let own = manager.profile(&self.profile_id());
@@ -932,8 +932,8 @@ impl Terminal {
             Context::Remote(h) => Some(h.clone()),
             _ => None,
         };
-        // wie der Reiter-Name: OSC 7, sonst der Ordner der Shell (/proc) – ohne vte.sh kommt
-        // kein OSC 7, und Ordnerregeln griffen nie
+        // like the tab name: OSC 7, otherwise the shell's folder (/proc) – without vte.sh there
+        // is no OSC 7, and folder rules would never apply
         let cwd = if host.is_none() { self.working_directory() } else { None };
         let home = glib::home_dir().to_string_lossy().into_owned();
         parkett_core::profile::automatic(&manager.profiles(), host.as_deref(), cwd.as_deref(), &home)
@@ -941,20 +941,20 @@ impl Terminal {
             .unwrap_or(own)
     }
 
-    /// Nach einem Ordnerwechsel: neu einfärben, wenn eine Ordnerregel nun anders greift.
+    /// After a folder change: recolor if a folder rule now applies differently.
     fn check_appearance(&self) {
         if self.appearance_profile().id != *self.0.appearance.borrow() {
             self.apply_colors();
         }
     }
 
-    /// Profil fürs Aussehen, wenn es nicht das eigene ist (automatischer Wechsel).
+    /// Profile for the appearance if it is not its own (automatic switch).
     pub fn automatic_profile(&self) -> Option<String> {
         let id = self.0.appearance.borrow().clone();
         (!id.is_empty() && id != self.profile_id()).then(|| ProfileManager::get().profile(&id).name)
     }
 
-    /// Farben aus der Palette des Profils (Fassung nach Systemstil), Schrift, Cursor, Glocke.
+    /// Colors from the profile's palette (variant by system style), font, cursor, bell.
     fn apply_colors(&self) {
         let sm = adw::StyleManager::default();
         let manager = ProfileManager::get();
@@ -966,8 +966,8 @@ impl Terminal {
         let face = palette.face(sm.is_dark());
         let colors: Vec<gtk::gdk::RGBA> = face.colors.iter().map(rgba).collect();
         let refs: Vec<&gtk::gdk::RGBA> = colors.iter().collect();
-        // Kontextfarbe: Hintergrund leicht in Richtung der Palettenfarbe für root/SSH tönen,
-        // Linie und Chip in der kräftigen Farbe (Rot bzw. Blau des Schemas)
+        // Context color: tint the background slightly toward the palette color for root/SSH,
+        // line and chip in the strong color (red or blue of the scheme)
         let (background, accent) = match (&*self.0.context.borrow(), crate::settings::context_colors()) {
             (Context::Superuser, true) => (
                 face.background.mix(&face.superuser_background, 0.35),
@@ -980,8 +980,8 @@ impl Terminal {
         };
         self.0.accent.set(accent);
         let vte = &self.0.vte;
-        // Transparenz: nur der Hintergrund bekommt Alpha; das Fenster dahinter wird dafür
-        // durchsichtig geschaltet (Window::update_translucency)
+        // Transparency: only the background gets alpha; the window behind it is switched
+        // to translucent for that (Window::update_translucency)
         let opacity = look.opacity();
         let mut bg = rgba(&background);
         bg.set_alpha(opacity as f32);
@@ -989,9 +989,9 @@ impl Terminal {
         self.0.opacity.set(opacity);
         vte.set_color_cursor(face.cursor.as_ref().map(rgba).as_ref());
         vte.set_color_cursor_foreground(face.cursor_foreground.as_ref().map(rgba).as_ref());
-        // Auswahl in der Akzentfarbe statt invertiert
+        // Selection in the accent color instead of inverted
         vte.set_color_highlight(Some(&rgba(&face.selection(&from_rgba(&sm.accent_color_rgba())))));
-        // Schrift und Cursor aus dem Profil fürs Aussehen, Glocke aus dem eigenen
+        // Font and cursor from the appearance profile, bell from its own
         let font = if look.font.trim().is_empty() { sm.monospace_font_name() } else { look.font.trim().into() };
         vte.set_font(Some(&pango::FontDescription::from_string(&font)));
         vte.set_bold_is_bright(look.bold_is_bright);
@@ -1006,8 +1006,8 @@ impl Terminal {
             CursorShape::Ibeam => vte::CursorShape::Ibeam,
             CursorShape::Underline => vte::CursorShape::Underline,
         });
-        // blinkender Text (SGR 5) nur im Bereich mit Fokus, wie gnome-terminal: in allen
-        // Bereichen kostete er im Leerlauf 7,8 % CPU in der VM (QA-14)
+        // blinking text (SGR 5) only in the focused pane, like gnome-terminal: in all
+        // panes it cost 7.8 % CPU while idle in the VM (QA-14)
         vte.set_text_blink_mode(vte::TextBlinkMode::Focused);
         vte.set_cursor_blink_mode(match look.cursor_blink {
             CursorBlink::System => vte::CursorBlinkMode::System,
@@ -1015,7 +1015,7 @@ impl Terminal {
             CursorBlink::Off => vte::CursorBlinkMode::Off,
         });
         vte.set_audible_bell(manager.profile(&self.profile_id()).bell == Bell::Sound);
-        // ohne Leiste bleibt das Mausrad wirksam (External = Fläche scrollt, keine Leiste)
+        // without a bar the mouse wheel keeps working (External = area scrolls, no bar)
         self.0.scroller.set_vscrollbar_policy(if look.scrollbar {
             gtk::PolicyType::Automatic
         } else {
@@ -1026,12 +1026,12 @@ impl Terminal {
         for f in self.0.on_colors_changed.borrow().iter() {
             f();
         }
-        // Fenster prüft Durchsichtigkeit, Reiter ihre Anzeige
+        // Window checks translucency, tabs their display
         self.emit_state_changed();
     }
 
-    /// Dateien aus dem Dateimanager ins Terminal ziehen: Pfade gequotet einfügen (wie Tilix,
-    /// Ptyxis), über Einfügen – mit Bracketed Paste der Shell führt das nichts aus.
+    /// Drag files from the file manager into the terminal: paste quoted paths (like Tilix,
+    /// Ptyxis), via paste – with the shell's bracketed paste this executes nothing.
     fn setup_file_drop(&self) {
         let target = gtk::DropTarget::new(gtk::gdk::FileList::static_type(), gtk::gdk::DragAction::COPY);
         let vte = self.0.vte.downgrade();
@@ -1064,7 +1064,7 @@ impl Terminal {
                 Err(e) => glib::g_warning!("parkett", "URL pattern: {e}"),
             }
         }
-        // Strg+Klick öffnet den Link; ohne Strg bleibt Klicken Markieren
+        // Ctrl+click opens the link; without Ctrl, clicking stays selecting
         let click = gtk::GestureClick::builder().button(1).propagation_phase(gtk::PropagationPhase::Capture).build();
         let weak = Rc::downgrade(&self.0);
         click.connect_pressed(move |g, _, x, y| {
@@ -1082,7 +1082,7 @@ impl Terminal {
             }
         });
         vte.add_controller(click);
-        // Rechtsklick merkt sich den Link für das Kontextmenü
+        // Right-click remembers the link for the context menu
         let right = gtk::GestureClick::builder().button(3).propagation_phase(gtk::PropagationPhase::Capture).build();
         let weak = Rc::downgrade(&self.0);
         right.connect_pressed(move |_, _, x, y| {
@@ -1124,8 +1124,8 @@ impl Terminal {
             });
             self.0.actions.add_action(&a);
         }
-        // OSC-8-Links zeigen ihr wahres Ziel als Tooltip – der sichtbare Text kann täuschen.
-        // vte4-rs bindet das Signal nicht, daher connect_local.
+        // OSC 8 links show their real target as a tooltip – the visible text can deceive.
+        // vte4-rs does not bind the signal, hence connect_local.
         vte.connect_local("hyperlink-hover-uri-changed", false, |args| {
             let vte = args[0].get::<vte::Terminal>().ok()?;
             let uri = args[1].get::<Option<String>>().ok().flatten();
@@ -1134,7 +1134,7 @@ impl Terminal {
         });
     }
 
-    /// Eigene Links des Profils neu anmelden, wenn sie sich geändert haben.
+    /// Register the profile's custom links again when they have changed.
     fn apply_links(&self, links: &[CustomLink]) {
         let wanted: Vec<&CustomLink> = links.iter().filter(|l| l.is_usable()).collect();
         let mut current = self.0.custom_links.borrow_mut();
@@ -1156,13 +1156,13 @@ impl Terminal {
         }
     }
 
-    /// Eigener Link des Profils an der Position, mit eingesetzten Gruppen.
+    /// Custom link of the profile at the position, with groups substituted.
     fn custom_link_at(&self, x: f64, y: f64) -> Option<LinkAction> {
         let (text, tag) = self.0.vte.check_match_at(x, y);
         let text = text?;
         let links = self.0.custom_links.borrow();
         let link = links.iter().find(|(t, _)| *t == tag).map(|(_, l)| l)?;
-        // VTE liefert nur den ganzen Treffer; die Gruppen holt derselbe Ausdruck noch einmal
+        // VTE only returns the whole match; the same expression fetches the groups again
         let re = glib::Regex::new(&link.pattern, glib::RegexCompileFlags::empty(), glib::RegexMatchFlags::empty())
             .ok()
             .flatten()?;
@@ -1172,7 +1172,7 @@ impl Terminal {
         Some(parkett_core::link::expand(&link.target, &groups))
     }
 
-    /// Ziel eines eigenen Links: Adresse öffnen oder Befehl im Ordner des Bereichs starten.
+    /// Target of a custom link: open the address or run the command in the pane's folder.
     fn run_link(&self, action: LinkAction) {
         let line = match action {
             LinkAction::Open(uri) => return self.open_link(&uri),
@@ -1194,7 +1194,7 @@ impl Terminal {
         }
     }
 
-    /// OSC-8-Link oder erkannte Adresse an der Position (Widget-Koordinaten).
+    /// OSC 8 link or detected address at the position (widget coordinates).
     pub fn link_at(&self, x: f64, y: f64) -> Option<String> {
         self.0
             .vte
@@ -1204,8 +1204,8 @@ impl Terminal {
             .filter(|u| !u.is_empty())
     }
 
-    /// Dateipfad aus der Ausgabe im Dateimanager: Ordner öffnen, bei Dateien den Ordner mit der
-    /// Datei markiert (Audit T-53). In einer SSH-Sitzung liegt der Pfad auf dem anderen Rechner.
+    /// File path from the output in the file manager: open the folder, for files the folder with
+    /// the file selected (audit T-53). In an SSH session the path is on the other host.
     fn open_path(&self, text: &str) {
         let window = self.0.vte.root().and_downcast::<gtk::Window>();
         let toast = |msg: &str| {
@@ -1238,8 +1238,8 @@ impl Terminal {
         }
     }
 
-    /// Öffnet einen Link mit der Standardanwendung, aber nur mit erlaubtem Schema; ein
-    /// erkannter Dateipfad (ohne Schema) geht an den Dateimanager.
+    /// Opens a link with the default application, but only with an allowed scheme; a
+    /// detected file path (without scheme) goes to the file manager.
     pub fn open_link(&self, uri: &str) {
         if uri.starts_with('/') || uri.starts_with('~') || uri.starts_with('.') {
             self.open_path(uri);
@@ -1250,10 +1250,10 @@ impl Terminal {
             glib::g_warning!("parkett", "Link with scheme “{scheme}” not opened");
             return;
         }
-        // file:-Links nur auf diesem Rechner: Ein OSC-8-Link aus einer SSH-Sitzung nennt den
-        // fremden Rechner; dort gemeint ist eine andere Datei als hier (wie gnome-terminal).
-        // Viele Programme lassen den Rechner weg (`file:///pfad`) – läuft im Bereich gerade
-        // eine Verbindung, ist auch der nicht von hier (R-04)
+        // file: links only on this host: an OSC 8 link from an SSH session names the
+        // remote host; a different file is meant there than here (like gnome-terminal).
+        // Many programs omit the host (`file:///path`) – if a connection is currently running
+        // in the pane, that one is not from here either (R-04)
         if scheme == "file"
             && (matches!(self.detect_context(), Context::Remote(_))
                 || !parkett_core::uri::is_local_file(uri, glib::host_name().as_str()))
@@ -1274,7 +1274,7 @@ impl Terminal {
         gtk::UriLauncher::new(uri).launch(window.as_ref(), gio::Cancellable::NONE, move |res| {
             let Err(e) = res else { return };
             glib::g_warning!("parkett", "Link not opened: {e}");
-            // Sonst geschieht nach Strg+Klick einfach nichts (VM 2026-10-22: Standard-App fehlte)
+            // Otherwise nothing happens after Ctrl+click (VM 2026-10-22: default app was missing)
             if e.matches(gtk::DialogError::Dismissed) || e.matches(gtk::DialogError::Cancelled) {
                 return;
             }
@@ -1284,7 +1284,7 @@ impl Terminal {
         });
     }
 
-    /// Setzt das Suchmuster; `None` hebt die Suche auf. Gibt einen Fehler bei ungültigem Regex.
+    /// Sets the search pattern; `None` clears the search. Returns an error for an invalid regex.
     pub fn set_search(&self, text: Option<&str>, query: SearchQuery) -> Result<(), String> {
         let vte = &self.0.vte;
         let Some(text) = text.filter(|t| !t.is_empty()) else {
@@ -1300,9 +1300,9 @@ impl Terminal {
         Ok(())
     }
 
-    /// Treffer im ganzen Verlauf (QA-19), höchstens `SEARCH_COUNT_MAX`. VTE zählt selbst
-    /// nicht; gezählt wird mit GRegex, das wie VTE auf PCRE2 baut. Umbrochene Zeilen liefert
-    /// VTE zusammenhängend, ein Treffer über den Umbruch zählt also mit.
+    /// Matches in the whole scrollback (QA-19), at most `SEARCH_COUNT_MAX`. VTE does not count
+    /// itself; counting uses GRegex, which like VTE builds on PCRE2. VTE returns wrapped lines
+    /// joined, so a match across the wrap counts too.
     pub fn search_count(&self, text: &str, query: SearchQuery) -> Option<usize> {
         if text.is_empty() {
             return None;
@@ -1316,13 +1316,13 @@ impl Terminal {
         let vte = &self.0.vte;
         let adj = vte.vadjustment()?;
         let (first, last) = (adj.lower() as libc::c_long, adj.upper() as libc::c_long);
-        // Von unten in Blöcken lesen und bei SEARCH_COUNT_MAX aufhören: Den ganzen Verlauf als
-        // Text zu holen kostete bei 300 000 Zeilen etwa 0,27 s je Taste (VM). Ein Treffer über
-        // eine Blockgrenze (umbrochene Zeile genau dort) kann fehlen – die Zahl ist ein Überblick.
+        // Read from the bottom in blocks and stop at SEARCH_COUNT_MAX: fetching the whole scrollback
+        // as text cost about 0.27 s per key with 300,000 lines (VM). A match across a block
+        // boundary (wrapped line exactly there) can be missed – the number is an overview.
         let mut n = 0;
         let mut end = last;
         while end > first && n < SEARCH_COUNT_MAX {
-            // Zeilen start..end, ohne end (die gehört zum Block darunter)
+            // rows start..end, without end (it belongs to the block below)
             let start = (end - SEARCH_COUNT_ROWS).max(first);
             let (content, _) = vte.text_range_format(vte::Format::Text, start, 0, end - 1, vte.column_count());
             if let Some(content) = content {
@@ -1340,7 +1340,7 @@ impl Terminal {
         Some(n)
     }
 
-    /// Nächster Treffer nach oben (ältere Ausgabe) oder unten. `false` = nichts gefunden.
+    /// Next match upward (older output) or downward. `false` = nothing found.
     pub fn search_step(&self, up: bool) -> bool {
         if up {
             self.0.vte.search_find_previous()
@@ -1351,9 +1351,9 @@ impl Terminal {
 
     fn setup_style(&self) {
         self.apply_colors();
-        // Nur schwache Referenzen: StyleManager, ProfileManager und GSettings leben so lange
-        // wie die App. Eine starke Referenz hielte das Terminal fest – es würde nie freigegeben
-        // und die Shell nie beendet (in der VM gefunden: Shell und „sleep“ liefen weiter).
+        // Only weak references: StyleManager, ProfileManager and GSettings live as long
+        // as the app. A strong reference would hold the terminal – it would never be freed
+        // and the shell never ended (found in the VM: shell and `sleep` kept running).
         let style = adw::StyleManager::default();
         let weak = Rc::downgrade(&self.0);
         let reapply = move || {
@@ -1371,14 +1371,14 @@ impl Terminal {
             ],
             ProfileManager::get().connect_changed(reapply),
         )));
-        // Verlaufslänge folgt der Einstellung
+        // Scrollback length follows the setting
         let vte = self.0.vte.downgrade();
         let scrollback = crate::settings::settings().connect_changed(Some("scrollback-lines"), move |_, _| {
             if let Some(vte) = vte.upgrade() {
                 vte.set_scrollback_lines(crate::settings::scrollback_lines());
             }
         });
-        // Kontextfarbe und Sixel ein/aus sofort übernehmen
+        // Apply context color and Sixel on/off immediately
         let weak = Rc::downgrade(&self.0);
         let ctx = crate::settings::settings().connect_changed(None, move |_, key| {
             if !matches!(key, "context-colors" | "enable-sixel" | "follow-high-contrast") {
@@ -1419,21 +1419,21 @@ impl Terminal {
             group.add_action(&a);
         };
         add("copy", Box::new(|v| v.copy_clipboard_format(vte::Format::Text)));
-        // Einfügen über Parkett: mehrzeiliger Text wird vorher gezeigt (Funktionsmatrix P0) –
-        // ohne Bracketed Paste der Shell würden die Zeilen sonst sofort ausgeführt
+        // Paste through Parkett: multi-line text is shown first (feature matrix P0) –
+        // without the shell's bracketed paste the lines would otherwise run immediately
         add("paste", Box::new(paste_with_check));
         add("paste-advanced", Box::new(paste_advanced));
         add("select-all", Box::new(|v| v.select_all()));
         add("zoom-in", Box::new(|v| v.set_font_scale((v.font_scale() * 1.1).min(4.0))));
         add("zoom-out", Box::new(|v| v.set_font_scale((v.font_scale() / 1.1).max(0.3))));
         add("zoom-reset", Box::new(|v| v.set_font_scale(1.0)));
-        // Zurücksetzen wie in Tilix: nach kaputten Steuersequenzen (z. B. `cat` einer
-        // Binärdatei); „leeren“ verwirft auch den Verlauf
+        // Reset like in Tilix: after broken control sequences (e.g. `cat` of a
+        // binary file); "clear" also discards the scrollback
         add("copy-html", Box::new(|v| v.copy_clipboard_format(vte::Format::Html)));
         add("reset", Box::new(|v| v.reset(true, false)));
         add("reset-clear", Box::new(|v| v.reset(true, true)));
         add("save-output", Box::new(save_output));
-        // Schreibschutz (Tilix „Nur lesen“): Tasten und Einfügen erreichen den Prozess nicht
+        // Read only (Tilix "Read-Only"): keys and paste do not reach the process
         let a = gio::SimpleAction::new_stateful("read-only", None, &false.to_variant());
         let weak = Rc::downgrade(&self.0);
         a.connect_activate(move |a, _| {
@@ -1441,7 +1441,7 @@ impl Terminal {
             let on = !a.state().and_then(|v| v.get::<bool>()).unwrap_or(false);
             a.set_state(&on.to_variant());
             inner.vte.set_input_enabled(!on);
-            // VTE verwirft eingefügten Text dann ohnehin; ohne Rückfrage-Dialog davor
+            // VTE discards pasted text then anyway; no confirmation dialog before it
             for name in ["paste", "paste-advanced"] {
                 if let Some(p) = inner.actions.lookup_action(name).and_downcast::<gio::SimpleAction>() {
                     p.set_enabled(!on);
@@ -1450,7 +1450,7 @@ impl Terminal {
             Terminal(inner).emit_state_changed();
         });
         group.add_action(&a);
-        // Überwachen: Schalter mit Zustand für den Haken im Kontextmenü
+        // Monitor: stateful toggle for the check mark in the context menu
         for name in ["monitor-activity", "monitor-silence"] {
             let a = gio::SimpleAction::new_stateful(name, None, &false.to_variant());
             let weak = Rc::downgrade(&self.0);
@@ -1474,7 +1474,7 @@ impl Terminal {
         self.setup_file_drop();
 
         self.rebuild_shortcuts();
-        // Eigene Kürzel aus den Einstellungen sofort übernehmen
+        // Apply custom shortcuts from the settings immediately
         let weak = Rc::downgrade(&self.0);
         let id = crate::settings::settings().connect_changed(Some("custom-shortcuts"), move |_, _| {
             if let Some(inner) = weak.upgrade() {
@@ -1489,10 +1489,10 @@ impl Terminal {
         });
     }
 
-    /// Kürzel und Kontextmenü (mit Kürzelanzeige) nach aktueller Belegung aufbauen.
-    /// Die Kürzel hängen am Terminal selbst und laufen in der Capture-Phase vor der
-    /// Tastaturbehandlung von VTE. Globale App-Accels würden am Fenster aufgelöst und fänden
-    /// die Aktionen dieses Terminals nicht (in der VM gefunden: Strg+= tippte „=“).
+    /// Build shortcuts and context menu (with shortcut labels) from the current assignment.
+    /// The shortcuts hang on the terminal itself and run in the capture phase before
+    /// VTE's key handling. Global app accels would be resolved at the window and would not find
+    /// this terminal's actions (found in the VM: Ctrl+= typed "=").
     fn rebuild_shortcuts(&self) {
         if let Some(old) = self.0.shortcut_controller.borrow_mut().take() {
             self.0.vte.remove_controller(&old);
@@ -1509,7 +1509,7 @@ impl Terminal {
             menu.append_item(&it);
         };
         let menu = gio::Menu::new();
-        // Link-Einträge nur sichtbar, wenn beim Rechtsklick ein Link unter dem Zeiger lag
+        // Link entries only visible if a link was under the pointer at right-click
         let link = gio::Menu::new();
         for (label, action) in [(N_("Open link"), "term.open-link"), (N_("Copy link"), "term.copy-link")] {
             let it = gio::MenuItem::new(Some(&gettext(label)), Some(action));
@@ -1529,8 +1529,8 @@ impl Terminal {
         item(&zoom, &gettext("Zoom out"), "term.zoom-out");
         item(&zoom, &gettext("Normal size"), "term.zoom-reset");
         menu.append_section(None, &zoom);
-        // Bereichsaktionen leben am Fenster (win.*); sie gelten für den fokussierten Bereich,
-        // den ein Rechtsklick vorher setzt (siehe pane.rs).
+        // Pane actions live on the window (win.*); they apply to the focused pane,
+        // which a right-click sets beforehand (see pane.rs).
         let search = gio::Menu::new();
         item(&search, &gettext("Search…"), "win.find");
         menu.append_section(None, &search);
@@ -1540,7 +1540,7 @@ impl Terminal {
         item(&split, &gettext("Maximize pane"), "win.toggle-zoom");
         item(&split, &gettext("Equalize sizes"), "win.equalize");
         menu.append_section(None, &split);
-        // Seltener Gebrauchtes im Untermenü, sonst wird das Menü höher als kleine Bildschirme
+        // Less used entries in the submenu, otherwise the menu gets taller than small screens
         let more = gio::Menu::new();
         let output = gio::Menu::new();
         item(&output, &gettext("Save output…"), "term.save-output");
@@ -1568,34 +1568,34 @@ impl Terminal {
     }
 }
 
-/// Erlaubte Schemata beim Öffnen von Links – keine „javascript:“, „data:“ o. Ä.
+/// Allowed schemes when opening links – no `javascript:`, `data:` or the like.
 const SAFE_SCHEMES: &[&str] = &["http", "https", "ftp", "mailto", "file"];
 
-/// Adressen ohne OSC 8 erkennen (PCRE2). Satzzeichen am Ende gehören nicht dazu.
+/// Detect addresses without OSC 8 (PCRE2). Trailing punctuation is not part of them.
 const URL_PATTERNS: &[&str] = &[
     r#"\b(?:https?|ftp|file)://[^\s<>"'`]*[^\s<>"'`.,;:!?)\]}]"#,
     r#"\bmailto:[^\s<>"'`@]+@[^\s<>"'`]*[^\s<>"'`.,;:!?)\]}]"#,
-    // Dateipfade (Audit T-53): /…, ~/…, ./…, ../…, auch mit :Zeile:Spalte; nicht mitten in
-    // Wörtern, Adressen („https://“) oder Daten („10/23“)
+    // File paths (audit T-53): /…, ~/…, ./…, ../…, also with :line:column; not in the middle of
+    // words, addresses (`https://`) or dates (`10/23`)
     r#"(?<![\w/~.:@-])(?:~|\.\.?)?/[\w.+@%~/-]*[\w+@%~/-](?::\d+){0,2}"#,
 ];
 
-/// PCRE2-Flags wie bei Ptyxis: UTF, NO_UTF_CHECK, UCP und MULTILINE (verlangt VTE).
-/// `VTE_SPAWN_NO_PARENT_ENVV` (vtepty.h): nur `envv` statt der Umgebung von Parkett; TERM,
-/// COLORTERM und VTE_VERSION setzt VTE trotzdem. Fehlt in vte4-rs.
+/// PCRE2 flags like Ptyxis: UTF, NO_UTF_CHECK, UCP and MULTILINE (required by VTE).
+/// `VTE_SPAWN_NO_PARENT_ENVV` (vtepty.h): only `envv` instead of Parkett's environment; VTE
+/// still sets TERM, COLORTERM and VTE_VERSION. Missing in vte4-rs.
 const VTE_SPAWN_NO_PARENT_ENVV: u32 = 1 << 25;
 
-/// Wie gesucht wird (Schalter der Suchleiste).
+/// How to search (toggles of the search bar).
 #[derive(Clone, Copy, Default)]
 pub struct SearchQuery {
     pub regex: bool,
     pub case_sensitive: bool,
-    /// nur ganze Wörter (Tilix „Ganzes Wort“): Muster in \b…\b
+    /// whole words only (Tilix "Match whole word"): pattern in \b…\b
     pub whole_words: bool,
 }
 
 impl SearchQuery {
-    /// PCRE-Muster für VTE und das Zählen (beides PCRE2)
+    /// PCRE pattern for VTE and counting (both PCRE2)
     pub fn pattern(&self, text: &str) -> String {
         let p = if self.regex { text.to_string() } else { glib::Regex::escape_string(text).to_string() };
         if self.whole_words {
@@ -1606,15 +1606,15 @@ impl SearchQuery {
     }
 }
 
-/// Darüber zeigt die Suche „999+“: Zählen kostet bei langem Verlauf sonst spürbar Zeit.
+/// Above this the search shows "999+": otherwise counting takes noticeable time with a long scrollback.
 pub const SEARCH_COUNT_MAX: usize = 999;
-/// Zeilen je Block beim Zählen (von unten nach oben)
+/// Rows per block when counting (bottom to top)
 const SEARCH_COUNT_ROWS: libc::c_long = 20_000;
 
 pub const PCRE2_FLAGS: u32 = 0x0008_0000 | 0x4000_0000 | 0x0002_0000 | 0x0000_0400;
 pub const PCRE2_CASELESS: u32 = 0x0000_0008;
 
-/// Verlauf und sichtbaren Text als Datei speichern (Tilix „Speichern …“).
+/// Save scrollback and visible text as a file (Tilix "Save…").
 fn save_output(vte: &vte::Terminal) {
     let dialog = gtk::FileDialog::builder()
         .title(gettext("Save output"))
@@ -1648,7 +1648,7 @@ fn paste_with_check(vte: &vte::Terminal) {
     vte.clipboard().read_text_async(gio::Cancellable::NONE, move |res| {
         let Ok(Some(text)) = res else { return };
         let text = text.to_string();
-        // Jeder Umbruch zählt, auch einer am Ende einer einzelnen Zeile (QA-04)
+        // Every line break counts, including one at the end of a single line (QA-04)
         let check = parkett_core::paste::check(&text);
         if !check.executes || !crate::settings::settings().boolean("warn-multiline-paste") {
             vte.paste_text(&text);
@@ -1699,9 +1699,9 @@ fn paste_with_check(vte: &vte::Terminal) {
     });
 }
 
-/// Erweitertes Einfügen: Text aus der Zwischenablage vorher bearbeiten, Tabulatoren und
-/// Zeilenenden umwandeln (Tilix „Advanced Paste“). Ersetzt die Rückfrage bei Umbrüchen –
-/// der Text steht ja schon vollständig im Dialog.
+/// Paste special: edit clipboard text first, convert tabs and
+/// line endings (Tilix "Advanced Paste"). Replaces the confirmation for line breaks –
+/// the text is already fully shown in the dialog.
 fn paste_advanced(vte: &vte::Terminal) {
     let vte = vte.clone();
     vte.clipboard().read_text_async(gio::Cancellable::NONE, move |res| {
@@ -1760,9 +1760,9 @@ fn paste_advanced(vte: &vte::Terminal) {
     });
 }
 
-/// Ist die installierte VTE mit Sixel gebaut? (Arch und Fedora 44 sind es nicht.)
+/// Is the installed VTE built with Sixel? (Arch and Fedora 44 are not.)
 pub fn sixel_supported() -> bool {
-    // vte4-rs bindet vte_get_feature_flags nicht; reine Abfrage ohne Argumente
+    // vte4-rs does not bind vte_get_feature_flags; plain query without arguments
     let flags = unsafe { vte::ffi::vte_get_feature_flags() };
     flags & vte::ffi::VTE_FEATURE_FLAG_SIXEL != 0
 }
@@ -1776,13 +1776,13 @@ fn from_rgba(c: &gtk::gdk::RGBA) -> Rgb {
     Rgb::from_f64(c.red().into(), c.green().into(), c.blue().into())
 }
 
-/// `~` und `~/…` zum Persönlichen Ordner auflösen; leer = keine Vorgabe.
+/// Resolve `~` and `~/…` to the home folder; empty = no preset.
 fn expand_home(dir: &str) -> Option<String> {
     (!dir.is_empty()).then(|| parkett_core::paths::expand_home(dir, &glib::home_dir()).to_string_lossy().into_owned())
 }
 
-/// Login-Shell des Benutzers laut VTE (passwd), sonst $SHELL, sonst /bin/sh.
-/// Umgebung von Parkett als `NAME=wert`.
+/// The user's login shell according to VTE (passwd), otherwise $SHELL, otherwise /bin/sh.
+/// Parkett's environment as `NAME=value`.
 fn own_environment() -> Vec<String> {
     std::env::vars_os().map(|(k, v)| format!("{}={}", k.to_string_lossy(), v.to_string_lossy())).collect()
 }
@@ -1799,7 +1799,7 @@ pub enum ExitStatus {
     Signal(i32),
 }
 
-/// `child-exited` liefert den rohen wait()-Status.
+/// `child-exited` returns the raw wait() status.
 fn decode_wait_status(status: i32) -> ExitStatus {
     if status & 0x7f == 0 {
         ExitStatus::Code((status >> 8) & 0xff)

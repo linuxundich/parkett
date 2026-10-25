@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Erzeugt po/parkett.pot aus den Dateien in POTFILES.in und gleicht alle po/*.po damit ab.
-# Braucht gettext und python3. Muster aus Tastenspur: Rust-Dateien über extract_rust.py
-# (xgettext übersieht Texte in Makros), die übrigen über xgettext.
+# Generates po/parkett.pot from the files in POTFILES.in and merges all po/*.po with it.
+# Needs gettext and python3. Pattern from Tastenspur: Rust files go through extract_rust.py
+# (xgettext misses strings inside macros), the others through xgettext.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 mapfile -t files < <(grep -v '^#' po/POTFILES.in | grep -v '^$')
@@ -21,4 +21,4 @@ shopt -s nullglob
 for po in po/*.po; do
   msgmerge --quiet --no-wrap --update --backup=none "$po" po/parkett.pot
 done
-echo "po/parkett.pot: $(grep -c '^msgid ' po/parkett.pot) Einträge"
+echo "po/parkett.pot: $(grep -c '^msgid ' po/parkett.pot) entries"

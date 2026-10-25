@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Vorlagen: ein ganzes Layout mit Profil, Startbefehl und Unterverzeichnis je Bereich.
-//! Gespeichert als TOML (`$XDG_CONFIG_HOME/parkett/templates/<id>.toml`).
+//! Templates: a whole layout with profile, startup command and subdirectory per pane.
+//! Stored as TOML (`$XDG_CONFIG_HOME/parkett/templates/<id>.toml`).
 //!
-//! Startbefehle werden in die Shell getippt (Vorschlag 5, CONCEPTS.md), nicht statt der
-//! Shell gestartet: Nach Strg+C bleibt der Bereich als Shell nutzbar.
+//! Startup commands are typed into the shell (proposal 5, CONCEPTS.md), not started instead of
+//! the shell: after Ctrl+C the pane stays usable as a shell.
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -15,22 +15,22 @@ use crate::layout::{Layout, Node, Orientation, PaneId};
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PaneSpec {
-    /// Anzeigename (z. B. „Dev-Server“), nur für Vorlage und Editor
+    /// Display name (e.g. "Dev server"), only for the template and editor
     pub name: String,
-    /// Profil-Id; leer = Standardprofil
+    /// Profile id; empty = default profile
     pub profile: String,
-    /// Wird nach dem Start in die Shell getippt; leer = nur Shell
+    /// Typed into the shell after start; empty = shell only
     pub command: String,
-    /// Relativ zum Verzeichnis der Vorlage; leer = dieses Verzeichnis
+    /// Relative to the template's directory; empty = that directory
     pub subdir: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum SplitDirection {
-    /// nebeneinander
+    /// side by side
     Horizontal,
-    /// übereinander
+    /// stacked
     Vertical,
 }
 
@@ -46,7 +46,7 @@ pub struct Template {
     #[serde(skip)]
     pub id: String,
     pub name: String,
-    /// Festes Verzeichnis; leer = beim Öffnen fragen
+    /// Fixed directory; empty = ask on open
     #[serde(default)]
     pub directory: String,
     pub layout: TemplateNode,
@@ -77,14 +77,14 @@ impl TemplateNode {
 }
 
 impl TemplateNode {
-    /// Teilt den Bereich Nr. `index` (Lesereihenfolge); der neue, leere Bereich kommt rechts
-    /// bzw. unten dazu. `false`, wenn es den Bereich nicht gibt.
+    /// Splits pane no. `index` (reading order); the new, empty pane goes to the right
+    /// or below. `false` if the pane does not exist.
     pub fn split_pane(&mut self, index: usize, direction: SplitDirection) -> bool {
         let mut n = index;
         split_at(self, &mut n, direction)
     }
 
-    /// Entfernt den Bereich Nr. `index`; das Geschwister rückt nach. Der letzte Bereich bleibt.
+    /// Removes pane no. `index`; the sibling takes its place. The last pane stays.
     pub fn remove_pane(&mut self, index: usize) -> bool {
         if matches!(self, TemplateNode::Pane(_)) {
             return false;
@@ -93,7 +93,7 @@ impl TemplateNode {
         remove_at(self, &mut n)
     }
 
-    /// Alle Trenner in die Mitte.
+    /// All separators to the middle.
     pub fn equalize(&mut self) {
         if let TemplateNode::Split { ratio, first, second, .. } = self {
             *ratio = 0.5;
@@ -103,7 +103,7 @@ impl TemplateNode {
     }
 }
 
-/// Zählt `n` beim Durchlauf herunter; bei 0 ist der gesuchte Bereich erreicht.
+/// Counts `n` down during traversal; at 0 the wanted pane is reached.
 fn split_at(node: &mut TemplateNode, n: &mut usize, direction: SplitDirection) -> bool {
     match node {
         TemplateNode::Pane(spec) if *n == 0 => {
@@ -156,8 +156,8 @@ impl Template {
         Ok(t)
     }
 
-    /// Layout für einen neuen Reiter: Bereiche bekommen Ids 1, 2, … in Lesereihenfolge.
-    /// Rückgabe: Layout und je Id die Angaben zum Bereich.
+    /// Layout for a new tab: panes get ids 1, 2, … in reading order.
+    /// Returns the layout and, per id, the pane's settings.
     pub fn instantiate(&self) -> (Layout, Vec<(PaneId, PaneSpec)>) {
         let mut specs = Vec::new();
         fn build(n: &TemplateNode, specs: &mut Vec<(PaneId, PaneSpec)>) -> Node {
@@ -172,8 +172,8 @@ impl Template {
                         SplitDirection::Horizontal => Orientation::Horizontal,
                         SplitDirection::Vertical => Orientation::Vertical,
                     },
-                    // „nan“/„inf“ aus einer Datei von Hand: clamp lässt NaN durch, und die Sitzung
-                    // schriebe es als `null`, das sich nicht mehr laden lässt (R-08)
+                    // "nan"/"inf" from a hand-edited file: clamp lets NaN through, and the session
+                    // would write it as `null`, which no longer loads (R-08)
                     ratio: if ratio.is_finite() {
                         ratio.clamp(crate::layout::MIN_RATIO, 1.0 - crate::layout::MIN_RATIO)
                     } else {
@@ -188,7 +188,7 @@ impl Template {
         (Layout::from_node(root, 1).expect("fortlaufende Ids sind eindeutig"), specs)
     }
 
-    /// Vorlage aus einem laufenden Reiter; `spec(id)` liefert die Angaben je Bereich.
+    /// Template from a running tab; `spec(id)` returns the settings per pane.
     pub fn from_layout(name: &str, layout: &Layout, spec: &dyn Fn(PaneId) -> PaneSpec) -> Template {
         fn walk(n: &Node, spec: &dyn Fn(PaneId) -> PaneSpec) -> TemplateNode {
             match n {
@@ -212,18 +212,18 @@ impl Template {
         }
     }
 
-    /// Alle nicht leeren Startbefehle (für die Anzeige vor dem Ausführen).
+    /// All non-empty startup commands (for display before running).
     pub fn commands(&self) -> Vec<String> {
         self.layout.panes().iter().map(|p| p.command.trim().to_string()).filter(|c| !c.is_empty()).collect()
     }
 }
 
-/// Unterverzeichnis relativ zu `base`, wenn `path` darin liegt (sonst leer).
+/// Subdirectory relative to `base` if `path` lies inside it (empty otherwise).
 pub fn relative_subdir(base: &Path, path: &Path) -> String {
     path.strip_prefix(base).ok().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default()
 }
 
-/// Vorlagen in einem Verzeichnis (eine Datei je Vorlage).
+/// Templates in a directory (one file per template).
 pub struct TemplateStore {
     dir: PathBuf,
 }
@@ -233,7 +233,7 @@ impl TemplateStore {
         TemplateStore { dir: dir.into() }
     }
 
-    /// Alle Vorlagen nach Name; unlesbare Dateien werden gemeldet, nicht gelöscht.
+    /// All templates by name; unreadable files are reported, not deleted.
     pub fn load_all(&self) -> io::Result<(Vec<Template>, Vec<String>)> {
         std::fs::create_dir_all(&self.dir)?;
         let mut out = Vec::new();

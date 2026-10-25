@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Parkett im Kontextmenü von Nautilus (nautilus-python).
+"""Parkett in the Nautilus context menu (nautilus-python).
 
-Nautilus 51 verdrahtet „In Konsole öffnen“ fest mit GNOME Console; andere Terminals kommen
-nur über eine Erweiterung ins Menü. Öffnet ein neues Parkett-Fenster, bei mehreren Ordnern
-mit je einem Reiter.
+Nautilus 51 hard-wires "Open in Console" to GNOME Console; other terminals only get into
+the menu through an extension. Opens a new Parkett window, with one tab per folder when
+several folders are selected.
 """
 
 from gi.repository import GObject, Gio, Nautilus
@@ -12,7 +12,7 @@ PARKETT = "@BINDIR@/parkett"
 
 
 def _local_dirs(files):
-    """Pfade der markierten Ordner; Ordner ohne lokalen Pfad (z. B. ohne GVfs-FUSE) fehlen."""
+    """Paths of the selected folders; folders without a local path (e.g. without GVfs FUSE) are left out."""
     out = []
     for f in files:
         if not f.is_directory():
@@ -24,14 +24,14 @@ def _local_dirs(files):
 
 
 def _run(paths):
-    """Ein Aufruf: ein Fenster mit je einem Reiter pro Ordner (`-d` mehrfach). Asynchron,
-    damit Nautilus nicht wartet; das Ergebnis nur abholen, damit kein Zombie bleibt."""
+    """One call: one window with a tab per folder (`-d` repeated). Asynchronous so Nautilus
+    does not wait; the result is only collected so no zombie is left behind."""
     args = [PARKETT]
     for path in paths:
         args += ["--working-directory", path]
     try:
         proc = Gio.Subprocess.new(args, Gio.SubprocessFlags.NONE)
-    except Exception as e:  # Parkett deinstalliert, Erweiterung noch da
+    except Exception as e:  # Parkett uninstalled, extension still there
         print(f"parkett-nautilus: {e}")
         return
     proc.wait_async(None, lambda p, r: p.wait_finish(r))

@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Mausklick in der Test-VM per QMP (absolute Koordinaten in Bildschirmpixeln).
-click.py X Y [BREITE HÖHE]   -> Linksklick; ohne Angabe gilt die aktuelle Auflösung der VM
-CLICKS=2 click.py X Y        -> Doppelklick
-BUTTON=right click.py X Y    -> Rechtsklick (auch middle)
+"""Mouse click in the test VM via QMP (absolute coordinates in screen pixels).
+click.py X Y [WIDTH HEIGHT]  -> left click; without them the VM's current resolution applies
+CLICKS=2 click.py X Y        -> double click
+BUTTON=right click.py X Y    -> right click (also middle)
 """
 import json, subprocess, sys, time
 DOM = "fedora44-wor"
 x, y = int(sys.argv[1]), int(sys.argv[2])
 if len(sys.argv) > 4:
     w, h = int(sys.argv[3]), int(sys.argv[4])
-else:  # aktuelle Auflösung aus einem Bildschirmfoto
+else:  # current resolution from a screenshot
     import tempfile
     with tempfile.NamedTemporaryFile(suffix=".img") as f:
         subprocess.run(["virsh", "-c", "qemu:///session", "screenshot", DOM, f.name], check=True, capture_output=True)

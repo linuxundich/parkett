@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Hauptfenster (Konzept A+): Headerbar, AdwTabBar, je Tab ein Split-Baum, Tab-Übersicht.
+//! Main window (concept A+): header bar, AdwTabBar, one split tree per tab, tab overview.
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
@@ -22,15 +22,15 @@ mod imp {
         pub overview: OnceCell<adw::TabOverview>,
         pub title: OnceCell<adw::WindowTitle>,
         pub toasts: OnceCell<adw::ToastOverlay>,
-        /// Nachfrage beim Schließen wurde bestätigt
+        /// confirmation on close was accepted
         pub force_close: Cell<bool>,
         pub shortcuts: std::cell::RefCell<Option<gtk::ShortcutController>>,
-        /// feste Kürzel Alt+1…9 / Strg+Alt+1…9
+        /// fixed shortcuts Alt+1…9 / Ctrl+Alt+1…9
         pub fixed_shortcuts: std::cell::OnceCell<gtk::ShortcutController>,
-        /// Layout-Modus aktiv; „M“ gedrückt, nächster Pfeil tauscht
+        /// layout mode active; "M" pressed, next arrow swaps
         pub layout_mode: Cell<bool>,
         pub pending_swap: Cell<bool>,
-        /// Einblendung „Rückgängig“ des zuletzt Geschlossenen; eine neue ersetzt sie
+        /// "Undo" toast of the last closed item; a new one replaces it
         pub undo_toast: std::cell::RefCell<Option<adw::Toast>>,
         pub new_button: OnceCell<adw::SplitButton>,
     }
@@ -86,7 +86,7 @@ impl Window {
         win
     }
 
-    /// Fenster ohne Reiter; der Aufrufer fügt sofort welche hinzu (Befehlszeile, Sitzung).
+    /// Window without tabs; the caller adds some right away (command line, session).
     pub fn empty(app: &adw::Application) -> Self {
         let win: Window = glib::Object::builder()
             .property("application", app)
@@ -104,14 +104,14 @@ impl Window {
         win
     }
 
-    /// Stand für die Sitzung: alle Reiter mit gewähltem Reiter.
+    /// State for the session: all tabs plus the selected tab.
     pub fn to_session(&self) -> parkett_core::session::SessionWindow {
         let view = self.tab_view();
         let selected = view.selected_page().map(|p| view.page_position(&p).max(0) as usize).unwrap_or(0);
         parkett_core::session::SessionWindow { selected, tabs: self.tabs().iter().map(Tab::to_session).collect() }
     }
 
-    /// Reiter aus einer gespeicherten Sitzung öffnen.
+    /// Open tabs from a saved session.
     pub fn restore_session(&self, w: &parkett_core::session::SessionWindow) {
         for t in &w.tabs {
             self.attach_tab(Tab::from_template(t, std::path::Path::new("/"), false));
@@ -122,20 +122,20 @@ impl Window {
         }
     }
 
-    /// Reiter nach Vorgaben der Befehlszeile: Profil, Befehl statt Shell, Titel.
+    /// Tab according to the command line: profile, command instead of shell, title.
     pub fn add_tab_with(&self, cwd: Option<String>, profile: &str, launch: Launch, title: Option<String>) -> Tab {
         let tab = Tab::with_launch(cwd, profile, launch);
         tab.set_custom_title(title);
         self.attach_tab(tab)
     }
 
-    /// Kaputte Profil-, Paletten- oder Vorlagendateien nennen statt sie still zu überspringen.
+    /// Name broken profile, palette or template files instead of silently skipping them.
     fn report_load_errors(&self) {
         let errors = ProfileManager::get().errors();
         if errors.is_empty() {
             return;
         }
-        // Ohne Zeitlimit: Der Hinweis lässt sich sonst später nicht mehr aufrufen (QA-15)
+        // No timeout: otherwise the notice cannot be brought up again later (QA-15)
         let toast = adw::Toast::builder()
             .title(ntrf(
                 "{n} file could not be read, see details",
@@ -153,9 +153,9 @@ impl Window {
                 Some(&gettext("Unreadable files")),
                 Some(&gettext("Parkett skipped these files and left them unchanged.")),
             );
-            // Festbreitenschrift und linksbündig: TOML-Fehler zeigen mit „^“ auf die Stelle (QA-15).
-            // Nicht wählbar: Ein wählbares Label bekäme den Fokus, wäre ganz markiert und nach
-            // rechts gescrollt; zum Weitergeben gibt es „Kopieren“.
+            // Monospace and left-aligned: TOML errors point at the spot with "^" (QA-15).
+            // Not selectable: a selectable label would get the focus, be fully selected and scrolled to
+            // the right; for passing it on there is "Copy".
             let home = glib::home_dir();
             let text = errors
                 .iter()
@@ -203,11 +203,11 @@ impl Window {
         let imp = self.imp();
         let tab_view = adw::TabView::new();
         let tab_bar = adw::TabBar::builder().view(&tab_view).build();
-        // Bereich auf einen Reiter der Leiste ziehen: dorthin umziehen (auch aus einem anderen
-        // Fenster); der Prozess läuft weiter
+        // Drag a pane onto a tab in the bar: move it there (also from another
+        // window); the process keeps running
         tab_bar.setup_extra_drop_target(gtk::gdk::DragAction::MOVE, &[String::static_type()]);
-        // Ohne eigene Antwort meldet die Leiste eine Aktion, die nicht zu MOVE passt
-        // (gdk_drop_status: assertion), und der Drop endet nie (VM 2026-10-23)
+        // Without our own answer the bar reports an action that does not fit MOVE
+        // (gdk_drop_status: assertion), and the drop never ends (VM 2026-10-23)
         tab_bar.set_extra_drag_preload(true);
         tab_bar.connect_extra_drag_value(|_, _, value| match value.and_then(|v| v.get::<String>().ok()) {
             Some(key) if crate::pane::parse_drag_key(&key).is_some() => gtk::gdk::DragAction::MOVE,
@@ -224,7 +224,7 @@ impl Window {
         });
         let settings = crate::settings::settings();
         settings.bind("autohide-tab-bar", &tab_bar, "autohide").build();
-        // Abblenden sofort umschalten, wenn die Einstellung sich ändert
+        // Switch dimming right away when the setting changes
         let weak = self.downgrade();
         let dim = settings.connect_changed(Some("dim-unfocused"), move |_, _| {
             if let Some(w) = weak.upgrade() {
@@ -252,12 +252,12 @@ impl Window {
 
         let title = adw::WindowTitle::new("Parkett", "");
 
-        // Menü am Neu-Knopf: ein Eintrag je Profil, folgt Änderungen an den Profilen
+        // Menu on the New button: one entry per profile, follows changes to the profiles
         let new_menu = gio::Menu::new();
         fill_new_menu(&new_menu);
         let menu_ref = new_menu.clone();
         let menu_ref2 = new_menu.clone();
-        // Vorlagen auch im Hauptmenü (Audit-Vorschlag 25)
+        // Templates in the main menu too (audit proposal 25)
         let template_menu = gio::Menu::new();
         fill_template_menu(&template_menu);
         let menu_ref3 = template_menu.clone();
@@ -281,7 +281,7 @@ impl Window {
             .build();
 
         let main_menu = gio::Menu::new();
-        // Stilwahl System/Hell/Dunkel oben im Menü (wie GNOME Text Editor, Console)
+        // Style selector System/Light/Dark at the top of the menu (like GNOME Text Editor, Console)
         let style_item = gio::MenuItem::new(None, None);
         style_item.set_attribute_value("custom", Some(&"style".to_variant()));
         let s0 = gio::Menu::new();
@@ -291,8 +291,8 @@ impl Window {
         s1.append(Some(&gettext("New window")), Some("app.new-window"));
         s1.append(Some(&gettext("Rename tab…")), Some("win.rename-tab"));
         main_menu.append_section(None, &s1);
-        // Palette, Layout-Modus und Vorlagen auffindbar machen, nicht nur über Kürzel und
-        // den Pfeil am Neu-Knopf (Audit-Vorschlag 25)
+        // Make the palette, layout mode and templates discoverable, not only via shortcuts and
+        // the arrow on the New button (audit proposal 25)
         let s_tools = gio::Menu::new();
         s_tools.append(Some(&gettext("Command palette")), Some("win.palette"));
         s_tools.append(Some(&gettext("Layout mode")), Some("win.layout-mode"));
@@ -309,11 +309,11 @@ impl Window {
         let menu_button = gtk::MenuButton::builder()
             .icon_name("open-menu-symbolic")
             .menu_model(&main_menu)
-            // nicht „primary“: sonst öffnet F10 das Menü, und htop/mc ließen sich nicht mehr
-            // mit F10 beenden (QA-01; GNOME Terminal schaltet F10 ebenfalls ab)
+            // not "primary": otherwise F10 opens the menu, and htop/mc could no longer be
+            // quit with F10 (QA-01; GNOME Terminal turns F10 off as well)
             .tooltip_text(gettext("Main menu"))
             .build();
-        // Lesezeichen bei jedem Öffnen frisch: Die Datei darf von Hand bearbeitet werden
+        // Bookmarks fresh on every opening: the file may be edited by hand
         menu_button.connect_active_notify(move |b| {
             if b.is_active() {
                 fill_bookmark_menu(&bookmark_menu);
@@ -331,7 +331,7 @@ impl Window {
         crate::shortcuts::live_tooltip(&find_button, N_("Search"), "win.find", &[]);
         let overview_button = adw::TabButton::builder().view(&tab_view).action_name("win.overview").build();
         crate::shortcuts::live_tooltip(&overview_button, N_("Tab overview"), "win.overview", &[]);
-        // Name mit Anzahl statt nur der Zahl, die der Knopf zeigt (QA-18)
+        // Name with count instead of just the number the button shows (QA-18)
         let button = overview_button.clone();
         let name_overview = move |view: &adw::TabView| {
             let label = ntrf("Tab overview, {n} tab", "Tab overview, {n} tabs", view.n_pages() as u32, &[]);
@@ -340,8 +340,8 @@ impl Window {
         name_overview(&tab_view);
         tab_view.connect_n_pages_notify(name_overview);
 
-        // Klick auf den Titel öffnet die Befehlspalette (Vorschlag 2)
-        // Erst nach der Doppelklick-Zeit öffnen: Doppelklick auf die Kopfleiste maximiert nur
+        // Click on the title opens the command palette (proposal 2)
+        // Open only after the double-click time: a double-click on the header bar only maximizes
         let title_click = gtk::GestureClick::new();
         let pending: std::rc::Rc<std::cell::RefCell<Option<glib::SourceId>>> = Default::default();
         let weak = self.downgrade();
@@ -367,18 +367,18 @@ impl Window {
         crate::shortcuts::tooltip_only(&title, N_("Command palette"), "win.palette", &[]);
 
         let header = adw::HeaderBar::builder().title_widget(&title).build();
-        // AdwSplitButton gibt beiden Teilen den Tooltip des Pfeils als Namen (QA: Orca läse
-        // „Weitere Möglichkeiten“ für den Neu-Knopf); daher ausdrücklich benennen.
+        // AdwSplitButton gives both parts the arrow's tooltip as name (QA: Orca would read
+        // "More options" for the New button); so name it explicitly.
         new_button
             .upcast_ref::<gtk::Widget>()
             .update_property(&[gtk::accessible::Property::Label(&gettext("New tab"))]);
-        // Beschreibung ebenso: Sie kommt sonst auch vom Pfeil, Orca läse „Neuer Reiter,
-        // Weitere Möglichkeiten“ (QA-18, AT-SPI in der VM 2026-10-22)
-        // libadwaita setzt sie bei jeder Tooltip-Änderung neu, darum danach wiederholen.
+        // The description as well: otherwise it also comes from the arrow, Orca would read "New tab,
+        // More options" (QA-18, AT-SPI in the VM 2026-10-22)
+        // libadwaita sets it again on every tooltip change, so repeat it afterwards.
         let name_main = |b: &adw::SplitButton| {
             if let Some(main) = b.first_child() {
-                // libadwaita verweist per described-by auf den ganzen Knopf; daraus wird sonst
-                // die Beschreibung berechnet, nicht aus der Eigenschaft
+                // libadwaita points to the whole button via described-by; otherwise the description
+                // is computed from that, not from the property
                 main.reset_relation(gtk::AccessibleRelation::DescribedBy);
                 main.update_property(&[
                     gtk::accessible::Property::Label(&gettext("New tab")),
@@ -393,7 +393,7 @@ impl Window {
             }
         });
         header.pack_start(&new_button);
-        // Teilen-Knöpfe wie bei Tilix (Wunsch Christoph nach dem ersten eigenen Test)
+        // Split buttons like in Tilix (Christoph's wish after his first own test)
         let split_right =
             gtk::Button::builder().icon_name("parkett-split-right-symbolic").action_name("win.split-right").build();
         let split_down =
@@ -402,16 +402,16 @@ impl Window {
         crate::shortcuts::live_tooltip(&split_down, N_("Split down"), "win.split-down", &[]);
         header.pack_start(&split_right);
         header.pack_start(&split_down);
-        // Schmales Fenster (Kacheln auf kleinen Bildschirmen): Teilen-Knöpfe und Suche weg,
-        // sonst bestimmt die Kopfleiste die Mindestbreite (≈ 550 px, QA-13). Teilen bleibt im
-        // Menü am Neu-Knopf und per Kürzel, Suchen per Kürzel und Kontextmenü.
+        // Narrow window (tiling on small screens): hide split buttons and search,
+        // otherwise the header bar sets the minimum width (≈ 550 px, QA-13). Splitting stays in the
+        // menu on the New button and via shortcut, search via shortcut and context menu.
         let narrow =
             adw::Breakpoint::new(adw::BreakpointCondition::parse("max-width: 600sp").expect("valid condition"));
         for w in [split_right.upcast_ref::<glib::Object>(), split_down.upcast_ref(), find_button.upcast_ref()] {
             narrow.add_setter(w, "visible", Some(&false.to_value()));
         }
         self.add_breakpoint(narrow);
-        // Breakpoints verlangen eine feste Mindestgröße; 360 px wie in der GNOME-HIG
+        // Breakpoints require a fixed minimum size; 360 px as in the GNOME HIG
         self.set_size_request(360, 294);
         imp.new_button.set(new_button.clone()).ok();
         header.pack_end(&menu_button);
@@ -436,7 +436,7 @@ impl Window {
             w.tab_view().page(&tab)
         });
 
-        // Übersicht geschlossen (Esc oder Auswahl): Fokus ins Terminal des gewählten Reiters
+        // Overview closed (Esc or selection): focus into the terminal of the selected tab
         let weak = self.downgrade();
         overview.connect_open_notify(move |o| {
             if let (false, Some(w)) = (o.is_open(), weak.upgrade()) {
@@ -450,7 +450,7 @@ impl Window {
         toasts.set_child(Some(&overview));
         self.set_content(Some(&toasts));
 
-        // Tab-Wechsel: Titel nachziehen, Terminal fokussieren
+        // Tab switch: update the title, focus the terminal
         let weak = self.downgrade();
         tab_view.connect_selected_page_notify(move |view| {
             let Some(w) = weak.upgrade() else { return };
@@ -465,8 +465,8 @@ impl Window {
             w.update_sync_actions();
         });
 
-        // Reiter aus dem Fenster ziehen und daneben ablegen: neues Fenster für ihn. Die
-        // Handler des Reiters suchen ihr Fenster beim Aufruf (R-01), Prozesse laufen weiter.
+        // Drag a tab out of the window and drop it beside: new window for it. The
+        // tab's handlers look up their window when called (R-01), processes keep running.
         let weak = self.downgrade();
         tab_view.connect_create_window(move |_| {
             let app = weak.upgrade()?.application().and_downcast::<adw::Application>()?;
@@ -475,7 +475,7 @@ impl Window {
             Some(w.tab_view().clone())
         });
 
-        // Klick auf das Symbol der gemeinsamen Eingabe schaltet sie für diesen Reiter ab
+        // Click on the shared input icon turns it off for this tab
         let weak = self.downgrade();
         tab_view.connect_indicator_activated(move |_, page| {
             let (Some(w), Ok(tab)) = (weak.upgrade(), page.child().downcast::<Tab>()) else { return };
@@ -486,7 +486,7 @@ impl Window {
             }
         });
 
-        // Schließen eines Tabs: bei laufendem Vordergrundprozess nachfragen
+        // Closing a tab: ask if a foreground process is running
         let weak = self.downgrade();
         tab_view.connect_close_page(move |view, page| {
             let Some(w) = weak.upgrade() else { return glib::Propagation::Proceed };
@@ -504,7 +504,7 @@ impl Window {
             glib::Propagation::Stop
         });
 
-        // letzter Tab weg → Fenster zu; sonst stimmen die Nummern im Label nicht mehr
+        // last tab gone → close window; otherwise the numbers in the labels are wrong
         let weak = self.downgrade();
         tab_view.connect_n_pages_notify(move |view| {
             let Some(w) = weak.upgrade() else { return };
@@ -536,14 +536,14 @@ impl Window {
         self.attach_tab(Tab::new(cwd, profile))
     }
 
-    /// Schließt einen Reiter endgültig, bietet aber 8 s lang „Rückgängig“ an (Vorschlag 4).
-    /// Bis dahin laufen seine Prozesse weiter. Beim letzten Reiter schließt das Fenster.
+    /// Closes a tab for good, but offers "Undo" for 8 s (proposal 4).
+    /// Until then its processes keep running. For the last tab the window closes.
     fn finish_close_page(&self, page: &adw::TabPage) {
         crate::session::schedule_save();
         let view = self.tab_view();
         let tab = page.child().downcast::<Tab>().ok();
-        // leer, weil sein letzter Bereich in einen anderen Reiter gezogen wurde: nichts
-        // wiederherzustellen, also ohne „Rückgängig“
+        // empty because its last pane was dragged into another tab: nothing
+        // to restore, so without "Undo"
         if tab.as_ref().is_some_and(|t| t.pane_count() == 0) {
             view.close_page_finish(page, true);
             return;
@@ -581,15 +581,15 @@ impl Window {
         self.show_undo_toast(toast);
     }
 
-    /// Zeigt eine Rückgängig-Einblendung. Eine noch offene wird vorher geschlossen – sonst
-    /// stünden die Einblendungen Schlange (je 8 s) und die Prozesse liefen so lange weiter
-    /// (in der QA gefunden: 7 geschlossene Reiter, nach 14 s noch 15 Shells).
+    /// Shows an undo toast. One still open is closed first – otherwise
+    /// the toasts would queue up (8 s each) and the processes would keep running that long
+    /// (found in QA: 7 closed tabs, still 15 shells after 14 s).
     fn show_undo_toast(&self, toast: adw::Toast) {
         if let Some(old) = self.imp().undo_toast.replace(Some(toast.clone())) {
             old.dismiss();
         }
-        // Nach Ablauf loslassen: Die Einblendung hält über ihre Handler den geschlossenen
-        // Reiter samt VTE-Puffer fest (QA-03).
+        // Let go after expiry: through its handlers the toast holds the closed
+        // tab including its VTE buffer (QA-03).
         let weak = self.downgrade();
         toast.connect_dismissed(move |t| {
             let Some(w) = weak.upgrade() else { return };
@@ -601,9 +601,9 @@ impl Window {
         self.imp().toasts.get().unwrap().add_toast(toast);
     }
 
-    /// Nach dem Schließen eines Menüs bliebe der Fokus sonst auf dessen Knopf: Getipptes ginge
-    /// verloren, und Eingabe öffnete das Menü erneut (QA-09). Hat ein Menüpunkt einen Dialog
-    /// geöffnet, behält der den Fokus.
+    /// After closing a menu the focus would otherwise stay on its button: typing would get
+    /// lost, and Enter would open the menu again (QA-09). If a menu item opened a dialog,
+    /// that one keeps the focus.
     fn refocus_after(&self, popover: &impl IsA<gtk::Popover>) {
         let weak = self.downgrade();
         popover.connect_closed(move |_| {
@@ -621,9 +621,9 @@ impl Window {
         });
     }
 
-    /// Seite eines Reiters, falls er (noch) in diesem Fenster ist. `TabView::page` setzt das
-    /// voraus; ein geschlossener Reiter in der Rückgängig-Frist oder ein in ein anderes Fenster
-    /// gezogener meldet sich aber weiter (R-01).
+    /// Page of a tab if it is (still) in this window. `TabView::page` assumes that;
+    /// but a closed tab within the undo period or one dragged into another window
+    /// still reports in (R-01).
     fn page_of(&self, tab: &Tab) -> Option<adw::TabPage> {
         let view = self.tab_view();
         (0..view.n_pages()).map(|i| view.nth_page(i)).find(|p| p.child() == *tab.upcast_ref::<gtk::Widget>())
@@ -631,19 +631,19 @@ impl Window {
 
     fn attach_tab(&self, tab: Tab) -> Tab {
         let page = self.tab_view().append(&tab);
-        // Das Fenster erst beim Aufruf bestimmen: Ein Reiter kann in ein anderes Fenster
-        // gezogen werden, und ein geschlossener (Rückgängig-Frist) hat gar keins (R-01).
+        // Determine the window only when called: a tab can be dragged into another window,
+        // and a closed one (undo period) has none at all (R-01).
         let window_of = |tab: &Tab| tab.root().and_downcast::<Window>();
         tab.connect_changed(move |tab| {
             if let Some(w) = window_of(tab) {
                 w.update_page(tab);
-                // Fokuswechsel im Reiter: Haken „empfängt gemeinsame Eingabe“ angleichen
+                // Focus change in the tab: update the "receives shared input" check mark
                 if w.current_tab().as_ref() == Some(tab) {
                     w.sync_action_states();
                 }
             }
         });
-        // geschlossener Bereich: „Rückgängig“ anbieten, danach Prozess beenden
+        // closed pane: offer "Undo", then end the process
         tab.connect_pane_closed(move |tab, serial| {
             let toast =
                 adw::Toast::builder().title(gettext("Pane closed")).button_label(gettext("Undo")).timeout(8).build();
@@ -676,8 +676,8 @@ impl Window {
         tab
     }
 
-    /// Fensterhintergrund durchsichtig, sobald ein Terminal mit Deckkraft unter 100 % darin
-    /// ist – sonst schiene statt des Desktops nur die Fensterfarbe durch.
+    /// Window background transparent as soon as it contains a terminal with opacity below 100 %
+    /// – otherwise only the window color would shine through instead of the desktop.
     fn update_translucency(&self) {
         let any = self.tabs().iter().any(Tab::is_translucent);
         if any != self.has_css_class("parkett-translucent") {
@@ -695,7 +695,7 @@ impl Window {
         let view = self.tab_view();
         let Some(page) = self.page_of(tab) else { return };
         page.set_title(&self.page_label(tab, &page));
-        // voller Titel der Shell und Verzeichnis, wenn das Label kurz ist
+        // full shell title and directory when the label is short
         let cwd = tab.cwd().map(|c| tilde(&c)).unwrap_or_default();
         let mut tooltip = if crate::settings::short_tab_labels() { format!("{}\n{cwd}", tab.title()) } else { cwd };
         if let Some(name) = tab.focused_pane().terminal().automatic_profile() {
@@ -715,7 +715,7 @@ impl Window {
                 page.set_needs_attention(true);
             }
         } else if tab.sync() {
-            // gemeinsame Eingabe: Symbol am Reiter, Klick darauf schaltet sie ab
+            // shared input: icon on the tab, clicking it turns it off
             page.set_indicator_icon(Some(&gio::ThemedIcon::new("input-keyboard-symbolic")));
             page.set_indicator_tooltip(&gettext("Shared input on – click to turn it off"));
             page.set_indicator_activatable(true);
@@ -727,7 +727,7 @@ impl Window {
         }
     }
 
-    /// Label in der Reiterleiste: kurz „1 htop · parkett“ (QA-17) oder der Titel der Shell.
+    /// Label in the tab bar: short "1 htop · parkett" (QA-17) or the shell's title.
     fn page_label(&self, tab: &Tab, page: &adw::TabPage) -> String {
         if crate::settings::short_tab_labels() {
             tab.short_label(Some(self.tab_view().page_position(page) as usize + 1))
@@ -736,7 +736,7 @@ impl Window {
         }
     }
 
-    /// Alle Labels neu (Reihenfolge oder Einstellung geändert).
+    /// Refresh all labels (order or setting changed).
     fn update_labels(&self) {
         for tab in self.tabs() {
             if let Some(page) = self.page_of(&tab) {
@@ -749,8 +749,8 @@ impl Window {
         let title = self.imp().title.get().unwrap();
         match self.current_tab() {
             Some(tab) => {
-                // Vorlage aus den Einstellungen; {title} ist der Reitertitel (eigener Name oder
-                // der der Shell)
+                // template from the preferences; {title} is the tab title (custom name or
+                // the shell's)
                 let position = self.page_of(&tab).map(|p| self.tab_view().page_position(&p) as usize + 1);
                 let t = tab.render_label(&crate::settings::window_title_template(), position, Some(tab.title()));
                 title.set_title(&t);
@@ -765,7 +765,7 @@ impl Window {
         }
     }
 
-    /// Fenstergröße für das nächste Fenster merken (nur wenn nicht maximiert).
+    /// Remember the window size for the next window (only when not maximized).
     fn save_size(&self) {
         let s = crate::settings::settings();
         let maximized = self.is_maximized();
@@ -777,8 +777,8 @@ impl Window {
         }
     }
 
-    /// Schalter der gemeinsamen Eingabe an den gewählten Reiter und Bereich angleichen,
-    /// danach dessen Reiter-Symbol.
+    /// Align the shared input switches with the selected tab and pane,
+    /// then its tab icon.
     fn update_sync_actions(&self) {
         self.sync_action_states();
         if let Some(tab) = self.current_tab() {
@@ -799,7 +799,7 @@ impl Window {
         }
     }
 
-    /// Drag & Drop eines Bereichs (Inhalt `key`, siehe pane.rs) auf den Reiter `target`.
+    /// Drag & drop of a pane (content `key`, see pane.rs) onto the tab `target`.
     fn move_pane_to(&self, key: &str, target: &Tab) -> bool {
         let Some((from, id)) = crate::pane::parse_drag_key(key) else { return false };
         let Some(app) = self.application() else { return false };
@@ -815,7 +815,7 @@ impl Window {
         }
         let Some(pane) = source.take_pane(id) else { return false };
         if !target.adopt_pane(&pane) {
-            // kein Platz: zurück in den alten Reiter (der ihn nimmt, solange er nicht leer war)
+            // no room: back into the old tab (which takes it as long as it was not empty)
             if !source.adopt_pane(&pane) {
                 pane.terminal().terminate();
             }
@@ -830,8 +830,8 @@ impl Window {
         self.imp().toasts.get().unwrap().add_toast(plain_toast(text));
     }
 
-    /// Nachfrage, wenn noch Programme laufen. `on_result(true)` bei „Schließen“, sonst `false`
-    /// (auch Esc). Nur `response` auswerten: `closed` kann davor kommen (in der VM gesehen).
+    /// Confirmation when programs are still running. `on_result(true)` on "Close", otherwise `false`
+    /// (also Esc). Only evaluate `response`: `closed` can come before it (seen in the VM).
     fn confirm_close(&self, heading: &str, procs: &[String], on_result: impl Fn(bool) + 'static) {
         let mut names: Vec<&str> = procs.iter().map(String::as_str).collect();
         names.sort();
@@ -865,7 +865,7 @@ impl Window {
         let e2 = entry.clone();
         dialog.connect_response(Some("rename"), move |_, _| tab.set_custom_title(Some(e2.text().to_string())));
         dialog.present(Some(self));
-        // AdwAlertDialog fokussiert sonst die Standard-Antwort, Tippen ginge ins Leere
+        // AdwAlertDialog otherwise focuses the default response, typing would go nowhere
         entry.grab_focus();
     }
 
@@ -911,12 +911,12 @@ impl Window {
             }
         });
         self.add_action(&a);
-        // Tasten im Layout-Modus (Capture-Phase, vor Terminal und Kürzeln)
+        // Keys in layout mode (capture phase, before terminal and shortcuts)
         let keys = gtk::EventControllerKey::new();
         keys.set_propagation_phase(gtk::PropagationPhase::Capture);
         let weak = self.downgrade();
         keys.connect_key_pressed(move |_, key, _, state| match weak.upgrade() {
-            // Nur wenn ein Terminal den Fokus hat – Dialoge (Nachfrage, Palette) bekommen ihre Tasten
+            // Only when a terminal has the focus – dialogs (confirmation, palette) get their keys
             Some(w) if w.imp().layout_mode.get() && w.terminal_has_focus() => w.layout_key(key, state),
             _ => glib::Propagation::Proceed,
         });
@@ -929,7 +929,7 @@ impl Window {
             w.add_tab_with_profile(cwd, &id);
         });
         self.add_action(&a);
-        // Befehlspalette, Strg+Eingabe auf einem Profil: neuer Bereich statt neuer Reiter
+        // Command palette, Ctrl+Enter on a profile: new pane instead of new tab
         let a = gio::SimpleAction::new("split-profile", Some(glib::VariantTy::STRING));
         let weak = self.downgrade();
         a.connect_activate(move |_, param| {
@@ -945,7 +945,7 @@ impl Window {
             }
         });
         self.add_action(&a);
-        // Lesezeichen: Ordner als neuer Reiter, neuer Bereich oder „cd“ im aktiven Bereich
+        // Bookmarks: folder as new tab, new pane or `cd` in the active pane
         let a = gio::SimpleAction::new("open-bookmark", Some(glib::VariantTy::STRING));
         let weak = self.downgrade();
         a.connect_activate(move |_, param| {
@@ -976,8 +976,8 @@ impl Window {
             }
         });
         self.add_action(&a);
-        // Befehl oder SSH-Ziel: (Ort, Ordner, Befehl); Ort „tab“, „pane“ oder „here“. Getippt
-        // statt als Befehl gestartet – nach `exit` bleibt die Shell (wie Tilix).
+        // Command or SSH target: (place, folder, command); place "tab", "pane" or "here". Typed
+        // instead of started as a command – after `exit` the shell stays (like Tilix).
         let a = gio::SimpleAction::new("bookmark-command", Some(glib::VariantTy::new("(sss)").unwrap()));
         let weak = self.downgrade();
         a.connect_activate(move |_, param| {
@@ -1047,8 +1047,8 @@ impl Window {
         on_tab("split-down", |w, t| split(w, t, Some(Orientation::Vertical)));
         on_tab("split-auto", |w, t| split(w, t, None));
         on_tab("toggle-zoom", |_, t| t.toggle_zoom());
-        // Gemeinsame Eingabe (Tilix „Synchronize input“): Schalter mit Zustand, damit Menüs
-        // den Haken zeigen; der Zustand folgt dem gewählten Reiter (update_sync_actions)
+        // Shared input (Tilix "Synchronize input"): stateful toggle so that menus
+        // show the check mark; the state follows the selected tab (update_sync_actions)
         let a = gio::SimpleAction::new_stateful("toggle-sync", None, &false.to_variant());
         let weak = self.downgrade();
         a.connect_activate(move |_, _| {
@@ -1113,7 +1113,7 @@ impl Window {
         on_tab("resize-up", |_, t| t.resize(Direction::Up));
         on_tab("resize-down", |_, t| t.resize(Direction::Down));
 
-        // Tab n: Strg+Alt+n, Bereich n: Alt+n (Tilix-Belegung)
+        // Tab n: Ctrl+Alt+n, pane n: Alt+n (Tilix assignment)
         let controller = gtk::ShortcutController::new();
         controller.set_propagation_phase(gtk::PropagationPhase::Capture);
         for n in 1..=9u32 {
@@ -1141,8 +1141,8 @@ impl Window {
         }
         self.add_controller(controller.clone());
         let _ = self.imp().fixed_shortcuts.set(controller);
-        // Änderbare Kürzel (Einstellungen › Tastenkürzel) in eigenem Controller, live neu gebaut.
-        // Capture-Phase, damit z. B. Alt+Pfeil nicht in der Shell landet.
+        // Customizable shortcuts (Preferences › Shortcuts) in their own controller, rebuilt live.
+        // Capture phase, so that e.g. Alt+Arrow does not end up in the shell.
         self.rebuild_shortcuts();
         let weak = self.downgrade();
         let id = crate::settings::settings().connect_changed(Some("custom-shortcuts"), move |_, _| {
@@ -1158,7 +1158,7 @@ impl Window {
         });
     }
 
-    /// Reiter und Bereich mit diesem Terminal zeigen. `false`, wenn es hier keins gibt.
+    /// Show the tab and pane with this terminal. `false` if there is none here.
     pub fn show_terminal(&self, uid: u64) -> bool {
         for tab in self.tabs() {
             if let Some(id) = tab.pane_with_terminal(uid) {
@@ -1184,7 +1184,7 @@ impl Window {
         }
     }
 
-    /// Führt eine Aktion aus der Kürzel-Liste aus; `term.*` im fokussierten Terminal.
+    /// Runs an action from the shortcut list; `term.*` in the focused terminal.
     pub fn run_action(&self, action: &str) {
         if action.starts_with("term.") {
             if let Some(tab) = self.current_tab() {
@@ -1207,7 +1207,7 @@ impl Window {
                 tab.set_layout_mode(true);
             }
         } else {
-            // alle, nicht nur den aktuellen: beim Reiterwechsel ist der alte schon nicht mehr aktuell
+            // all, not just the current one: on a tab switch the old one is already no longer current
             for tab in self.tabs() {
                 tab.set_layout_mode(false);
             }
@@ -1219,7 +1219,7 @@ impl Window {
         GtkWindowExt::focus(self).is_some_and(|f| f.ancestor(vte::Terminal::static_type()).is_some())
     }
 
-    /// Tasten im Layout-Modus. Alles andere wird verschluckt, damit nichts in der Shell landet.
+    /// Keys in layout mode. Everything else is swallowed so that nothing ends up in the shell.
     fn layout_key(&self, key: gtk::gdk::Key, state: gtk::gdk::ModifierType) -> glib::Propagation {
         use gtk::gdk::Key;
         let Some(tab) = self.current_tab() else { return glib::Propagation::Proceed };
@@ -1270,14 +1270,14 @@ impl Window {
                 }
             }
         }
-        // Nummern und Zustand nach Umbauten auffrischen (neuer Bereich, Schließen …)
+        // Refresh numbers and state after rebuilds (new pane, closing …)
         if let Some(t) = self.current_tab() {
             t.set_layout_mode(imp.layout_mode.get());
         }
         glib::Propagation::Stop
     }
 
-    /// Dialog „Vorlage öffnen“: Verzeichnis wählen, Startbefehle zeigen und ein-/ausschalten.
+    /// Dialog "Open template": choose the directory, show startup commands and turn them on/off.
     pub fn open_template(&self, id: &str) {
         let Some(t) = ProfileManager::get().template(id) else { return };
         let home = glib::home_dir();
@@ -1308,7 +1308,7 @@ impl Window {
         let commands = t.commands();
         let run = adw::SwitchRow::builder()
             .title(gettext("Run start commands"))
-            // Untertitel sind Pango-Markup: Befehle mit „&&“ oder „<“ blieben sonst unsichtbar (QA-07)
+            // Subtitles are Pango markup: commands with "&&" or "<" would otherwise stay invisible (QA-07)
             .subtitle(if commands.is_empty() {
                 gettext("No start commands")
             } else {
@@ -1355,7 +1355,7 @@ impl Window {
         dialog.present(Some(self));
     }
 
-    /// Dialog „Reiter als Vorlage speichern“.
+    /// Dialog "Save tab as template".
     fn save_template(&self) {
         let Some(tab) = self.current_tab() else { return };
         let suggestion = tab.custom_title().unwrap_or_else(|| {
@@ -1397,7 +1397,7 @@ impl Window {
         entry.grab_focus();
     }
 
-    /// Fensterkürzel aus/ein, z. B. während der Einstellungsdialog ein Kürzel aufnimmt.
+    /// Window shortcuts off/on, e.g. while the preferences dialog records a shortcut.
     pub fn set_shortcuts_enabled(&self, enabled: bool) {
         let phase = if enabled { gtk::PropagationPhase::Capture } else { gtk::PropagationPhase::None };
         if let Some(c) = self.imp().shortcuts.borrow().as_ref() {
@@ -1416,8 +1416,8 @@ impl Window {
         let c = crate::shortcuts::controller("win.");
         self.add_controller(c.clone());
         *imp.shortcuts.borrow_mut() = Some(c);
-        // AdwSplitButton reicht seinen Tooltip an den inneren Knopf weiter; daher hier setzen
-        // statt beim Zeigen (die übrigen Knöpfe: `shortcuts::live_tooltip`)
+        // AdwSplitButton passes its tooltip on to the inner button; so set it here
+        // instead of when shown (the other buttons: `shortcuts::live_tooltip`)
         if let Some(button) = imp.new_button.get() {
             button.set_tooltip_text(Some(&crate::shortcuts::tooltip(&gettext("New tab"), "win.new-tab", &[])));
         }
@@ -1429,7 +1429,7 @@ fn fill_new_menu(menu: &gio::Menu) {
     let manager = ProfileManager::get();
     let default = manager.default_id();
     let profiles = gio::Menu::new();
-    // Standardprofil zuerst, danach alphabetisch
+    // default profile first, then alphabetical
     let mut list = manager.profiles();
     list.sort_by_key(|p| p.id != default);
     for p in list {
@@ -1441,7 +1441,7 @@ fn fill_new_menu(menu: &gio::Menu) {
     let templates = gio::Menu::new();
     fill_template_menu(&templates);
     menu.append_section(Some(&gettext("Templates")), &templates);
-    // Teilen auch hier: In schmalen Fenstern fehlen die Knöpfe in der Kopfleiste (QA-13)
+    // Split here too: in narrow windows the buttons are missing from the header bar (QA-13)
     let split = gio::Menu::new();
     split.append(Some(&gettext("Split right")), Some("win.split-right"));
     split.append(Some(&gettext("Split down")), Some("win.split-down"));
@@ -1452,7 +1452,7 @@ fn fill_new_menu(menu: &gio::Menu) {
     menu.append_section(None, &more);
 }
 
-/// Lesezeichen als neue Reiter, danach „Aktuellen Ordner als Lesezeichen“.
+/// Bookmarks as new tabs, then "Bookmark current folder".
 fn fill_bookmark_menu(menu: &gio::Menu) {
     menu.remove_all();
     for b in crate::bookmarks::load() {
@@ -1464,7 +1464,7 @@ fn fill_bookmark_menu(menu: &gio::Menu) {
     menu.append(Some(&gettext("Bookmark current folder")), Some("win.add-bookmark"));
 }
 
-/// Vorlagen zum Öffnen, danach „Aktuellen Reiter als Vorlage speichern …“.
+/// Templates to open, then "Save current tab as template…".
 fn fill_template_menu(menu: &gio::Menu) {
     menu.remove_all();
     for t in ProfileManager::get().templates() {
@@ -1483,8 +1483,8 @@ fn tilde(path: &str) -> String {
     parkett_core::paths::tilde(path, &glib::home_dir())
 }
 
-/// Einblendung mit reinem Text: Toast-Titel sind sonst Pango-Markup, und Namen, Pfade oder
-/// Fehlermeldungen mit „&“ oder „<“ gingen verloren (QA-07).
+/// Toast with plain text: toast titles are otherwise Pango markup, and names, paths or
+/// error messages with "&" or "<" would get lost (QA-07).
 pub fn plain_toast(text: &str) -> adw::Toast {
     adw::Toast::builder().title(text).use_markup(false).build()
 }

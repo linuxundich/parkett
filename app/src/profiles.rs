@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Verwaltung von Profilen und Farbschemata für die ganze Anwendung.
+//! Profile and color scheme management for the whole application.
 //!
-//! Ein GObject mit dem Signal „changed“, damit Terminals und Dialoge sich anmelden und
-//! Änderungen sofort übernehmen (Live-Vorschau beim Wählen eines Farbschemas).
+//! A GObject with a `changed` signal, so terminals and dialogs can subscribe and apply
+//! changes immediately (live preview while picking a color scheme).
 
 use std::path::{Path, PathBuf};
 
@@ -71,7 +71,7 @@ impl ProfileManager {
         m
     }
 
-    /// Liest Profile und Paletten neu von der Platte.
+    /// Rereads profiles and palettes from disk.
     pub fn reload(&self) {
         let imp = self.imp();
         let mut errors = Vec::new();
@@ -123,12 +123,12 @@ impl ProfileManager {
         *imp.errors.borrow_mut() = errors;
     }
 
-    /// Dateien, die beim letzten Laden nicht lesbar waren (Pfad: Fehler).
+    /// Files that could not be read during the last load (path: error).
     pub fn errors(&self) -> Vec<String> {
         self.imp().errors.borrow().clone()
     }
 
-    /// Nur Vorlagen geändert – Terminals müssen dafür nicht neu einfärben.
+    /// Only templates changed – terminals do not need to recolor for that.
     pub fn connect_templates_changed(&self, f: impl Fn() + 'static) -> glib::SignalHandlerId {
         self.connect_local("templates-changed", false, move |_| {
             f();
@@ -143,8 +143,8 @@ impl ProfileManager {
         })
     }
 
-    /// Neu einlesen, falls es `id` nicht gibt (Profil von Hand angelegt, während Parkett lief).
-    /// `true`, wenn es danach existiert.
+    /// Reload if `id` does not exist (profile created by hand while Parkett was running).
+    /// `true` if it exists afterwards.
     pub fn ensure_profile(&self, id: &str) -> bool {
         if self.imp().profiles.borrow().iter().any(|p| p.id == id) {
             return true;
@@ -177,7 +177,7 @@ impl ProfileManager {
         self.emit_changed();
     }
 
-    /// Profil `id`, sonst das Standardprofil (z. B. nach Löschen).
+    /// Profile `id`, otherwise the default profile (e.g. after deletion).
     pub fn profile(&self, id: &str) -> Profile {
         let profiles = self.imp().profiles.borrow();
         profiles.iter().find(|p| p.id == id).cloned().unwrap_or_else(|| {
@@ -186,7 +186,7 @@ impl ProfileManager {
         })
     }
 
-    /// Speichert und benachrichtigt alle Terminals (Live-Vorschau).
+    /// Saves and notifies all terminals (live preview).
     pub fn save(&self, profile: &Profile) -> Result<(), String> {
         self.imp().store.get().unwrap().save(profile).map_err(|e| e.to_string())?;
         {
@@ -201,7 +201,7 @@ impl ProfileManager {
         Ok(())
     }
 
-    /// Neues Profil mit den Einstellungen des Standardprofils.
+    /// New profile with the settings of the default profile.
     pub fn create(&self, name: &str) -> Result<Profile, String> {
         let base = self.profile(&self.default_id());
         let id = self.imp().store.get().unwrap().new_id(name);
@@ -232,7 +232,7 @@ impl ProfileManager {
         self.imp().templates.borrow().iter().find(|t| t.id == id).cloned()
     }
 
-    /// Speichert eine Vorlage; ohne Id bekommt sie eine aus dem Namen.
+    /// Saves a template; without an id it gets one derived from its name.
     pub fn save_template(&self, template: &Template) -> Result<Template, String> {
         let mut t = template.clone();
         if t.id.is_empty() {
@@ -271,8 +271,8 @@ impl ProfileManager {
             .clone()
     }
 
-    /// Importiert eine Ptyxis-Palette oder ein Tilix-Schema und legt es im Ptyxis-Format
-    /// unter `$XDG_DATA_HOME/parkett/palettes/` ab.
+    /// Imports a Ptyxis palette or a Tilix scheme and stores it in Ptyxis format
+    /// under `$XDG_DATA_HOME/parkett/palettes/`.
     pub fn import(&self, path: &Path) -> Result<Palette, String> {
         let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
         let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("schema");

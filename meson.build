@@ -22,7 +22,7 @@ dependency('vte-2.91-gtk4', version: '>= 0.80')
 subdir('data')
 subdir('po')
 
-# cargo baut das Programm; Meson kopiert es an die erwartete Stelle und installiert es.
+# cargo builds the binary; Meson copies it to the expected place and installs it.
 cargo_build = find_program('build-aux/cargo-build.sh')
 custom_target(
   'cargo-build',

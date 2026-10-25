@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Ein Tab: Split-Layout aus `parkett_core::layout` plus die Bereichs-Widgets.
+//! A tab: split layout from `parkett_core::layout` plus the pane widgets.
 //!
-//! Das Modell ist maßgeblich. Nach jeder Änderung baut `rebuild()` den GtkPaned-Baum neu
-//! und hängt die vorhandenen Bereiche nur um – Terminals und ihre Prozesse bleiben erhalten.
+//! The model is authoritative. After every change `rebuild()` rebuilds the GtkPaned tree
+//! and only re-parents the existing panes – terminals and their processes are kept.
 
 use std::collections::HashMap;
 
@@ -17,8 +17,8 @@ use crate::i18n::{gettext, ntrf, N_};
 use crate::pane::Pane;
 use crate::terminal::{Launch, MIN_COLUMNS, MIN_ROWS};
 
-/// Ausgabe nur mit PARKETT_DEBUG_LAYOUT=1 (Fehlersuche beim Abgleich Trenner ⇄ Modell).
-/// Als Makro, damit ohne die Variable kein Text formatiert wird (D6).
+/// Output only with PARKETT_DEBUG_LAYOUT=1 (debugging the sync divider ⇄ model).
+/// A macro, so that no text is formatted without the variable (D6).
 macro_rules! debug {
     ($($arg:tt)*) => {
         if debug_enabled() {
@@ -27,7 +27,7 @@ macro_rules! debug {
     };
 }
 
-/// Schrittweite beim Verschieben eines Trenners per Tastatur (Anteil der Fläche).
+/// Step size when moving a divider by keyboard (fraction of the area).
 const RESIZE_STEP: f32 = 0.03;
 
 mod imp {
@@ -45,12 +45,12 @@ mod imp {
         pub zoom_banner: OnceCell<gtk::Box>,
         pub zoom_label: OnceCell<gtk::Label>,
         pub mode_bar: OnceCell<gtk::FlowBox>,
-        /// Geschlossene Bereiche, solange „Rückgängig“ angeboten wird: (Nummer, Bereich,
-        /// Layout davor, Layout danach)
+        /// Closed panes while "Undo" is offered: (number, pane,
+        /// layout before, layout after)
         pub closed: RefCell<Vec<(u64, Pane, Layout, Layout)>>,
         pub closed_serial: std::cell::Cell<u64>,
         pub layout_mode: std::cell::Cell<bool>,
-        /// gemeinsame Eingabe: Getipptes geht an alle Bereiche, die nicht ausgenommen sind
+        /// shared input: typing goes to all panes that are not excluded
         pub sync: std::cell::Cell<bool>,
     }
 
@@ -66,11 +66,11 @@ mod imp {
             static SIGNALS: OnceLock<Vec<Signal>> = OnceLock::new();
             SIGNALS.get_or_init(|| {
                 vec![
-                    // Titel, Verzeichnis, Fokus oder Prozesszustand haben sich geändert
+                    // title, directory, focus or process state changed
                     Signal::builder("changed").build(),
-                    // letzter Bereich wurde geschlossen
+                    // last pane was closed
                     Signal::builder("empty").build(),
-                    // ein Bereich wurde geschlossen und kann wiederhergestellt werden (Nummer)
+                    // a pane was closed and can be restored (number)
                     Signal::builder("pane-closed").param_types([u64::static_type()]).build(),
                 ]
             })
@@ -91,7 +91,7 @@ impl Tab {
         Tab::with_launch(cwd, profile_id, Launch::default())
     }
 
-    /// Reiter mit einem Bereich nach `launch` (Befehl, Umgebung des Aufrufers).
+    /// Tab with one pane according to `launch` (command, caller's environment).
     pub fn with_launch(cwd: Option<String>, profile_id: &str, launch: Launch) -> Self {
         let tab = Tab::empty();
         let first = tab.imp().layout.borrow().focus();
@@ -100,8 +100,8 @@ impl Tab {
         tab
     }
 
-    /// Reiter aus einer Vorlage im Verzeichnis `dir`. Mit `run_commands` werden die
-    /// Startbefehle in die Shells getippt.
+    /// Tab from a template in the directory `dir`. With `run_commands` the
+    /// startup commands are typed into the shells.
     pub fn from_template(
         template: &parkett_core::template::Template,
         dir: &std::path::Path,
@@ -125,7 +125,7 @@ impl Tab {
         tab
     }
 
-    /// Stand für die Sitzung: Aufteilung, Profil und Verzeichnis je Bereich, eigener Titel.
+    /// State for the session: split, profile and directory per pane, custom title.
     pub fn to_session(&self) -> parkett_core::template::Template {
         let panes = self.imp().panes.borrow().clone();
         let spec = |id: PaneId| {
@@ -141,8 +141,8 @@ impl Tab {
         t
     }
 
-    /// Vorlage aus diesem Reiter: Aufteilung, Profile, laufende Befehle; Unterverzeichnisse
-    /// relativ zum Verzeichnis des ersten Bereichs. Liefert auch dieses Verzeichnis.
+    /// Template from this tab: split, profiles, running commands; subdirectories
+    /// relative to the directory of the first pane. Also returns that directory.
     pub fn to_template(&self, name: &str) -> (parkett_core::template::Template, Option<String>) {
         use parkett_core::template::{relative_subdir, PaneSpec, Template};
         let layout = self.layout();
@@ -190,7 +190,7 @@ impl Tab {
         imp.zoom_banner.set(banner).ok();
         imp.zoom_label.set(zoom_label).ok();
 
-        // Hilfeleiste des Layout-Modus (unten mittig)
+        // help bar of the layout mode (bottom center)
         let hints = [
             ("←↑↓→", N_("focus")),
             (N_("Shift+Arrow"), N_("size")),
@@ -202,7 +202,7 @@ impl Tab {
             ("1–9", N_("jump")),
             ("Esc", N_("done")),
         ];
-        // FlowBox statt Box: bricht in schmalen Fenstern um, statt abgeschnitten zu werden
+        // FlowBox instead of Box: wraps in narrow windows instead of being cut off
         let bar = gtk::FlowBox::builder()
             .css_classes(["parkett-mode-bar"])
             .halign(gtk::Align::Center)
@@ -229,7 +229,7 @@ impl Tab {
         tab
     }
 
-    /// Layout-Modus: Nummern auf den Bereichen und Hilfeleiste ein/aus.
+    /// Layout mode: numbers on the panes and help bar on/off.
     pub fn set_layout_mode(&self, on: bool) {
         let imp = self.imp();
         imp.layout_mode.set(on);
@@ -237,7 +237,7 @@ impl Tab {
         self.update_states();
     }
 
-    /// Fokussierten Bereich mit dem Nachbarn in Richtung `dir` tauschen.
+    /// Swap the focused pane with its neighbor in direction `dir`.
     pub fn swap_direction(&self, dir: Direction) {
         let layout = self.layout();
         let (w, h) = self.size();
@@ -281,8 +281,8 @@ impl Tab {
     fn add_pane_with(&self, id: PaneId, cwd: Option<String>, profile_id: &str, launch: Launch) -> Pane {
         let pane = Pane::new(id, cwd, profile_id, launch);
         pane.set_owner(self);
-        // Alle Handler fragen den Bereich beim Aufruf nach seinem Reiter: Er kann per Drag &
-        // Drop in einen anderen umziehen.
+        // All handlers ask the pane for its tab when called: it can move to another one by drag &
+        // drop.
         let weak_pane = pane.downgrade();
         let source = pane.terminal().downgrade();
         pane.terminal().connect_input(move |text| {
@@ -296,8 +296,8 @@ impl Tab {
                 tab.emit_changed();
             }
         });
-        // „Schließen“ in der Leiste nach Prozessende. Die Id erst beim Aufruf lesen: Rückgängig
-        // an neuer Stelle vergibt dem Bereich eine neue.
+        // "Close" in the bar after the process exited. Read the id only when called: undo
+        // at a new position gives the pane a new one.
         let weak_pane = pane.downgrade();
         pane.terminal().connect_close(move || {
             if let Some(pane) = weak_pane.upgrade() {
@@ -306,7 +306,7 @@ impl Tab {
                 }
             }
         });
-        // Fokus per Klick oder Tab-Taste ins Modell übernehmen
+        // Take focus by click or Tab key into the model
         let weak_pane = pane.downgrade();
         pane.terminal().vte().connect_has_focus_notify(move |vte| {
             if !vte.has_focus() {
@@ -365,7 +365,7 @@ impl Tab {
         self.imp().custom_title.borrow().clone()
     }
 
-    /// Tab-Titel: eigener Name, sonst Titel des fokussierten Terminals; bei Zoom „(1/3)“.
+    /// Tab title: custom name, otherwise title of the focused terminal; when zoomed "(1/3)".
     pub fn title(&self) -> String {
         let base =
             self.custom_title().or_else(|| self.focused_pane().terminal().title()).unwrap_or_else(|| "Shell".into());
@@ -375,8 +375,8 @@ impl Tab {
         }
     }
 
-    /// Kurzes Label „1 htop · parkett“ für die Reiterleiste (QA-17); ein eigener Name hat
-    /// Vorrang. `number`: Platz des Reiters, 1-basiert.
+    /// Short label "1 htop · parkett" for the tab bar (QA-17); a custom name takes
+    /// precedence. `number`: position of the tab, 1-based.
     pub fn short_label(&self, number: Option<usize>) -> String {
         let zoom = self.layout().zoomed().map(|_| format!(" (1/{})", self.pane_count())).unwrap_or_default();
         if let Some(custom) = self.custom_title() {
@@ -386,18 +386,18 @@ impl Tab {
             };
         }
         let own = crate::profiles::ProfileManager::get().profile(&self.focused_pane().terminal().profile_id());
-        // Vorlage des Profils vor der Einstellung
+        // the profile's template before the setting
         let template =
             if own.tab_label.trim().is_empty() { crate::settings::tab_label_template() } else { own.tab_label.clone() };
         format!("{}{zoom}", self.render_label(&template, number, None))
     }
 
-    /// Text nach einer Vorlage (`core::label::render`) mit den Werten des aktiven Bereichs,
-    /// für Reiter-Namen und Fenstertitel. `title`: statt des Shell-Titels einsetzen.
+    /// Text from a template (`core::label::render`) with the values of the active pane,
+    /// for tab names and window titles. `title`: use instead of the shell title.
     pub fn render_label(&self, template: &str, number: Option<usize>, title: Option<String>) -> String {
         let pane = self.focused_pane();
         let t = pane.terminal();
-        // In einer SSH-Sitzung ist das lokale Verzeichnis (das der ssh) bedeutungslos
+        // In an SSH session the local directory (that of ssh) is meaningless
         let (dir, host) = match t.context() {
             parkett_core::context::Context::Remote(host) => (None, Some(host)),
             _ => (t.working_directory(), None),
@@ -420,20 +420,19 @@ impl Tab {
         self.focused_pane().terminal().cwd()
     }
 
-    /// Startverzeichnis für ein neues Terminal nach Einstellung „new-terminal-directory“.
+    /// Start directory for a new terminal according to the setting "new-terminal-directory".
     pub fn inherited_cwd(&self) -> Option<String> {
         if crate::settings::inherit_directory() {
-            // ohne lokales OSC 7 (z. B. SSH-Sitzung) das Verzeichnis des Shell-Prozesses
+            // without local OSC 7 (e.g. SSH session) the directory of the shell process
             self.focused_pane().terminal().working_directory()
         } else {
             None
         }
     }
 
-    /// Hat ein Bereich mit Fehler geendet?
-    /// Glocke oder Befehlsende in einem Bereich seit dem letzten Aufruf (löscht die Markierung).
+    /// Bell or command end in a pane since the last call (clears the mark).
     pub fn take_attention(&self) -> bool {
-        // alle Bereiche zurücksetzen, nicht beim ersten Treffer aufhören
+        // reset all panes, do not stop at the first match
         let mut any = false;
         for p in self.imp().panes.borrow().values() {
             any |= p.terminal().take_attention();
@@ -453,7 +452,7 @@ impl Tab {
         })
     }
 
-    /// Laufende Vordergrundprozesse aller Bereiche (für die Nachfrage beim Schließen).
+    /// Running foreground processes of all panes (for the confirmation on close).
     pub fn foreground_processes(&self) -> Vec<String> {
         if !crate::settings::confirm_close() {
             return Vec::new();
@@ -479,7 +478,7 @@ impl Tab {
         ((vte.char_width() * MIN_COLUMNS) as f32, (vte.char_height() * MIN_ROWS) as f32)
     }
 
-    /// Drag & Drop eines Bereichs (siehe `Layout::move_pane`); `false`, wenn nichts passiert.
+    /// Drag & drop of a pane (see `Layout::move_pane`); `false` if nothing happens.
     pub fn move_pane(&self, source: PaneId, target: PaneId, zone: parkett_core::layout::DropZone) -> bool {
         let Some(next) = self.layout().move_pane(source, target, zone) else { return false };
         self.set_layout(next);
@@ -496,14 +495,14 @@ impl Tab {
         self.emit_changed();
     }
 
-    /// Teilt den fokussierten Bereich; `None` = entlang der längeren Seite.
-    /// `false`, wenn ein Teil kleiner als die Mindestgröße würde.
+    /// Splits the focused pane; `None` = along the longer side.
+    /// `false` if one part would become smaller than the minimum size.
     pub fn split(&self, orientation: Option<Orientation>) -> bool {
         self.split_with(orientation, None, None, Launch::default())
     }
 
-    /// Teilt den aktiven Bereich; der neue bekommt `profile` (sonst das des aktiven) und
-    /// startet in `cwd` (sonst nach Einstellung „Verzeichnis neuer Terminals“) mit `launch`.
+    /// Splits the active pane; the new one gets `profile` (otherwise that of the active one) and
+    /// starts in `cwd` (otherwise according to the setting "Directory for new terminals") with `launch`.
     pub fn split_with(
         &self,
         orientation: Option<Orientation>,
@@ -523,12 +522,12 @@ impl Tab {
                 Orientation::Vertical
             }
         });
-        // Bei Zoom gilt die volle Fläche – nach dem Teilen ist der Zoom ohnehin aufgehoben
+        // When zoomed the full area counts – splitting cancels the zoom anyway
         if layout.zoomed().is_none() && !layout.can_split(focus, o, w, h, min_w, min_h) {
             return false;
         }
         let cwd = cwd.or_else(|| self.inherited_cwd());
-        // neuer Bereich erbt das Profil des aktiven
+        // new pane inherits the profile of the active one
         let profile = profile.map(String::from).unwrap_or_else(|| self.focused_pane().terminal().profile_id());
         let Some((next, id)) = layout.split(focus, o) else { return false };
         self.add_pane_with(id, cwd, &profile, launch);
@@ -536,12 +535,12 @@ impl Tab {
         true
     }
 
-    /// Schließt einen Bereich. Er bleibt samt Prozess erhalten, bis `discard_closed` kommt
-    /// (Vorschlag 4: Rückgängig). Beim letzten Bereich meldet der Reiter „empty“.
+    /// Closes a pane. It is kept together with its process until `discard_closed` comes
+    /// (proposal 4: undo). For the last pane the tab reports "empty".
     pub fn close_pane(&self, id: PaneId) {
         let before = self.layout();
-        // Unbekannte Id (Bereich schon geschlossen, Nachfrage überholt): nichts tun – sonst
-        // hielte `close` sie für den letzten Bereich und der ganze Reiter ginge zu.
+        // Unknown id (pane already closed, confirmation outdated): do nothing – otherwise
+        // `close` would take it for the last pane and the whole tab would close.
         if !before.contains(id) {
             return;
         }
@@ -563,8 +562,8 @@ impl Tab {
         }
     }
 
-    /// Holt einen geschlossenen Bereich zurück. Ist das Layout seitdem unverändert, an seinen
-    /// alten Platz; sonst neben den aktiven Bereich.
+    /// Brings back a closed pane. If the layout is unchanged since then, to its
+    /// old place; otherwise next to the active pane.
     pub fn restore_closed(&self, serial: u64) {
         let entry = {
             let mut closed = self.imp().closed.borrow_mut();
@@ -591,8 +590,8 @@ impl Tab {
         self.set_layout(next);
     }
 
-    /// Nimmt einen Bereich samt laufendem Prozess heraus (Drag & Drop in einen anderen
-    /// Reiter). Beim letzten Bereich bleibt der Reiter leer zurück; das Fenster schließt ihn.
+    /// Takes out a pane together with its running process (drag & drop into another
+    /// tab). For the last pane the tab stays empty; the window closes it.
     pub fn take_pane(&self, id: PaneId) -> Option<Pane> {
         let before = self.layout();
         if !before.contains(id) {
@@ -607,8 +606,8 @@ impl Tab {
         Some(pane)
     }
 
-    /// Nimmt einen Bereich aus einem anderen Reiter auf, neben dem aktiven. `false`, wenn kein
-    /// Platz ist; dann bleibt der Bereich bei niemandem, und der Aufrufer gibt ihn zurück.
+    /// Takes in a pane from another tab, next to the active one. `false` if there is no
+    /// room; then the pane belongs to nobody, and the caller gives it back.
     pub fn adopt_pane(&self, pane: &Pane) -> bool {
         let current = self.layout();
         let (w, h) = self.size();
@@ -623,7 +622,7 @@ impl Tab {
         true
     }
 
-    /// „Rückgängig“ ist abgelaufen: Prozess des Bereichs beenden und freigeben.
+    /// "Undo" has expired: end the pane's process and release it.
     pub fn discard_closed(&self, serial: u64) {
         let entry = {
             let mut closed = self.imp().closed.borrow_mut();
@@ -634,7 +633,7 @@ impl Tab {
         }
     }
 
-    /// Alle Prozesse dieses Reiters beenden (Reiter endgültig geschlossen).
+    /// End all processes of this tab (tab closed for good).
     pub fn terminate_all(&self) {
         for pane in self.imp().panes.borrow().values() {
             pane.terminal().terminate();
@@ -652,7 +651,7 @@ impl Tab {
         }
     }
 
-    /// Fokus auf Bereich `id`; hebt einen Zoom auf, wenn der Bereich verborgen ist.
+    /// Focus on pane `id`; cancels a zoom if the pane is hidden.
     pub fn focus_pane(&self, id: PaneId) {
         let layout = self.layout();
         let Some(next) = layout.with_focus(id) else { return };
@@ -666,8 +665,7 @@ impl Tab {
         self.focus_terminal();
     }
 
-    /// Bereich Nummer `n` (1-basiert, Lesereihenfolge).
-    /// Bereich mit diesem Terminal (siehe `Terminal::uid`).
+    /// Pane with this terminal (see `Terminal::uid`).
     pub fn pane_with_terminal(&self, uid: u64) -> Option<PaneId> {
         self.imp().panes.borrow().iter().find(|(_, p)| p.terminal().uid() == uid).map(|(id, _)| *id)
     }
@@ -699,7 +697,7 @@ impl Tab {
         }
     }
 
-    /// Baut den Widget-Baum aus dem Modell neu auf.
+    /// Rebuilds the widget tree from the model.
     fn rebuild(&self) {
         let imp = self.imp();
         for pane in imp.panes.borrow().values() {
@@ -714,7 +712,7 @@ impl Tab {
         self.update_states();
         let weak = self.downgrade();
         glib::idle_add_local_once(move || {
-            // Reiter im Hintergrund (nicht abgebildet) holen sich den Fokus nicht
+            // tabs in the background (not mapped) do not grab the focus
             if let Some(tab) = weak.upgrade().filter(|t| t.is_mapped()) {
                 tab.focus_terminal();
             }
@@ -742,10 +740,10 @@ impl Tab {
                 paned.set_start_child(Some(&self.build_node(first, p1)));
                 paned.set_end_child(Some(&self.build_node(second, p2)));
                 self.sync_ratio(&paned, path);
-                // Doppelklick auf den Trenner gleicht alle Größen an (wie Tilix). Capture-Phase,
-                // weil VTE Klicks sonst selbst nimmt; nur nahe am Trenner zählt. Die Klicks
-                // zählen wir selbst: GtkPaned beansprucht den Druck auf dem Griff für seine
-                // Zieh-Geste, das bricht diese Geste ab und `n_press` bleibt bei 1 (VM-Test).
+                // Double-click on the divider equalizes all sizes (like Tilix). Capture phase,
+                // because VTE otherwise takes the clicks itself; only near the divider counts. We count the
+                // clicks ourselves: GtkPaned claims the press on the handle for its drag gesture,
+                // which cancels this gesture and `n_press` stays at 1 (VM test).
                 let click =
                     gtk::GestureClick::builder().button(1).propagation_phase(gtk::PropagationPhase::Capture).build();
                 let weak = self.downgrade();
@@ -773,9 +771,9 @@ impl Tab {
         }
     }
 
-    /// Hält Trenner und Modell gleich: Bei neuer Größe (max-position) wird der Anteil aus dem
-    /// Modell angewendet; zieht der Nutzer den Trenner, wandert der neue Anteil ins Modell.
-    /// GtkPaned kennt nur Pixel – ohne das „driftet“ die Aufteilung (Tilix `session.d:1631`).
+    /// Keeps divider and model in sync: on a new size (max-position) the fraction from the
+    /// model is applied; if the user drags the divider, the new fraction goes into the model.
+    /// GtkPaned only knows pixels – without this the split "drifts" (Tilix `session.d:1631`).
     fn sync_ratio(&self, paned: &gtk::Paned, path: Vec<Side>) {
         use std::cell::Cell;
         use std::rc::Rc;
@@ -798,7 +796,7 @@ impl Tab {
                 debug!("apply {path:?} total={total} max={max} ratio={ratio:?}");
                 if let Some(ratio) = ratio {
                     applying.set(true);
-                    // GTK begrenzt selbst auf [min-position, max-position]
+                    // GTK clamps to [min-position, max-position] itself
                     p.set_position((ratio * total as f32).round() as i32);
                     applying.set(false);
                 }
@@ -810,7 +808,7 @@ impl Tab {
         let weak = self.downgrade();
         paned.connect_position_notify(move |p| {
             let max = p.max_position();
-            // nur Änderungen bei unveränderter Größe stammen vom Nutzer
+            // only changes at unchanged size come from the user
             debug!(
                 "position {path:?} pos={} max={max} last={} applying={}",
                 p.position(),
@@ -839,14 +837,14 @@ impl Tab {
         self.imp().sync.get()
     }
 
-    /// Gemeinsame Eingabe ein/aus; ausgenommene Bereiche bleiben ausgenommen.
+    /// Shared input on/off; excluded panes stay excluded.
     pub fn set_sync(&self, on: bool) {
         self.imp().sync.set(on);
         self.update_states();
         self.emit_changed();
     }
 
-    /// Bereiche, die gemeinsame Eingabe empfangen (bei ausgeschalteter Eingabe keiner).
+    /// Panes that receive shared input (none when input is off).
     pub fn sync_count(&self) -> usize {
         if !self.sync() {
             return 0;
@@ -854,8 +852,8 @@ impl Tab {
         self.imp().panes.borrow().values().filter(|p| !p.terminal().sync_excluded()).count()
     }
 
-    /// Eingabe aus `source` an die übrigen beteiligten Bereiche. Die Sperre verhindert, dass
-    /// weitergereichter Text erneut weitergereicht wird.
+    /// Input from `source` to the other participating panes. The lock prevents forwarded
+    /// text from being forwarded again.
     fn forward_input(&self, source: &crate::terminal::Terminal, text: &str) {
         thread_local! {
             static FORWARDING: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
@@ -902,8 +900,8 @@ impl Tab {
     }
 }
 
-/// Länge eines Paned entlang seiner Teilungsrichtung. `max-position` taugt dafür nicht:
-/// GTK zieht dort schon die Mindestgröße des zweiten Kindes ab.
+/// Length of a paned along its split direction. `max-position` is no good for that:
+/// GTK already subtracts the minimum size of the second child there.
 fn extent(p: &gtk::Paned) -> i32 {
     match p.orientation() {
         gtk::Orientation::Horizontal => p.width(),
@@ -911,7 +909,7 @@ fn extent(p: &gtk::Paned) -> i32 {
     }
 }
 
-/// Nimmt ein Widget aus seinem GtkPaned oder Overlay heraus.
+/// Takes a widget out of its GtkPaned or overlay.
 fn detach(w: &gtk::Widget) {
     let Some(parent) = w.parent() else { return };
     if let Some(paned) = parent.downcast_ref::<gtk::Paned>() {
@@ -927,7 +925,7 @@ fn detach(w: &gtk::Widget) {
     }
 }
 
-/// PARKETT_DEBUG_LAYOUT gesetzt? Einmal gelesen statt bei jeder Trennerbewegung (D6).
+/// PARKETT_DEBUG_LAYOUT set? Read once instead of on every divider move (D6).
 fn debug_enabled() -> bool {
     static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
     *ON.get_or_init(|| std::env::var_os("PARKETT_DEBUG_LAYOUT").is_some())

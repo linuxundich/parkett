@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Parkett: Einstellungen der Anwendung. Profile und Vorlagen liegen als Dateien
-     unter $XDG_CONFIG_HOME/parkett/ (siehe docs/PROTOTYP.md). -->
+<!-- Parkett: application settings. Profiles and templates are files
+     under $XDG_CONFIG_HOME/parkett/ (see docs/PROTOTYPE.md). -->
 <schemalist gettext-domain="parkett">
   <enum id="de.linuxundich.Parkett.NewTerminalDirectory">
     <value nick="current" value="0"/>

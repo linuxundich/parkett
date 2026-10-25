@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Zugriff auf die GSettings der Anwendung (Schema: data/de.linuxundich.Parkett.gschema.xml).
+//! Access to the application's GSettings (schema: data/de.linuxundich.Parkett.gschema.xml).
 
 use gtk::gio;
 use gtk::prelude::*;
@@ -12,11 +12,11 @@ pub fn settings() -> gio::Settings {
     SETTINGS.with(|s| s.clone())
 }
 
-/// Bei `cargo run` liegt das kompilierte Schema im Build-Ordner; installiert (Meson setzt
-/// PARKETT_INSTALLED beim Bauen) im Standardpfad. Muss vor dem ersten Zugriff laufen.
+/// With `cargo run` the compiled schema lives in the build directory; when installed (Meson sets
+/// PARKETT_INSTALLED at build time) in the default path. Must run before the first access.
 pub fn init() {
     if option_env!("PARKETT_INSTALLED").is_none() {
-        // SAFETY: wird am Anfang von main() aufgerufen, bevor Threads existieren
+        // SAFETY: called at the start of main(), before any threads exist
         unsafe { std::env::set_var("GSETTINGS_SCHEMA_DIR", concat!(env!("OUT_DIR"), "/schemas")) };
     }
 }
@@ -29,22 +29,22 @@ pub fn dim_unfocused() -> bool {
     settings().boolean("dim-unfocused")
 }
 
-/// Neue Terminals im Verzeichnis des aktiven Bereichs starten (sonst im Persönlichen Ordner)?
+/// Start new terminals in the directory of the active pane (otherwise in the home folder)?
 pub fn inherit_directory() -> bool {
     settings().string("new-terminal-directory") == "current"
 }
 
-/// Reiter-Label „1 htop · parkett“ statt des Titels der Shell (QA-17).
+/// Tab label "1 htop · parkett" instead of the shell's title (QA-17).
 pub fn short_tab_labels() -> bool {
     settings().boolean("short-tab-labels")
 }
 
-/// Bei GNOMEs hohem Kontrast das Schema *Hoher Kontrast* statt des Profilschemas.
+/// With GNOME's high contrast, the *High Contrast* scheme instead of the profile's scheme.
 pub fn follow_high_contrast() -> bool {
     settings().boolean("follow-high-contrast")
 }
 
-/// Vorlage für kurze Reiter-Namen (`core::label::render`); leer = Standard.
+/// Template for short tab names (`core::label::render`); empty = default.
 pub fn tab_label_template() -> String {
     let t = settings().string("tab-label-template").trim().to_string();
     if t.is_empty() {
@@ -54,7 +54,7 @@ pub fn tab_label_template() -> String {
     }
 }
 
-/// Vorlage für den Fenstertitel; leer = „{title}“.
+/// Template for the window title; empty = "{title}".
 pub fn window_title_template() -> String {
     let t = settings().string("window-title-template").trim().to_string();
     if t.is_empty() {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Profile: wie ein Terminal startet und aussieht. Gespeichert als TOML-Dateien
-//! (`$XDG_CONFIG_HOME/parkett/profiles/<id>.toml`), damit man sie von Hand bearbeiten
-//! und in Dotfiles mitnehmen kann.
+//! Profiles: how a terminal starts and looks. Stored as TOML files
+//! (`$XDG_CONFIG_HOME/parkett/profiles/<id>.toml`), so they can be edited by hand
+//! and carried along in dotfiles.
 
 use std::io;
 use std::path::PathBuf;
@@ -10,17 +10,17 @@ use serde::{Deserialize, Serialize};
 
 use crate::palette::DEFAULT_PALETTE;
 
-/// Was passiert, wenn der Prozess im Bereich endet.
+/// What happens when the process in the pane exits.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ExitAction {
-    /// Leiste „Prozess beendet“ mit Neu starten / Schließen
+    /// "Process exited" bar with Restart / Close
     Hold,
-    /// Bereich schließen, wenn der Prozess ohne Fehler endet; bei Fehler Leiste. Standard wie
-    /// in GNOME Console, Ptyxis und Tilix: `exit` schließt (QA-11)
+    /// Close the pane if the process exits without error; on error show the bar. Default as
+    /// in GNOME Console, Ptyxis and Tilix: `exit` closes (QA-11)
     #[default]
     Close,
-    /// Sofort neu starten
+    /// Restart immediately
     Restart,
 }
 
@@ -29,7 +29,7 @@ pub enum ExitAction {
 pub enum CursorShape {
     #[default]
     Block,
-    /// senkrechter Strich
+    /// vertical bar
     Ibeam,
     Underline,
 }
@@ -37,21 +37,21 @@ pub enum CursorShape {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum CursorBlink {
-    /// wie in den GNOME-Einstellungen (Barrierefreiheit › Cursor blinkt)
+    /// as in GNOME Settings (Accessibility › Cursor Blinking)
     #[default]
     System,
     On,
     Off,
 }
 
-/// Was beim Steuerzeichen BEL (`\a`) passiert.
+/// What happens on the control character BEL (`\a`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Bell {
-    /// Systemton und Reiter markieren
+    /// system sound and mark the tab
     #[default]
     Sound,
-    /// nur den Reiter markieren
+    /// only mark the tab
     Mark,
     None,
 }
@@ -62,47 +62,47 @@ pub struct Profile {
     #[serde(skip)]
     pub id: String,
     pub name: String,
-    /// Id der Palette (Dateiname ohne Endung)
+    /// palette id (file name without extension)
     pub palette: String,
-    /// Statt der Shell ausführen (wird wie in einer Shell in Wörter zerlegt); leer = Shell
+    /// Run instead of the shell (split into words like in a shell); empty = shell
     pub command: String,
-    /// Shell als Login-Shell starten (`-l`)
+    /// start the shell as a login shell (`-l`)
     pub login_shell: bool,
-    /// Festes Startverzeichnis; leer = Einstellung „Verzeichnis neuer Terminals“
+    /// Fixed start directory; empty = setting "Directory for new terminals"
     pub directory: String,
-    /// Zusätzliche Umgebungsvariablen, je `NAME=wert`
+    /// Additional environment variables, each `NAME=value`
     pub environment: Vec<String>,
     pub exit_action: ExitAction,
-    /// Pango-Schriftbeschreibung, z. B. „JetBrains Mono 11“; leer = System-Monospace
+    /// Pango font description, e.g. "JetBrains Mono 11"; empty = system monospace
     pub font: String,
     pub cursor_shape: CursorShape,
     pub cursor_blink: CursorBlink,
     pub bell: Bell,
-    /// Deckkraft des Hintergrunds, 1.0 = undurchsichtig (siehe [`Profile::opacity`])
+    /// background opacity, 1.0 = opaque (see [`Profile::opacity`])
     pub opacity: f64,
-    /// Automatisch für diese Rechner (SSH), `*` und `?` als Platzhalter: Bereiche zeigen dann
-    /// das Aussehen dieses Profils, solange die Verbindung läuft
+    /// Automatic for these hosts (SSH), `*` and `?` as wildcards: panes then show
+    /// this profile's look while the connection lasts
     pub hosts: Vec<String>,
-    /// Automatisch für diese Ordner (lokal, `~` erlaubt; `~/kunde/*` gilt auch darunter)
+    /// Automatic for these folders (local, `~` allowed; `~/kunde/*` also applies below)
     pub directories: Vec<String>,
-    /// Vorlage für kurze Reiter-Namen (siehe `label::render`); leer = Einstellung
+    /// Template for short tab names (see `label::render`); empty = setting
     pub tab_label: String,
-    /// Bildlaufleiste zeigen (überlagernd wie bei GNOME); aus: Scrollen geht weiter
+    /// Show the scrollbar (overlay as in GNOME); off: scrolling still works
     pub scrollbar: bool,
-    /// Fetten Text in den hellen Farben 8–15 zeichnen (alte Terminals)
+    /// Draw bold text in the bright colors 8–15 (old terminals)
     pub bold_is_bright: bool,
-    /// Zeilen- und Zeichenabstand, 1.0 = normal (siehe [`Profile::spacing`])
+    /// line and character spacing, 1.0 = normal (see [`Profile::spacing`])
     pub line_spacing: f64,
     pub letter_spacing: f64,
-    /// Bei neuer Ausgabe ans Ende springen
+    /// Scroll to the end on new output
     pub scroll_on_output: bool,
-    /// Bei einem Tastendruck ans Ende springen
+    /// Scroll to the end on a keystroke
     pub scroll_on_keystroke: bool,
-    /// Eigene Links (Regex → Adresse oder Befehl), siehe `link`
+    /// Custom links (regex → address or command), see `link`
     pub links: Vec<crate::link::CustomLink>,
 }
 
-/// Kleinste erlaubte Deckkraft: darunter ist Text auf unruhigem Hintergrund kaum lesbar.
+/// Smallest allowed opacity: below it, text on a busy background is hard to read.
 pub const MIN_OPACITY: f64 = 0.3;
 
 impl Default for Profile {
@@ -135,7 +135,7 @@ impl Default for Profile {
     }
 }
 
-/// Platzhalter `*` (beliebig viele Zeichen) und `?` (eines), ohne Groß-/Kleinschreibung.
+/// Wildcards `*` (any number of characters) and `?` (one), case-insensitive.
 pub fn wildcard_match(pattern: &str, text: &str) -> bool {
     let p: Vec<char> = pattern.to_lowercase().chars().collect();
     let t: Vec<char> = text.to_lowercase().chars().collect();
@@ -159,9 +159,9 @@ pub fn wildcard_match(pattern: &str, text: &str) -> bool {
     p[pi..].iter().all(|c| *c == '*')
 }
 
-/// Profil, dessen Aussehen ein Bereich automatisch bekommt: zuerst nach Rechner (bei einer
-/// SSH-Verbindung), sonst nach lokalem Ordner. Ordnermuster gelten auch für Unterordner;
-/// `~` steht für `home`. Bei mehreren Treffern gewinnt das erste Profil in `profiles`.
+/// Profile whose look a pane gets automatically: first by host (for an
+/// SSH connection), otherwise by local folder. Folder patterns also apply to subfolders;
+/// `~` stands for `home`. With several matches the first profile in `profiles` wins.
 pub fn automatic<'a>(
     profiles: &'a [Profile],
     host: Option<&str>,
@@ -169,7 +169,7 @@ pub fn automatic<'a>(
     home: &str,
 ) -> Option<&'a Profile> {
     if let Some(host) = host.filter(|h| !h.is_empty()) {
-        // „user@host“ und „host:port“ aus der Befehlszeile nur mit dem Rechnernamen vergleichen
+        // compare "user@host" and "host:port" from the command line only by hostname
         let host = host.rsplit('@').next().unwrap_or(host);
         let host = host.split(':').next().unwrap_or(host);
         return profiles.iter().find(|p| p.hosts.iter().any(|pat| wildcard_match(pat.trim(), host)));
@@ -199,7 +199,7 @@ impl Profile {
         Ok(p)
     }
 
-    /// Abstand im erlaubten Bereich 1.0–2.0 (VTE: Zellhöhe bzw. -breite als Vielfaches).
+    /// Spacing within the allowed range 1.0–2.0 (VTE: cell height or width as a multiple).
     pub fn spacing(v: f64) -> f64 {
         if v.is_finite() {
             v.clamp(1.0, 2.0)
@@ -208,7 +208,7 @@ impl Profile {
         }
     }
 
-    /// Deckkraft im erlaubten Bereich (Handbearbeitung kann alles hineinschreiben).
+    /// Opacity within the allowed range (hand editing can write anything into it).
     pub fn opacity(&self) -> f64 {
         if self.opacity.is_finite() {
             self.opacity.clamp(MIN_OPACITY, 1.0)
@@ -217,13 +217,13 @@ impl Profile {
         }
     }
 
-    /// Umgebung als eine Zeile für das Eingabefeld, so gequotet, dass ein Shell-Parser
-    /// (`g_shell_parse_argv`) dieselben Einträge zurückliefert: `A=1 B='x y'` (R-03).
+    /// Environment as one line for the entry field, quoted so that a shell parser
+    /// (`g_shell_parse_argv`) returns the same entries: `A=1 B='x y'` (R-03).
     pub fn environment_line(&self) -> String {
         self.environment.iter().map(|e| shell_quote_entry(e)).collect::<Vec<_>>().join(" ")
     }
 
-    /// Nur gültige `NAME=wert`-Einträge.
+    /// Only valid `NAME=value` entries.
     pub fn valid_environment(&self) -> Vec<String> {
         self.environment
             .iter()
@@ -233,8 +233,8 @@ impl Profile {
     }
 }
 
-/// `NAME=wert` unverändert, wenn nichts zu quoten ist; sonst `NAME='wert'` (ein `'` im Wert
-/// wird zu `'\''`). Ohne `=` wird der ganze Eintrag gequotet.
+/// `NAME=value` unchanged if there is nothing to quote; otherwise `NAME='value'` (a `'` in the
+/// value becomes `'\''`). Without `=` the whole entry is quoted.
 fn shell_quote_entry(entry: &str) -> String {
     let plain = |s: &str| s.chars().all(|c| c.is_alphanumeric() || "_-+=.,:/@%~^".contains(c));
     if plain(entry) {
@@ -247,7 +247,7 @@ fn shell_quote_entry(entry: &str) -> String {
     }
 }
 
-/// Profile in einem Verzeichnis (eine Datei je Profil).
+/// Profiles in a directory (one file per profile).
 pub struct ProfileStore {
     dir: PathBuf,
 }
@@ -257,8 +257,8 @@ impl ProfileStore {
         ProfileStore { dir: dir.into() }
     }
 
-    /// Alle Profile, nach Name sortiert. Legt „Standard“ an, wenn keines existiert.
-    /// Unlesbare Dateien werden übersprungen und gemeldet, nicht gelöscht.
+    /// All profiles, sorted by name. Creates "Standard" if none exists.
+    /// Unreadable files are skipped and reported, not deleted.
     pub fn load_all(&self) -> io::Result<(Vec<Profile>, Vec<String>)> {
         std::fs::create_dir_all(&self.dir)?;
         let mut profiles = Vec::new();
@@ -282,15 +282,15 @@ impl ProfileStore {
             self.save(&p)?;
             profiles.push(p);
         } else if profiles.is_empty() {
-            // Nur kaputte Dateien: Standard im Speicher, nichts überschreiben. Die Id ist frei,
-            // damit ein späteres Speichern die kaputte Datei nicht ersetzt.
+            // only broken files: default in memory, overwrite nothing. The id is free,
+            // so that a later save does not replace the broken file.
             profiles.push(Profile { id: self.new_id("Standard"), ..Profile::default() });
         }
         profiles.sort_by_key(|p| p.name.to_lowercase());
         Ok((profiles, errors))
     }
 
-    /// Schreibt atomar (temporäre Datei + Umbenennen).
+    /// Writes atomically (temporary file + rename).
     pub fn save(&self, p: &Profile) -> io::Result<()> {
         std::fs::create_dir_all(&self.dir)?;
         let target = self.dir.join(format!("{}.toml", p.id));
@@ -302,7 +302,7 @@ impl ProfileStore {
         std::fs::remove_file(self.dir.join(format!("{id}.toml")))
     }
 
-    /// Freie Id aus dem Namen („Server (bender)“ → „server-bender“, sonst „-2“ usw.).
+    /// Free id from the name ("Server (bender)" → "server-bender", otherwise "-2" etc.).
     pub fn new_id(&self, name: &str) -> String {
         let base = crate::palette::slug(name);
         let mut id = base.clone();
@@ -357,7 +357,7 @@ mod tests {
         let text = p.to_toml();
         assert!(text.contains("exit_action = \"restart\""), "{text}");
         assert_eq!(Profile::from_toml("server", &text).unwrap(), p);
-        // fehlende Felder bekommen Standardwerte, unbekannte stören nicht
+        // missing fields get default values, unknown ones do no harm
         let minimal = Profile::from_toml("x", "name = \"Nur Name\"\nzukunft = 1\n").unwrap();
         assert_eq!(minimal.palette, DEFAULT_PALETTE);
         assert_eq!(minimal.exit_action, ExitAction::Close, "QA-11");

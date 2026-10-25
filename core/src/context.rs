@@ -1,25 +1,25 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Kontext eines Bereichs für die Kontextfarbe (Vorschlag 1): läuft dort gerade eine
-//! Verbindung zu einem anderen Rechner oder ein Programm mit Root-Rechten?
-//! Die Erkennung arbeitet auf Prozessname, Befehlszeile und effektiver UID des
-//! Vordergrundprozesses (gelesen aus /proc durch die App).
+//! Context of a pane for the context color (proposal 1): is a connection to another host
+//! or a program with root privileges running there right now?
+//! Detection works on the process name, command line and effective UID of the
+//! foreground process (read from /proc by the app).
 
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub enum Context {
     #[default]
     Local,
     Superuser,
-    /// Hostname (ohne Benutzer), soweit aus der Befehlszeile erkennbar
+    /// Hostname (without user), as far as the command line reveals it
     Remote(String),
 }
 
 const REMOTE: &[&str] = &["ssh", "mosh", "mosh-client", "autossh", "et", "telnet"];
 const SUPERUSER: &[&str] = &["sudo", "su", "doas", "run0", "pkexec"];
 
-/// Optionsbuchstaben von ssh, die einen Wert erwarten (`man ssh`).
+/// ssh option letters that take a value (`man ssh`).
 const SSH_ARG_OPTS: &str = "bBcDEeFIiJLlmOoPpQRSWw";
 
-/// `comm`: Prozessname, `args`: Befehlszeile, `euid`: effektive UID des Vordergrundprozesses.
+/// `comm`: process name, `args`: command line, `euid`: effective UID of the foreground process.
 pub fn classify(comm: &str, args: &[String], euid: Option<u32>) -> Context {
     let name = comm.rsplit('/').next().unwrap_or(comm);
     if REMOTE.contains(&name) {
@@ -31,8 +31,8 @@ pub fn classify(comm: &str, args: &[String], euid: Option<u32>) -> Context {
     Context::Local
 }
 
-/// Zielrechner aus einer ssh-/mosh-Befehlszeile: erstes Argument, das keine Option und kein
-/// Optionswert ist; „user@host“ → „host“, „ssh://user@host:22“ → „host“.
+/// Target host from an ssh/mosh command line: the first argument that is neither an option nor
+/// an option value; "user@host" → "host", "ssh://user@host:22" → "host".
 pub fn remote_host(args: &[String]) -> Option<String> {
     let mut it = args.iter().skip(1);
     while let Some(a) = it.next() {
@@ -40,9 +40,9 @@ pub fn remote_host(args: &[String]) -> Option<String> {
             return it.next().map(|h| clean_host(h));
         }
         if let Some(flags) = a.strip_prefix('-') {
-            // Wie getopt: Schalter lassen sich bündeln („-vp“); der erste Buchstabe mit Wert
-            // nimmt den Rest des Arguments („-p22“, „-vp22“) oder, wenn nichts folgt, das
-            // nächste Argument („-p 22“, „-vp 22“)
+            // Like getopt: flags can be bundled ("-vp"); the first letter that takes a value
+            // takes the rest of the argument ("-p22", "-vp22") or, if nothing follows, the
+            // next argument ("-p 22", "-vp 22")
             if let Some(i) = flags.find(|c| SSH_ARG_OPTS.contains(c)) {
                 if i + 1 == flags.len() {
                     it.next();

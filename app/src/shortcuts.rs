@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Alle änderbaren Tastenkürzel an einer Stelle: Standardbelegung, eigene Belegung aus
-//! GSettings (`custom-shortcuts`, Aktion → Kürzel, leer = aus) und Aufbau der
-//! Shortcut-Controller für Fenster (`win.*`) und Terminal (`term.*`).
+//! All configurable keyboard shortcuts in one place: default bindings, custom bindings from
+//! GSettings (`custom-shortcuts`, action → shortcut, empty = off) and construction of the
+//! shortcut controllers for windows (`win.*`) and terminals (`term.*`).
 
 use gtk::prelude::*;
 use std::collections::HashMap;
@@ -12,11 +12,11 @@ use gtk::glib::translate::IntoGlib;
 use crate::i18n::{gettext, N_};
 
 pub struct Entry {
-    /// Voller Aktionsname, z. B. „win.split-right“
+    /// Full action name, e.g. "win.split-right"
     pub action: &'static str,
     pub section: &'static str,
     pub label: &'static str,
-    /// Standardkürzel (GtkAccelerator-Syntax); mehrere = gleichwertige Alternativen
+    /// Default shortcuts (GtkAccelerator syntax); several = equivalent alternatives
     pub defaults: &'static [&'static str],
 }
 
@@ -31,13 +31,13 @@ const fn e(
 
 pub const SECTIONS: &[&str] = &[N_("Tabs and windows"), N_("Panes"), N_("Terminal")];
 
-/// Belegung nach Tilix, wo sie nicht mit GNOME kollidiert (CONCEPTS.md).
+/// Bindings follow Tilix where they do not clash with GNOME (CONCEPTS.md).
 pub const ENTRIES: &[Entry] = &[
     e("win.new-tab", N_("Tabs and windows"), N_("New tab"), &["<Control><Shift>t"]),
     e("win.close-tab", N_("Tabs and windows"), N_("Close tab"), &["<Control><Shift>q"]),
     e("win.next-tab", N_("Tabs and windows"), N_("Next tab"), &["<Control>Page_Down"]),
     e("win.prev-tab", N_("Tabs and windows"), N_("Previous tab"), &["<Control>Page_Up"]),
-    // ohne Standard: F2 brauchen htop, mc und nano selbst (QA-01)
+    // no default: htop, mc and nano need F2 themselves (QA-01)
     e("win.rename-tab", N_("Tabs and windows"), N_("Rename tab"), &[]),
     e("win.overview", N_("Tabs and windows"), N_("Tab overview"), &["<Control><Shift>o"]),
     e("app.new-window", N_("Tabs and windows"), N_("New window"), &["<Control><Shift>n"]),
@@ -89,12 +89,12 @@ pub fn entry(action: &str) -> Option<&'static Entry> {
     ENTRIES.iter().find(|e| e.action == action)
 }
 
-/// Eigene Belegungen aus GSettings (`a{ss}`; `glib::VariantDict` taugt nicht, das ist `a{sv}`).
+/// Custom bindings from GSettings (`a{ss}`; `glib::VariantDict` does not fit, that is `a{sv}`).
 fn custom() -> HashMap<String, String> {
     crate::settings::settings().value("custom-shortcuts").get::<HashMap<String, String>>().unwrap_or_default()
 }
 
-/// Wirksame Kürzel einer Aktion: eigene Belegung (eine, leer = aus) oder die Standards.
+/// Effective shortcuts of an action: custom binding (one, empty = off) or the defaults.
 pub fn effective(action: &str) -> Vec<String> {
     match custom().get(action) {
         Some(s) if s.is_empty() => Vec::new(),
@@ -107,7 +107,7 @@ pub fn is_custom(action: &str) -> bool {
     custom().contains_key(action)
 }
 
-/// Eigene Belegung setzen (`Some("")` = aus) oder auf Standard zurück (`None`).
+/// Set a custom binding (`Some("")` = off) or reset to the default (`None`).
 pub fn set(action: &str, accel: Option<&str>) {
     let mut map = custom();
     match accel {
@@ -125,7 +125,7 @@ pub fn reset_all() {
     crate::settings::settings().reset("custom-shortcuts");
 }
 
-/// Welche andere Aktion hat dieses Kürzel schon? (Vergleich über geparste Tasten)
+/// Which other action already uses this shortcut? (compared via parsed keys)
 pub fn conflict(action: &str, accel: &str) -> Option<&'static Entry> {
     let wanted = gtk::accelerator_parse(accel)?;
     ENTRIES
@@ -134,8 +134,8 @@ pub fn conflict(action: &str, accel: &str) -> Option<&'static Entry> {
         .find(|e| effective(e.action).iter().any(|a| gtk::accelerator_parse(a).is_some_and(|k| k == wanted)))
 }
 
-/// Fest belegt und nicht änderbar: Alt+1…9 (Bereich), Strg+Alt+1…9 (Reiter). Liefert einen
-/// mit `N_` markierten Text; beim Anzeigen mit `gettext` übersetzen.
+/// Fixed and not configurable: Alt+1…9 (pane), Ctrl+Alt+1…9 (tab). Returns a text
+/// marked with `N_`; translate it with `gettext` when displaying.
 pub fn reserved(accel: &str) -> Option<&'static str> {
     let (key, mods) = gtk::accelerator_parse(accel)?;
     let digit = key.to_unicode().and_then(|c| c.to_digit(10)).is_some_and(|d| (1..=9).contains(&d));
@@ -148,7 +148,7 @@ pub fn reserved(accel: &str) -> Option<&'static str> {
     }
 }
 
-/// Lesbare Form, z. B. „Strg+Umschalt+F“; leer = „Aus“.
+/// Readable form, e.g. "Ctrl+Shift+F"; empty = "Off".
 pub fn label(accels: &[String]) -> String {
     if accels.is_empty() {
         return gettext("Off");
@@ -160,9 +160,9 @@ pub fn label(accels: &[String]) -> String {
         .join(" / ")
 }
 
-/// Tooltip „Bezeichnung (Kürzel)“ mit der aktuellen Belegung; `fixed`: Tasten, die nicht
-/// änderbar sind (z. B. „Eingabe“ in der Suche), vor den Kürzeln der Aktion. `label` und
-/// `fixed` sind englische Quelltexte (`N_`); übersetzt wird hier beim Zeigen.
+/// Tooltip "Label (shortcut)" with the current binding; `fixed`: keys that are not
+/// configurable (e.g. "Enter" in the search), placed before the action's shortcuts. `label` and
+/// `fixed` are English source strings (`N_`); they are translated here when shown.
 pub fn tooltip(label: &str, action: &str, fixed: &[&str]) -> String {
     let accels = effective(action);
     let label = gettext(label);
@@ -177,16 +177,16 @@ pub fn tooltip(label: &str, action: &str, fixed: &[&str]) -> String {
     }
 }
 
-/// Tooltip, der beim Zeigen aus der aktuellen Belegung entsteht – folgt so geänderten
-/// Kürzeln auch in schon offenen Bereichen (QA-12). Der Name für Screenreader ist nur die
-/// Bezeichnung, ohne Kürzel (QA-18).
+/// Tooltip built from the current binding when shown – so it follows changed
+/// shortcuts even in panes that are already open (QA-12). The screen reader name is only the
+/// label, without shortcut (QA-18).
 pub fn live_tooltip(widget: &impl IsA<gtk::Widget>, label: &str, action: &'static str, fixed: &'static [&'static str]) {
     widget.upcast_ref::<gtk::Widget>().update_property(&[gtk::accessible::Property::Label(&gettext(label))]);
     tooltip_only(widget, label, action, fixed);
 }
 
-/// Wie `live_tooltip`, aber ohne den Namen für Screenreader zu setzen (Widgets, die ihren
-/// eigenen Namen behalten sollen, z. B. der Fenstertitel).
+/// Like `live_tooltip`, but without setting the screen reader name (widgets that should keep
+/// their own name, e.g. the window title).
 pub fn tooltip_only(widget: &impl IsA<gtk::Widget>, label: &str, action: &'static str, fixed: &'static [&'static str]) {
     let label = label.to_string();
     widget.set_has_tooltip(true);
@@ -196,7 +196,7 @@ pub fn tooltip_only(widget: &impl IsA<gtk::Widget>, label: &str, action: &'stati
     });
 }
 
-/// Shortcut-Controller (Capture-Phase, vor VTE) für alle Aktionen mit Präfix `prefix`.
+/// Shortcut controller (capture phase, before VTE) for all actions with prefix `prefix`.
 pub fn controller(prefix: &str) -> gtk::ShortcutController {
     let c = gtk::ShortcutController::new();
     c.set_propagation_phase(gtk::PropagationPhase::Capture);
@@ -211,7 +211,7 @@ pub fn controller(prefix: &str) -> gtk::ShortcutController {
     c
 }
 
-/// App-Aktionen als globale Accels setzen (erscheinen so auch in Menüs).
+/// Set app actions as global accels (so they also show up in menus).
 pub fn apply_app_accels(app: &gtk::Application) {
     for e in ENTRIES.iter().filter(|e| e.action.starts_with("app.")) {
         let accels = effective(e.action);
@@ -220,9 +220,9 @@ pub fn apply_app_accels(app: &gtk::Application) {
     }
 }
 
-/// Kürzel aus einem Tastendruck; `None` für reine Modifikatortasten.
-/// Ohne Strg/Alt/Super sind nur F-Tasten erlaubt, sonst ginge Tippen im Terminal verloren.
-/// Der Fehlertext ist mit `N_` markiert; beim Anzeigen mit `gettext` übersetzen.
+/// Shortcut from a key press; `None` for pure modifier keys.
+/// Without Ctrl/Alt/Super only F keys are allowed, otherwise typing in the terminal would be lost.
+/// The error text is marked with `N_`; translate it with `gettext` when displaying.
 pub fn from_key(key: gdk::Key, state: gdk::ModifierType) -> Result<Option<String>, &'static str> {
     use gdk::Key;
     if matches!(
@@ -256,8 +256,8 @@ pub fn from_key(key: gdk::Key, state: gdk::ModifierType) -> Result<Option<String
 mod tests {
     use super::*;
 
-    /// „<Control><Shift>t“ → ({"control", "shift"}, "t"), ohne GTK (`accelerator_parse` will
-    /// ein initialisiertes GTK und damit ein Display).
+    /// "<Control><Shift>t" → ({"control", "shift"}, "t"), without GTK (`accelerator_parse` needs
+    /// an initialized GTK and thus a display).
     fn split(accel: &str) -> (Vec<String>, String) {
         let mut mods = Vec::new();
         let mut rest = accel;
@@ -270,8 +270,8 @@ mod tests {
         (mods, rest.to_ascii_lowercase())
     }
 
-    /// Programme im Terminal brauchen F-Tasten und alles ohne Strg/Alt selbst (QA-01: F2 in
-    /// htop, mc, nano). Einzige Ausnahme: Umschalt+Einfg zum Einfügen, wie in jedem Terminal.
+    /// Programs in the terminal need F keys and everything without Ctrl/Alt themselves (QA-01: F2 in
+    /// htop, mc, nano). Only exception: Shift+Insert for pasting, as in every terminal.
     #[test]
     fn defaults_leave_keys_to_programs() {
         for e in ENTRIES {
@@ -280,7 +280,7 @@ mod tests {
                 let strong = mods.iter().any(|m| ["control", "alt", "super"].contains(&m.as_str()));
                 assert!(strong || a == "<Shift>Insert", "{}: „{a}“ gehört den Programmen im Terminal", e.action);
                 assert!(!key.is_empty(), "{}: „{a}“ ohne Taste", e.action);
-                // Alt+1…9 und Strg+Alt+1…9 sind fest belegt (`reserved`)
+                // Alt+1…9 and Ctrl+Alt+1…9 are fixed (`reserved`)
                 let digit = key.len() == 1 && key.chars().all(|c| ('1'..='9').contains(&c));
                 assert!(!(digit && mods.contains(&"alt".to_string())), "{}: „{a}“ ist fest belegt", e.action);
             }

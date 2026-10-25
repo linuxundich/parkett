@@ -1,31 +1,31 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Kurzes Reiter-Label „1 htop · parkett“ (QA-17): Nummer, laufendes Programm und letzter
-//! Ordner statt des Shell-Titels, der in jedem Reiter fast gleich aussieht
-//! („christoph@arch: ~/…“).
+//! Short tab label "1 htop · parkett" (QA-17): number, running program and last
+//! folder instead of the shell title, which looks almost the same in every tab
+//! ("christoph@arch: ~/…").
 
 use std::path::Path;
 
-/// Standardvorlage: ergibt „1 htop · parkett“ bzw. in einer SSH-Sitzung „3 ssh bender“.
+/// Default template: gives "1 htop · parkett", or "3 ssh bender" in an SSH session.
 pub const DEFAULT_TEMPLATE: &str = "{n} {program} · {dir}";
 
-/// Werte für eine Titelvorlage. `number`: Platz des Reiters (1-basiert; passt zu
-/// Strg+Alt+1…9, ab 10 leer), `program`: Vordergrundprogramm oder Shell, `dir`:
-/// Arbeitsverzeichnis (`None` z. B. in einer SSH-Sitzung, deren Pfad hier nichts bedeutet).
+/// Values for a title template. `number`: position of the tab (1-based; matches
+/// Ctrl+Alt+1…9, empty from 10 on), `program`: foreground program or shell, `dir`:
+/// working directory (`None` e.g. in an SSH session, where the path means nothing here).
 #[derive(Default)]
 pub struct Vars<'a> {
     pub number: Option<usize>,
     pub program: Option<&'a str>,
     pub dir: Option<&'a str>,
     pub host: Option<&'a str>,
-    /// Titel, den die Shell setzt (OSC 0/2)
+    /// title set by the shell (OSC 0/2)
     pub title: Option<&'a str>,
     pub profile: Option<&'a str>,
 }
 
-/// Reiter-Name aus `template` mit `{n}`, `{program}`, `{dir}` (letzter Ordner), `{path}`
-/// (ganzer Pfad mit `~`), `{host}`, `{title}`, `{profile}`. Leere Werte fallen samt ihrem
-/// Trenner (` · `, ` - `, ` | `, `: ` …) weg; unbekannte Variablen bleiben stehen. Ganz
-/// leer: „Shell“.
+/// Tab name from `template` with `{n}`, `{program}`, `{dir}` (last folder), `{path}`
+/// (full path with `~`), `{host}`, `{title}`, `{profile}`. Empty values are dropped together with
+/// their separator (` · `, ` - `, ` | `, `: ` …); unknown variables stay as they are. Completely
+/// empty: "Shell".
 pub fn render(template: &str, v: &Vars, home: &Path) -> String {
     enum Piece {
         Text(String),
@@ -45,7 +45,7 @@ pub fn render(template: &str, v: &Vars, home: &Path) -> String {
         .map(|s| s.trim().to_string())
         .unwrap_or_default()
     };
-    // in Text und Variablen zerlegen
+    // split into text and variables
     let mut pieces = Vec::new();
     let mut rest = template;
     while let Some(start) = rest.find('{') {
@@ -63,9 +63,9 @@ pub fn render(template: &str, v: &Vars, home: &Path) -> String {
         let t = t.trim();
         t.is_empty() || t.chars().all(|c| "·-–—|:/,•".contains(c))
     };
-    // Zwischen zwei sichtbaren Werten steht der erste Text nach dem vorigen Wert; leere
-    // Variablen dazwischen samt ihren Trennern entfallen. Ein Trenner am Ende entfällt,
-    // abschließender Text („]“) bleibt.
+    // Between two visible values goes the first text after the previous value; empty
+    // variables in between are dropped with their separators. A separator at the end is dropped,
+    // closing text ("]") stays.
     let mut out = String::new();
     let mut gap: Option<String> = None;
     let mut seen_value = false;
@@ -107,12 +107,12 @@ pub fn render(template: &str, v: &Vars, home: &Path) -> String {
     }
 }
 
-/// Reiter-Name mit der Standardvorlage.
+/// Tab name with the default template.
 pub fn tab_label(number: Option<usize>, program: Option<&str>, dir: Option<&str>, home: &Path) -> String {
     render(DEFAULT_TEMPLATE, &Vars { number, program, dir, ..Vars::default() }, home)
 }
 
-/// `~` für den Persönlichen Ordner, `/` für die Wurzel, sonst der letzte Teil des Pfads.
+/// `~` for the home folder, `/` for the root, otherwise the last part of the path.
 fn folder_name(dir: &str, home: &Path) -> String {
     let d = dir.trim_end_matches('/');
     if d.is_empty() {
@@ -154,7 +154,7 @@ mod tests {
         assert_eq!(render("{n}: {program} – {path}", &v, home), "2: vim – ~/src/parkett");
         assert_eq!(render("{title}", &v, home), "a@arch: ~/src/parkett");
         assert_eq!(render("{dir} [{profile}]", &v, home), "parkett [Standard]");
-        // Trenner verschwinden mit leeren Werten
+        // separators disappear with empty values
         assert_eq!(render("{program} · {host} · {dir}", &v, home), "vim · parkett");
         let remote = Vars { number: Some(3), program: Some("ssh"), host: Some("bender"), ..Vars::default() };
         assert_eq!(render("{n} {program} | {host} | {dir}", &remote, home), "3 ssh | bender");

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Kern von Parkett ohne GTK: Split-Layout, Farbschemata, Profile, Vorlagen und die
-//! Trefferbewertung der Befehlspalette. Alles hier ist mit `cargo test -p parkett-core` prüfbar.
+//! Core of Parkett without GTK: split layout, color schemes, profiles, templates and the
+//! match scoring of the command palette. Everything here is testable with `cargo test -p parkett-core`.
 
 pub mod bookmark;
 pub mod cli;

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Split-Layout eines Tabs als unveränderlicher Binärbaum.
+//! Split layout of a tab as an immutable binary tree.
 //!
-//! Jede Operation liefert ein neues `Layout`; der alte Stand bleibt unverändert und kann
-//! für Rückgängig aufbewahrt werden (Muster: Ghostty `split_tree.zig`). Die GTK-Seite baut
-//! ihre `GtkPaned`-Bäume aus diesem Modell und liest nie umgekehrt aus den Widgets.
+//! Every operation returns a new `Layout`; the old state stays unchanged and can
+//! be kept for undo (pattern: Ghostty `split_tree.zig`). The GTK side builds
+//! its `GtkPaned` trees from this model and never reads back from the widgets.
 
 pub type PaneId = u32;
 
-/// `Horizontal` = Bereiche nebeneinander (Trenner senkrecht), `Vertical` = übereinander.
+/// `Horizontal` = panes side by side (vertical separator), `Vertical` = stacked.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Orientation {
     Horizontal,
@@ -31,7 +31,7 @@ impl Direction {
     }
 }
 
-/// Weg vom Wurzelknoten zu einem Split: je Ebene erstes oder zweites Kind.
+/// Path from the root node to a split: first or second child per level.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Side {
     First,
@@ -43,14 +43,14 @@ pub enum Node {
     Pane(PaneId),
     Split {
         orientation: Orientation,
-        /// Anteil des ersten Kindes, 0.0–1.0
+        /// share of the first child, 0.0–1.0
         ratio: f32,
         first: Box<Node>,
         second: Box<Node>,
     },
 }
 
-/// Wo ein gezogener Bereich auf einem anderen landet: an einer Seite einsetzen oder tauschen.
+/// Where a dragged pane lands on another: insert at a side or swap.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DropZone {
     Left,
@@ -60,11 +60,11 @@ pub enum DropZone {
     Center,
 }
 
-/// Anteil am Rand, ab dem nicht mehr getauscht, sondern daneben eingesetzt wird.
+/// Share of the edge beyond which the pane is inserted next to it instead of swapped.
 const DROP_EDGE: f32 = 0.25;
 
-/// Zone unter dem Zeiger (`x`, `y` relativ zum Zielbereich der Größe `w`×`h`): nahe an einer
-/// Kante deren Seite, in der Mitte tauschen. Bei zwei nahen Kanten zählt die nähere.
+/// Zone under the pointer (`x`, `y` relative to the target pane of size `w`×`h`): near an
+/// edge that side, in the middle swap. With two near edges the nearer one wins.
 pub fn drop_zone(x: f32, y: f32, w: f32, h: f32) -> DropZone {
     if w <= 0.0 || h <= 0.0 {
         return DropZone::Center;
@@ -87,7 +87,7 @@ pub struct Rect {
     pub h: f32,
 }
 
-/// Kleinster erlaubter Anteil beim Verschieben eines Trenners.
+/// Smallest allowed share when moving a separator.
 pub const MIN_RATIO: f32 = 0.1;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -105,13 +105,13 @@ impl Default for Layout {
 }
 
 impl Layout {
-    /// Ein Tab mit einem einzigen Bereich (Id 1).
+    /// A tab with a single pane (id 1).
     pub fn new() -> Self {
         Layout { root: Node::Pane(1), focus: 1, zoomed: None, next_id: 2 }
     }
 
-    /// Layout aus einem fertigen Baum (z. B. aus einer Vorlage). `None`, wenn Ids doppelt
-    /// vorkommen oder `focus` nicht im Baum liegt.
+    /// Layout from a ready-made tree (e.g. from a template). `None` if ids occur
+    /// twice or `focus` is not in the tree.
     pub fn from_node(root: Node, focus: PaneId) -> Option<Layout> {
         let mut ids = Vec::new();
         collect(&root, &mut ids);
@@ -125,7 +125,7 @@ impl Layout {
         Some(Layout { root, focus, zoomed: None, next_id })
     }
 
-    /// Tauscht die Plätze zweier Bereiche (Terminals wandern mit, der Fokus bleibt beim Terminal).
+    /// Swaps the places of two panes (terminals move along, focus stays with the terminal).
     pub fn swap(&self, a: PaneId, b: PaneId) -> Option<Layout> {
         if a == b || !self.contains(a) || !self.contains(b) {
             return None;
@@ -158,7 +158,7 @@ impl Layout {
         self.zoomed
     }
 
-    /// Alle Bereiche in Lesereihenfolge (links vor rechts, oben vor unten).
+    /// All panes in reading order (left before right, top before bottom).
     pub fn panes(&self) -> Vec<PaneId> {
         let mut out = Vec::new();
         collect(&self.root, &mut out);
@@ -169,7 +169,7 @@ impl Layout {
         self.panes().contains(&id)
     }
 
-    /// Gleiche Aufteilung (Bereiche, Richtungen, Zoom), Fokus und Verhältnisse egal.
+    /// Same arrangement (panes, directions, zoom), focus and ratios do not matter.
     pub fn same_shape(&self, other: &Layout) -> bool {
         fn shape(a: &Node, b: &Node) -> bool {
             match (a, b) {
@@ -188,7 +188,7 @@ impl Layout {
         self.contains(id).then(|| Layout { focus: id, ..self.clone() })
     }
 
-    /// Teilt `target`; der neue Bereich liegt rechts bzw. unten und bekommt den Fokus.
+    /// Splits `target`; the new pane goes to the right or below and gets the focus.
     pub fn split(&self, target: PaneId, orientation: Orientation) -> Option<(Layout, PaneId)> {
         let new_id = self.next_id;
         let root = replace(&self.root, target, &|_| Node::Split {
@@ -200,8 +200,8 @@ impl Layout {
         Some((Layout { root, focus: new_id, zoomed: None, next_id: new_id + 1 }, new_id))
     }
 
-    /// Drag & Drop: `source` herausnehmen und an der Seite `zone` von `target` einsetzen
-    /// (halbe Fläche von `target`); `Center` tauscht beide. `source` bekommt den Fokus.
+    /// Drag and drop: take out `source` and insert it at side `zone` of `target`
+    /// (half of `target`'s area); `Center` swaps both. `source` gets the focus.
     pub fn move_pane(&self, source: PaneId, target: PaneId, zone: DropZone) -> Option<Layout> {
         if source == target || !self.contains(source) || !self.contains(target) {
             return None;
@@ -224,16 +224,16 @@ impl Layout {
         Some(Layout { root, focus: source, zoomed: None, next_id: self.next_id })
     }
 
-    /// Wie Tilix „automatisch teilen“: entlang der längeren Seite des Bereichs.
+    /// Like Tilix "auto split": along the longer side of the pane.
     pub fn split_auto(&self, target: PaneId, width: f32, height: f32) -> Option<(Layout, PaneId)> {
         let r = self.rect_of(target, width, height)?;
-        // Terminalzellen sind etwa doppelt so hoch wie breit, daher Breite halbiert vergleichen
+        // terminal cells are about twice as tall as wide, so compare against half the width
         let o = if r.w / 2.0 >= r.h { Orientation::Horizontal } else { Orientation::Vertical };
         self.split(target, o)
     }
 
-    /// Schließt `target`; das Geschwister rückt an seine Stelle. `None`, wenn es der letzte
-    /// Bereich ist (dann schließt der Tab, nicht das Layout).
+    /// Closes `target`; the sibling takes its place. `None` if it is the last
+    /// pane (then the tab closes, not the layout).
     pub fn close(&self, target: PaneId) -> Option<Layout> {
         if !self.contains(target) || matches!(self.root, Node::Pane(_)) {
             return None;
@@ -244,7 +244,7 @@ impl Layout {
         Some(Layout { root, focus, zoomed, next_id: self.next_id })
     }
 
-    /// Verschiebt den nächstgelegenen passenden Trenner um `delta` (Anteil) in Richtung `dir`.
+    /// Moves the nearest matching separator by `delta` (share) in direction `dir`.
     pub fn resize(&self, target: PaneId, dir: Direction, delta: f32) -> Option<Layout> {
         let signed = match dir {
             Direction::Right | Direction::Down => delta,
@@ -254,19 +254,19 @@ impl Layout {
         Some(Layout { root, ..self.clone() })
     }
 
-    /// Setzt alle Anteile so, dass gleich ausgerichtete Bereiche gleich groß werden.
+    /// Sets all shares so that panes with the same orientation get the same size.
     pub fn equalize(&self) -> Layout {
         Layout { root: equalize_node(&self.root), ..self.clone() }
     }
 
-    /// Setzt den Anteil des Splits am Pfad `path` (z. B. nach Ziehen des Trenners).
-    /// `None`, wenn am Pfad kein Split liegt.
+    /// Sets the share of the split at `path` (e.g. after dragging the separator).
+    /// `None` if there is no split at the path.
     pub fn set_ratio(&self, path: &[Side], ratio: f32) -> Option<Layout> {
         let root = set_ratio_node(&self.root, path, ratio.clamp(MIN_RATIO, 1.0 - MIN_RATIO))?;
         Some(Layout { root, ..self.clone() })
     }
 
-    /// Anteil des Splits am Pfad.
+    /// Share of the split at the path.
     pub fn ratio_at(&self, path: &[Side]) -> Option<f32> {
         let mut n = &self.root;
         for side in path {
@@ -281,7 +281,7 @@ impl Layout {
         }
     }
 
-    /// Hebt einen Zoom auf (alle Bereiche wieder sichtbar).
+    /// Clears a zoom (all panes visible again).
     pub fn without_zoom(&self) -> Layout {
         Layout { zoomed: None, ..self.clone() }
     }
@@ -294,7 +294,7 @@ impl Layout {
         Some(Layout { zoomed, focus: target, ..self.clone() })
     }
 
-    /// Rechtecke aller Bereiche bei gegebener Fläche (Trennerbreite vernachlässigt).
+    /// Rectangles of all panes for a given area (separator width ignored).
     pub fn geometry(&self, width: f32, height: f32) -> Vec<(PaneId, Rect)> {
         let mut out = Vec::new();
         geom(&self.root, Rect { x: 0.0, y: 0.0, w: width, h: height }, &mut out);
@@ -305,7 +305,7 @@ impl Layout {
         self.geometry(width, height).into_iter().find(|(p, _)| *p == id).map(|(_, r)| r)
     }
 
-    /// Darf `target` geteilt werden, ohne dass eine Hälfte kleiner als `min_w`×`min_h` wird?
+    /// May `target` be split without one half becoming smaller than `min_w`×`min_h`?
     pub fn can_split(&self, target: PaneId, o: Orientation, width: f32, height: f32, min_w: f32, min_h: f32) -> bool {
         match self.rect_of(target, width, height) {
             Some(r) => match o {
@@ -316,9 +316,9 @@ impl Layout {
         }
     }
 
-    /// Nachbar in Richtung `dir`, geometrisch bestimmt: der nächste Bereich, der sich
-    /// senkrecht zur Richtung mit dem aktuellen überlappt; bei Gleichstand der mit der
-    /// größten Überlappung.
+    /// Neighbor in direction `dir`, determined geometrically: the nearest pane that
+    /// overlaps the current one perpendicular to the direction; on a tie, the one with the
+    /// largest overlap.
     pub fn neighbour(&self, from: PaneId, dir: Direction, width: f32, height: f32) -> Option<PaneId> {
         let rects = self.geometry(width, height);
         let me = rects.iter().find(|(p, _)| *p == from)?.1;
@@ -385,7 +385,7 @@ fn replace(n: &Node, target: PaneId, f: &dyn Fn(&Node) -> Node) -> Option<Node> 
     }
 }
 
-/// Entfernt `target`, gibt neuen Baum und den Bereich zurück, der den Fokus erben soll.
+/// Removes `target`, returns the new tree and the pane that should inherit the focus.
 fn remove(n: &Node, target: PaneId) -> Option<(Node, PaneId)> {
     let Node::Split { orientation, ratio, first, second } = n else { return None };
     if **first == Node::Pane(target) {
@@ -405,7 +405,7 @@ fn remove(n: &Node, target: PaneId) -> Option<(Node, PaneId)> {
     })
 }
 
-/// Rückgabe: (neuer Knoten, ob die Änderung schon angewendet wurde)
+/// Returns: (new node, whether the change was already applied)
 fn resize_node(n: &Node, target: PaneId, axis: Orientation, signed: f32) -> Option<(Node, bool)> {
     match n {
         Node::Pane(id) => (*id == target).then(|| (n.clone(), false)),
@@ -494,7 +494,7 @@ mod tests {
     use Direction::*;
     use Orientation::*;
 
-    /// Das Beispiel-Layout der Mockups: links 1, rechts oben 2, rechts unten 3.
+    /// The example layout from the mockups: 1 on the left, 2 top right, 3 bottom right.
     fn three() -> Layout {
         let (l, two) = Layout::new().split(1, Horizontal).unwrap();
         let (l, three) = l.split(two, Vertical).unwrap();
@@ -561,7 +561,7 @@ mod tests {
 
     #[test]
     fn neighbour_prefers_larger_overlap() {
-        // rechte Spalte 70/30 geteilt: von links nach rechts landet man oben (mehr Überlappung)
+        // right column split 70/30: going right from the left lands on top (more overlap)
         let l = three().resize(2, Down, 0.2).unwrap();
         assert_eq!(l.neighbour(1, Right, 1000.0, 600.0), Some(2));
         let l = three().resize(2, Up, 0.2).unwrap();
@@ -582,7 +582,7 @@ mod tests {
 
     #[test]
     fn equalize_spreads_same_orientation_chains() {
-        // drei nebeneinander: 1 | 2 | 3
+        // three side by side: 1 | 2 | 3
         let (l, two) = Layout::new().split(1, Horizontal).unwrap();
         let (l, _) = l.split(two, Horizontal).unwrap();
         let g = l.equalize().geometry(900.0, 100.0);
@@ -602,7 +602,7 @@ mod tests {
     #[test]
     fn min_size_blocks_split() {
         let l = three();
-        // rechte Bereiche 500×300; Mindestgröße 300 breit
+        // right panes 500×300; minimum size 300 wide
         assert!(!l.can_split(2, Horizontal, 1000.0, 600.0, 300.0, 50.0));
         assert!(l.can_split(2, Vertical, 1000.0, 600.0, 300.0, 50.0));
         assert!(!l.can_split(42, Vertical, 1000.0, 600.0, 1.0, 1.0));
@@ -679,21 +679,21 @@ mod tests {
         assert_eq!(drop_zone(50.0, 5.0, 100.0, 100.0), DropZone::Top);
         assert_eq!(drop_zone(50.0, 90.0, 100.0, 100.0), DropZone::Bottom);
         assert_eq!(drop_zone(50.0, 50.0, 100.0, 100.0), DropZone::Center);
-        // Ecke: die nähere Kante
+        // corner: the nearer edge
         assert_eq!(drop_zone(3.0, 20.0, 100.0, 100.0), DropZone::Left);
         assert_eq!(drop_zone(50.0, 50.0, 0.0, 100.0), DropZone::Center);
     }
 
     #[test]
     fn move_pane_to_each_side() {
-        // 1 | 2, dann 2 unten teilen → 1 | (2 / 3)
+        // 1 | 2, then split 2 downwards → 1 | (2 / 3)
         let (l, _) = Layout::new().split(1, Orientation::Horizontal).unwrap();
         let (l, three) = l.split(2, Orientation::Vertical).unwrap();
-        // 3 links neben 1: (3 | 1) | 2
+        // 3 left of 1: (3 | 1) | 2
         let m = l.move_pane(three, 1, DropZone::Left).unwrap();
         assert_eq!(m.panes(), vec![3, 1, 2]);
         assert_eq!(m.focus(), 3);
-        // 1 unter 2: 2 / 1, daneben 3? → (2 / 1) / 3 im rechten Teil, links nichts mehr
+        // 1 below 2: 2 / 1, 3 next to it? → (2 / 1) / 3 in the right part, nothing left on the left
         let m = l.move_pane(1, 2, DropZone::Bottom).unwrap();
         assert_eq!(m.panes(), vec![2, 1, 3]);
         match m.root() {
@@ -702,11 +702,11 @@ mod tests {
             }
             other => panic!("unerwartet: {other:?}"),
         }
-        // Mitte tauscht, Fokus beim gezogenen Bereich
+        // middle swaps, focus on the dragged pane
         let m = l.move_pane(1, three, DropZone::Center).unwrap();
         assert_eq!(m.panes(), vec![3, 2, 1]);
         assert_eq!(m.focus(), 1);
-        // auf sich selbst oder mit unbekannter Id: nichts
+        // onto itself or with an unknown id: nothing
         assert!(l.move_pane(2, 2, DropZone::Left).is_none());
         assert!(l.move_pane(9, 2, DropZone::Left).is_none());
     }

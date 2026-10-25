@@ -38,6 +38,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The context color for SSH and root follows faster: the foreground is checked about 40 ms
   after new output and at the shell's command start and prompt (at most every 200 ms, only in
   the visible pane) instead of only once a second.
+- Code comments, script messages and file names in the repository are English now (the QA
+  scripts are `build-aux/qa/throughput.sh` and `measure.sh`).
 
 ## [0.4.0] - 2026-10-23
 

@@ -1,6 +1,6 @@
-# Farben auf Kontrast gezogen (QA-10): auf Weiß erreichen die normalen Farben 1–6 mindestens
-# 7:1 und die hellen 9–14 mindestens 4,5:1, auf Schwarz umgekehrt. So bleiben normal und hell
-# unterscheidbar. 0, 7, 8 und 15 sind Grau-/Hintergrundtöne und bleiben, wie sie sind.
+# Colors pushed for contrast (QA-10): on white the normal colors 1–6 reach at least 7:1 and
+# the bright ones 9–14 at least 4.5:1, on black the other way round. That keeps normal and
+# bright distinguishable. 0, 7, 8 and 15 are gray/background tones and stay as they are.
 [Palette]
 Name=Hoher Kontrast
 Primary=true

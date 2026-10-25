@@ -18,7 +18,7 @@
   .tab .glyph { color: currentColor; }
   .tab.attn::after { content: ""; position: absolute; left: 30%; right: 30%; bottom: 1px; height: 3px; border-radius: 2px; background: var(--accent-bg); }
   .tab.pinned { flex: none; min-width: 0; width: 40px; justify-content: center; padding: 0; }
-  /* Overlay-Titel je Terminal (nur bei mehreren Bereichen) */
+  /* Overlay title per terminal (only with several panes) */
   .pane-pill { position: absolute; top: 6px; right: 8px; z-index: 3; display: flex; align-items: center; gap: 2px; padding: 2px 2px 2px 9px; border-radius: 8px; font-size: 12px; font-weight: 600; background: color-mix(in srgb, var(--headerbar-bg) 88%, transparent); box-shadow: 0 0 0 1px var(--border), 0 1px 3px rgb(0 0 6 / 10%); color: var(--dim); }
   .pane-pill .nm { margin-right: 4px; white-space: nowrap; }
   .pane.focused .pane-pill { color: var(--window-fg); }
@@ -42,7 +42,7 @@
   .layout-tiles .lt.hover { background: var(--hover); box-shadow: inset 0 0 0 2px var(--accent-bg); }
   .layout-tiles .lt .glyph { width: 30px; height: 22px; }
   .drop-zone { position: absolute; z-index: 4; background: color-mix(in srgb, var(--accent-bg) 22%, transparent); border: 2px dashed var(--accent-bg); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--accent); font-weight: 700; font-size: 13px; }
-  /* Einstellungen: AdwPreferencesDialog */
+  /* Preferences: AdwPreferencesDialog */
   .prefs { width: 640px; height: 640px; }
   .prefs .hb { height: 47px; display: flex; align-items: center; justify-content: center; position: relative; }
   .prefs .hb .x { position: absolute; right: 10px; }
@@ -152,7 +152,7 @@ function splitView(win) {
   headerbar(win);
   tabbar(win, "theme");
   const root = content(win, "theme");
-  // Kontextmenü am rechten oberen Terminal
+  // Context menu on the top right terminal
   const pop = el("div", "popover", `
     <div class="item hover">${icon("view-dual")} Rechts teilen<span class="kbd">Strg+Alt+R</span></div>
     <div class="item">${icon("view-paged")} Unten teilen<span class="kbd">Strg+Alt+D</span></div>
@@ -178,7 +178,7 @@ function splitView(win) {
     { d: "h", r: 0.5, a: { d: "v", r: 0.5, a: "a", b: "b" }, b: { d: "v", r: 0.5, a: "c", b: "d" } },
   ];
   L.forEach((l, i) => { const t = el("div", "lt" + (i === 2 ? " hover" : "")); t.append(glyph(l, "a")); lt.append(t); });
-  // Drop-Zone beim Ziehen eines Bereichs
+  // Drop zone while dragging a pane
   const dz = el("div", "drop-zone", "Hier ablegen: unten teilen");
   dz.style.cssText = "left:8px;top:470px;width:700px;height:316px";
   win.append(dz);

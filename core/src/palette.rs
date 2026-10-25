@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Farbschemata im Paletten-Format von Ptyxis, dazu Import von Tilix-Schemata (JSON).
+//! Color schemes in Ptyxis' palette format, plus import of Tilix schemes (JSON).
 //!
-//! Eine Palette hat eine helle und eine dunkle Fassung (`Face`). Fehlende Farben für
-//! root- und SSH-Bereiche werden wie bei Ptyxis aus der Palette abgeleitet
+//! A palette has a light and a dark variant (`Face`). Missing colors for
+//! root and SSH panes are derived from the palette as in Ptyxis
 //! (`ptyxis-palette.c: ptyxis_palette_load_face`).
 
 use std::collections::HashMap;
@@ -18,10 +18,10 @@ pub struct Rgb {
 }
 
 impl Rgb {
-    /// `#rrggbb` oder `#rgb`, Groß-/Kleinschreibung egal.
+    /// `#rrggbb` or `#rgb`, case-insensitive.
     pub fn parse(s: &str) -> Option<Rgb> {
         let h = s.trim().strip_prefix('#')?;
-        // Nach Bytes geschnitten: Nicht-ASCII würde mitten in einem Zeichen schneiden
+        // sliced by bytes: non-ASCII would cut in the middle of a character
         if !h.is_ascii() {
             return None;
         }
@@ -29,18 +29,18 @@ impl Rgb {
         match h.len() {
             6 => Some(Rgb { r: v(0, 2)?, g: v(2, 2)?, b: v(4, 2)? }),
             3 => Some(Rgb { r: v(0, 1)? * 17, g: v(1, 1)? * 17, b: v(2, 1)? * 17 }),
-            // GdkRGBA kann #rrrrggggbbbb (Tilix-Dateien aus gnome-terminal)
+            // GdkRGBA accepts #rrrrggggbbbb (Tilix files from gnome-terminal)
             12 => Some(Rgb { r: v(0, 2)?, g: v(4, 2)?, b: v(8, 2)? }),
             _ => None,
         }
     }
 
-    /// Anteile 0.0–1.0 für Cairo und GdkRGBA – die eine Umrechnung für die ganze App (D3).
+    /// Components 0.0–1.0 for Cairo and GdkRGBA – the one conversion for the whole app (D3).
     pub fn to_f64(&self) -> (f64, f64, f64) {
         (self.r as f64 / 255.0, self.g as f64 / 255.0, self.b as f64 / 255.0)
     }
 
-    /// Gegenstück zu `to_f64`; Werte außerhalb 0.0–1.0 werden begrenzt.
+    /// Counterpart of `to_f64`; values outside 0.0–1.0 are clamped.
     pub fn from_f64(r: f64, g: f64, b: f64) -> Rgb {
         let v = |x: f64| (x * 255.0).round().clamp(0.0, 255.0) as u8;
         Rgb { r: v(r), g: v(g), b: v(b) }
@@ -50,7 +50,7 @@ impl Rgb {
         format!("#{:02x}{:02x}{:02x}", self.r, self.g, self.b)
     }
 
-    /// Relative Leuchtdichte nach WCAG.
+    /// Relative luminance per WCAG.
     pub fn luminance(&self) -> f64 {
         let lin = |c: u8| {
             let c = c as f64 / 255.0;
@@ -67,20 +67,20 @@ impl Rgb {
         self.luminance() < 0.18
     }
 
-    /// Kontrastverhältnis nach WCAG (1 bis 21).
+    /// Contrast ratio per WCAG (1 to 21).
     pub fn contrast(&self, other: &Rgb) -> f64 {
         let (a, b) = (self.luminance(), other.luminance());
         (a.max(b) + 0.05) / (a.min(b) + 0.05)
     }
 
-    /// `alpha` Anteil von `fg` über `self`.
+    /// `alpha` share of `fg` over `self`.
     pub fn mix(&self, fg: &Rgb, alpha: f64) -> Rgb {
         let m = |b: u8, f: u8| ((1.0 - alpha) * b as f64 + alpha * f as f64).round().clamp(0.0, 255.0) as u8;
         Rgb { r: m(self.r, fg.r), g: m(self.g, fg.g), b: m(self.b, fg.b) }
     }
 }
 
-/// Eine Fassung (hell oder dunkel) einer Palette.
+/// One variant (light or dark) of a palette.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Face {
     pub foreground: Rgb,
@@ -88,15 +88,15 @@ pub struct Face {
     pub cursor: Option<Rgb>,
     pub cursor_foreground: Option<Rgb>,
     pub colors: [Rgb; 16],
-    /// Hintergrund für Bereiche mit root-Rechten (Kontextfarbe)
+    /// background for panes with root privileges (context color)
     pub superuser_background: Rgb,
-    /// Hintergrund für Bereiche mit SSH-Verbindung (Kontextfarbe)
+    /// background for panes with an SSH connection (context color)
     pub remote_background: Rgb,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Palette {
-    /// Dateiname ohne Endung, z. B. „gnome“
+    /// file name without extension, e.g. "gnome"
     pub id: String,
     pub name: String,
     pub light: Face,
@@ -126,7 +126,7 @@ impl std::error::Error for PaletteError {}
 
 type Section = HashMap<String, String>;
 
-/// Minimaler Parser für das GKeyFile-Format der Paletten (Abschnitte, Schlüssel=Wert, #-Kommentare).
+/// Minimal parser for the GKeyFile format of the palettes (sections, key=value, # comments).
 fn parse_keyfile(text: &str) -> HashMap<String, Section> {
     let mut out: HashMap<String, Section> = HashMap::new();
     let mut current = String::new();
@@ -157,14 +157,14 @@ fn required(sec: &Section, key: &str, scope: &str) -> Result<Rgb, PaletteError> 
 }
 
 impl Face {
-    /// Hintergrund markierter Zeichen: Akzentfarbe des Systems über dem Hintergrund, wie
-    /// die Textauswahl in GTK. Ohne eigene Farbe zeichnet VTE die Auswahl invertiert – im
-    /// dunklen Stil ein greller heller Block. Die Schrift behält ihre Farbe.
+    /// Background of selected characters: the system accent color over the background, like
+    /// text selection in GTK. Without its own color VTE draws the selection inverted – in the
+    /// dark style a glaring bright block. The text keeps its color.
     pub fn selection(&self, accent: &Rgb) -> Rgb {
         self.background.mix(accent, if self.background.is_dark() { 0.3 } else { 0.25 })
     }
 
-    /// Baut eine Fassung und leitet fehlende Kontextfarben ab (Ptyxis-Regeln).
+    /// Builds a variant and derives missing context colors (Ptyxis rules).
     pub fn new(foreground: Rgb, background: Rgb, colors: [Rgb; 16], cursor: Option<Rgb>) -> Face {
         let dark = background.is_dark();
         Face {
@@ -219,8 +219,8 @@ impl Face {
 }
 
 impl Palette {
-    /// Liest eine Ptyxis-Palette. Ohne `[Light]`/`[Dark]` (ältere Dateien aus Gogh) stehen
-    /// die Farben im Abschnitt `[Palette]` und gelten für beide Fassungen.
+    /// Reads a Ptyxis palette. Without `[Light]`/`[Dark]` (older files from Gogh) the
+    /// colors are in the `[Palette]` section and apply to both variants.
     pub fn parse_ptyxis(id: &str, text: &str) -> Result<Palette, PaletteError> {
         let kf = parse_keyfile(text);
         let info = kf.get("Palette").ok_or_else(|| PaletteError::Missing("[Palette]".into()))?;
@@ -235,8 +235,8 @@ impl Palette {
                 let f = Face::from_section(d, "Dark")?;
                 (f.clone(), f)
             }
-            // Ohne Farben im Abschnitt [Palette] fehlen eigentlich [Light]/[Dark]; sonst hieße
-            // die Meldung „Color0 in [Palette] fehlt“ und zeigte auf den falschen Abschnitt (QA-15)
+            // Without colors in the [Palette] section, [Light]/[Dark] is what is really missing; otherwise
+            // the message would say "Color0 missing in [Palette]" and point at the wrong section (QA-15)
             (None, None) if !info.contains_key("Foreground") && !info.contains_key("Color0") => {
                 return Err(PaletteError::Missing(gettext("Section [Light] or [Dark]")));
             }
@@ -248,8 +248,8 @@ impl Palette {
         Ok(Palette { id: id.to_string(), name, light, dark })
     }
 
-    /// Liest ein Tilix-Farbschema (`data/schemes/*.json` bei Tilix). Tilix kennt nur eine
-    /// Fassung; sie gilt für hell und dunkel.
+    /// Reads a Tilix color scheme (`data/schemes/*.json` in Tilix). Tilix has only one
+    /// variant; it applies to light and dark.
     pub fn parse_tilix(id: &str, text: &str) -> Result<Palette, PaletteError> {
         let v: serde_json::Value = serde_json::from_str(text).map_err(|e| PaletteError::Json(e.to_string()))?;
         let s = |k: &str| v.get(k).and_then(|x| x.as_str());
@@ -284,7 +284,7 @@ impl Palette {
         Ok(Palette { id: id.to_string(), name, light: face.clone(), dark: face })
     }
 
-    /// Erkennt das Format am Inhalt: JSON-Objekt = Tilix, sonst Ptyxis.
+    /// Detects the format from the content: JSON object = Tilix, otherwise Ptyxis.
     pub fn parse_any(id: &str, text: &str) -> Result<Palette, PaletteError> {
         if text.trim_start().starts_with('{') {
             Palette::parse_tilix(id, text)
@@ -301,12 +301,12 @@ impl Palette {
         }
     }
 
-    /// Hat die Palette wirklich zwei verschiedene Fassungen?
+    /// Does the palette really have two different variants?
     pub fn has_variants(&self) -> bool {
         self.light != self.dark
     }
 
-    /// Schreibt die Palette im Ptyxis-Format (für importierte Schemata).
+    /// Writes the palette in Ptyxis format (for imported schemes).
     pub fn to_ptyxis(&self) -> String {
         let mut out = format!("[Palette]\nName={}\n\n[Light]\n", self.name);
         self.light.write(&mut out);
@@ -316,7 +316,7 @@ impl Palette {
     }
 }
 
-/// Dateiname-taugliche Id aus einem Anzeigenamen („Solarized Dark“ → „solarized-dark“).
+/// File-name-safe id from a display name ("Solarized Dark" → "solarized-dark").
 pub fn slug(name: &str) -> String {
     let mut s = String::new();
     for ch in name.chars().flat_map(|c| c.to_lowercase()) {
@@ -344,8 +344,8 @@ macro_rules! p {
     };
 }
 
-/// Die mitgelieferten Schemata (Dateien in data/palettes, ins Programm eingebettet), in der
-/// Reihenfolge der Auswahl.
+/// The bundled schemes (files in data/palettes, embedded in the program), in the
+/// order of the selection.
 const BUILTIN: &[(&str, &str)] = &[
     p!("gnome"),
     p!("gnome-high-contrast"),
@@ -363,7 +363,7 @@ const BUILTIN: &[(&str, &str)] = &[
     p!("vs-code"),
 ];
 
-/// Die mitgelieferten Schemata, geparst.
+/// The bundled schemes, parsed.
 pub fn builtin() -> Vec<Palette> {
     BUILTIN
         .iter()
@@ -373,11 +373,11 @@ pub fn builtin() -> Vec<Palette> {
 
 pub const DEFAULT_PALETTE: &str = "gnome";
 
-/// Schema für GNOMEs hohen Kontrast (*Barrierefreiheit › Hoher Kontrast*).
+/// Scheme for GNOME's high contrast (*Accessibility › High Contrast*).
 pub const HIGH_CONTRAST_PALETTE: &str = "gnome-high-contrast";
 
-/// Palette, die ein Bereich tatsächlich zeigt: bei hohem Kontrast des Systems das
-/// Hochkontrast-Schema statt des Schemas aus dem Profil.
+/// Palette a pane actually shows: with the system's high contrast, the
+/// high-contrast scheme instead of the scheme from the profile.
 pub fn effective_id(chosen: &str, high_contrast: bool) -> &str {
     if high_contrast {
         HIGH_CONTRAST_PALETTE
@@ -386,8 +386,8 @@ pub fn effective_id(chosen: &str, high_contrast: bool) -> &str {
     }
 }
 
-/// Mitgelieferte Schemata vorn in fester Reihenfolge, danach die eigenen alphabetisch –
-/// auch gleich nach einem Import, nicht erst beim nächsten Start.
+/// Bundled schemes first in a fixed order, then the custom ones alphabetically –
+/// also right after an import, not only on the next start.
 pub fn sort(list: &mut [Palette]) {
     let rank = |p: &Palette| match BUILTIN.iter().position(|(id, _)| *id == p.id) {
         Some(i) => (0, i, String::new()),
@@ -427,8 +427,8 @@ mod tests {
         assert_eq!(black.mix(&white, 0.5), Rgb { r: 128, g: 128, b: 128 });
     }
 
-    /// Text muss in jeder eingebauten Fassung lesbar sein (QA-10: „One“ dunkel hatte 2,7:1).
-    /// Grenze 4,0 statt WCAG 4,5, weil Solarized hell im Original bei 4,1:1 liegt.
+    /// Text must be readable in every built-in variant (QA-10: "One" dark had 2.7:1).
+    /// Threshold 4.0 instead of WCAG 4.5, because Solarized light is at 4.1:1 in the original.
     #[test]
     fn builtin_foreground_is_readable() {
         let ratio = |a: &Rgb, b: &Rgb| {
@@ -461,7 +461,7 @@ mod tests {
         assert_eq!(p.name, "GNOME");
         assert_eq!(p.dark.background.hex(), "#1c1c1f");
         assert_eq!(p.light.colors[1].hex(), "#c01c28");
-        // abgeleitet: 33 % Color1 über dunklem Grund
+        // derived: 33 % Color1 over a dark background
         assert_eq!(p.dark.superuser_background, p.dark.background.mix(&p.dark.colors[1], 0.33));
         assert_eq!(p.light.remote_background, p.light.background.mix(&p.light.colors[12], 0.5));
     }
@@ -519,8 +519,8 @@ mod tests {
         assert_eq!(Rgb::parse("#äää"), None);
     }
 
-    /// GNOME-Akzentfarben (libadwaita 1.6+): Blau, Türkis, Grün, Gelb, Orange, Rot, Pink,
-    /// Lila, Schiefer.
+    /// GNOME accent colors (libadwaita 1.6+): blue, teal, green, yellow, orange, red, pink,
+    /// purple, slate.
     const ACCENTS: [&str; 9] =
         ["#3584e4", "#2190a4", "#3a944a", "#c88800", "#ed5b00", "#e62d42", "#d56199", "#9141ac", "#6f8396"];
 
@@ -530,12 +530,12 @@ mod tests {
             for (name, face) in [("hell", &p.light), ("dunkel", &p.dark)] {
                 for accent in ACCENTS {
                     let sel = face.selection(&Rgb::parse(accent).unwrap());
-                    // Schrift auf der Auswahl: 4,5:1, bei Schemata mit wenig Kontrast (Solarized
-                    // hat selbst nur 4,1:1) höchstens 40 % weniger als ohne Auswahl
+                    // text on the selection: 4.5:1, for schemes with little contrast (Solarized
+                    // itself only has 4.1:1) at most 40 % less than without selection
                     let text = face.foreground.contrast(&sel);
                     let need = 4.5f64.min(0.6 * face.foreground.contrast(&face.background));
                     assert!(text >= need, "{} {name}, Akzent {accent}: Schrift auf Auswahl {text:.2}:1", p.id);
-                    // Auswahl hebt sich vom Grund ab (nur Helligkeit; der Farbton kommt dazu)
+                    // selection stands out from the background (lightness only; the hue adds to it)
                     let edge = face.background.contrast(&sel);
                     assert!(edge >= 1.1, "{} {name}, Akzent {accent}: Auswahl kaum sichtbar ({edge:.2}:1)", p.id);
                 }
@@ -564,7 +564,7 @@ mod tests {
         assert_eq!(ids[n..], ["ayu", "monokai", "zenburn"]);
     }
 
-    /// Hoher Kontrast: farbige ANSI-Töne gut lesbar, normale und helle unterscheidbar (QA-10).
+    /// High contrast: colored ANSI tones easy to read, normal and bright distinguishable (QA-10).
     #[test]
     fn high_contrast_colors_reach_targets() {
         let p = builtin().into_iter().find(|p| p.id == HIGH_CONTRAST_PALETTE).unwrap();

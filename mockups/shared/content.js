@@ -1,8 +1,8 @@
-// Gemeinsamer Beispielinhalt und Hilfsfunktionen für alle Konzepte.
-// Jedes Konzept zeigt dieselben Sitzungen, dieselben Terminals und dasselbe Split-Layout,
-// damit sich die Entwürfe direkt vergleichen lassen.
+// Shared sample content and helper functions for all concepts.
+// Every concept shows the same sessions, the same terminals and the same split layout,
+// so the drafts can be compared directly.
 
-const P = (s) => s; // Lesbarkeit: Zeilen bleiben HTML-Strings mit Farbklassen f0–f14
+const P = (s) => s; // readability: lines stay HTML strings with color classes f0–f14
 
 const prompt = (dir, branch) =>
   `<span class="f2 b">toff@smokki</span> <span class="f4 b">${dir}</span>` +
@@ -121,7 +121,7 @@ export const TERMS = {
   },
 };
 
-// Split-Layout als Baum: h = nebeneinander, v = übereinander, r = Anteil des ersten Kindes.
+// Split layout as a tree: h = side by side, v = stacked, r = share of the first child.
 export const SESSIONS = [
   { id: "theme", name: "lui-theme", icon: "folder-projects", workspace: true,
     layout: { d: "h", r: 0.56, a: "git", b: { d: "v", r: 0.5, a: "dev", b: "bender" } }, focus: "git" },
@@ -147,7 +147,7 @@ export const sessionState = (s) => {
 
 export const STATE_LABEL = { idle: "Bereit", run: "Läuft", act: "Neue Ausgabe", err: "Beendet mit Fehler" };
 
-// Mini-Schema eines Layouts als CSS-Grid (für Seitenleisten, Tab-Übersicht, Palette)
+// Mini diagram of a layout as CSS grid (for sidebars, tab overview, palette)
 export function glyph(layout, focus) {
   const cells = [];
   const walk = (n, x, y, w, h) => {
@@ -187,7 +187,7 @@ export function termEl(id, { focused = false, dimUnfocused = true } = {}) {
   return pane;
 }
 
-// Baut den Split-Baum. chrome(pane, id) darf die Fläche dekorieren (Titelzeile, Overlay …).
+// Builds the split tree. chrome(pane, id) may decorate the area (title row, overlay …).
 export function renderLayout(layout, { focus, chrome = (p) => p, dimUnfocused = true } = {}) {
   if (typeof layout === "string") {
     return chrome(termEl(layout, { focused: layout === focus, dimUnfocused }), layout);
@@ -202,7 +202,7 @@ export function renderLayout(layout, { focus, chrome = (p) => p, dimUnfocused = 
   return box;
 }
 
-// ---------- Bühne: Ansichten, Hell/Dunkel, Hinweise, Messung ----------
+// ---------- Stage: views, light/dark, notes, measuring ----------
 
 let cellW = 0;
 function measureCell() {
@@ -231,7 +231,7 @@ export function measure(win) {
   return { pct: (100 * ta) / wa, dims };
 }
 
-// options: [{ key, values: [[wert, beschriftung], …] }] – zusätzliche Umschalter, an render(win, opts) übergeben
+// options: [{ key, values: [[value, label], …] }] – extra toggles, passed to render(win, opts)
 export function stage({ concept, views, defaultView = "main", options = [] }) {
   const params = new URLSearchParams(location.hash.slice(1));
   let view = params.get("view") || defaultView;
@@ -317,7 +317,7 @@ export function stage({ concept, views, defaultView = "main", options = [] }) {
   draw();
 }
 
-// Nummerierte Erläuterung im Mockup (per Schalter ausblendbar)
+// Numbered annotation in the mockup (can be hidden with a toggle)
 export function hint(win, n, text, style) {
   const h = el("div", "hint-callout", text);
   h.dataset.n = n;

@@ -1,37 +1,37 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Wann ein Startbefehl (Vorlage) getippt werden darf (R-09).
+//! When a startup command (template) may be typed (R-09).
 //!
-//! Sofort nach dem Start getippt, landete er bei einem ssh-Profil in der Passwortabfrage.
-//! Mit Shell-Integration (vte.sh) wartet Parkett auf den ersten Prompt (`vte.shell.precmd`);
-//! ohne sie, bis die Ausgabe ruht und das Terminal nicht auf ein Passwort wartet.
+//! Typed right after start, it ended up in the password prompt of an ssh profile.
+//! With shell integration (vte.sh) Parkett waits for the first prompt (`vte.shell.precmd`);
+//! without it, until the output is quiet and the terminal is not waiting for a password.
 
 use std::time::Duration;
 
-/// Frühestens so lange nach dem Start
+/// No earlier than this after start
 pub const MIN_AFTER_SPAWN: Duration = Duration::from_millis(1000);
-/// So lange muss die Ausgabe ruhen (Prompt fertig gezeichnet)
+/// The output must be quiet this long (prompt fully drawn)
 pub const QUIET: Duration = Duration::from_millis(400);
-/// Danach gibt Parkett auf (z. B. Passwort nie eingegeben)
+/// After that Parkett gives up (e.g. password never entered)
 pub const GIVE_UP: Duration = Duration::from_secs(300);
 
-/// Einstellung der PTY (termios) zum Zeitpunkt der Prüfung.
+/// PTY settings (termios) at the time of the check.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TtyMode {
-    /// zeilenweise Eingabe (ICANON)
+    /// line-by-line input (ICANON)
     pub canonical: bool,
-    /// Zeichen werden angezeigt (ECHO)
+    /// characters are echoed (ECHO)
     pub echo: bool,
 }
 
 impl TtyMode {
-    /// Passwortabfrage: ssh, sudo und `read -s` lesen zeilenweise ohne Echo. Eine Shell mit
-    /// readline hat auch kein Echo, liest aber zeichenweise.
+    /// Password prompt: ssh, sudo and `read -s` read line by line without echo. A shell with
+    /// readline has no echo either, but reads character by character.
     pub fn is_password_prompt(&self) -> bool {
         self.canonical && !self.echo
     }
 }
 
-/// Darf der Startbefehl jetzt ohne Shell-Integration getippt werden?
+/// May the startup command be typed now without shell integration?
 pub fn may_type(since_spawn: Duration, since_output: Duration, mode: Option<TtyMode>) -> bool {
     since_spawn >= MIN_AFTER_SPAWN && since_output >= QUIET && !mode.is_some_and(|m| m.is_password_prompt())
 }

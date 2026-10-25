@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-//! Befehlszeile: `parkett [OPTIONEN] [-- BEFEHL …]`. Eigener kleiner Parser statt GOptions,
-//! weil alles nach `-e`/`-x`/`--` unverändert der Befehl ist (wie bei gnome-terminal/Ptyxis)
-//! und die Argumente einer zweiten Instanz an die laufende weitergereicht werden.
+//! Command line: `parkett [OPTIONS] [-- COMMAND …]`. Own small parser instead of GOptions,
+//! because everything after `-e`/`-x`/`--` is the command unchanged (as in gnome-terminal/Ptyxis)
+//! and the arguments of a second instance are passed on to the running one.
 
 use crate::i18n::{gettext, trf, N_};
 
-/// Hilfetext für `--help` (englischer msgid, übersetzt mit `help()`).
+/// Help text for `--help` (English msgid, translated with `help()`).
 pub const HELP: &str = N_("Usage: parkett [OPTIONS] [-- COMMAND [ARGUMENTS …]]\n\n  -d, --working-directory=DIR   Start directory; repeat for one tab per directory\n  -e, -x, --                    Run the rest of the line instead of the shell\n                                (-e with a single argument: split like a shell)\n  -p, --profile=ID              Profile (file name without .toml)\n  -t, --title=TITLE             Tab title\n      --tab                     Open as a tab in the active window instead of a new window\n      --split-right             Split the active pane of the active window to the right\n      --split-down              Split the active pane of the active window downwards\n  -h, --help                    Show this help\n      --version                 Show version\n");
 
-/// Übersetzter Hilfetext.
+/// Translated help text.
 pub fn help() -> String {
     gettext(HELP)
 }
 
-/// `--split-right`/`--split-down`: statt eines Reiters den aktiven Bereich teilen.
+/// `--split-right`/`--split-down`: split the active pane instead of opening a tab.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Split {
     Right,
@@ -22,12 +22,12 @@ pub enum Split {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Cli {
-    /// leer = Verzeichnis des Aufrufers; mehrere = ein Reiter je Verzeichnis
+    /// empty = caller's directory; several = one tab per directory
     pub working_directories: Vec<String>,
     pub command: Option<Vec<String>>,
-    /// `-e "htop -d 5"`: ein einziges Argument nach `-e` ist eine Befehlszeile (wie bei
-    /// gnome-terminal) und muss noch wie in einer Shell zerlegt werden – das macht die App mit
-    /// `glib::shell_parse_argv`, wie für den Befehl im Profil
+    /// `-e "htop -d 5"`: a single argument after `-e` is a command line (as in
+    /// gnome-terminal) and still has to be split like in a shell – the app does that with
+    /// `glib::shell_parse_argv`, as for the command in the profile
     pub command_needs_split: bool,
     pub profile: Option<String>,
     pub title: Option<String>,
@@ -38,7 +38,7 @@ pub struct Cli {
 }
 
 impl Cli {
-    /// Gab es irgendeine Vorgabe? Ohne Vorgabe darf die letzte Sitzung zurückkommen.
+    /// Was anything requested at all? Without a request the last session may come back.
     pub fn is_plain(&self) -> bool {
         self.working_directories.is_empty()
             && self.command.is_none()
@@ -48,7 +48,7 @@ impl Cli {
     }
 }
 
-/// `args` ohne den Programmnamen.
+/// `args` without the program name.
 pub fn parse<S: AsRef<str>>(args: &[S]) -> Result<Cli, String> {
     let mut cli = Cli::default();
     let mut i = 0;
@@ -58,7 +58,7 @@ pub fn parse<S: AsRef<str>>(args: &[S]) -> Result<Cli, String> {
             Some((n, v)) => (n, Some(v)),
             None => (arg, None),
         };
-        // Wert als „--opt=wert“ oder als nächstes Argument
+        // value as "--opt=value" or as the next argument
         let mut value = |long: &str| -> Result<String, String> {
             if let Some(v) = inline {
                 return Ok(v.to_string());
@@ -68,7 +68,7 @@ pub fn parse<S: AsRef<str>>(args: &[S]) -> Result<Cli, String> {
                 .map(|v| v.as_ref().to_string())
                 .ok_or_else(|| trf("{option} needs a value", &[("option", long)]))
         };
-        // Schalter ohne Wert: „--tab=x“ ist ein Tippfehler, kein --tab (R-10)
+        // flags without a value: "--tab=x" is a typo, not --tab (R-10)
         let flag = |set: &mut bool, v: bool| -> Result<(), String> {
             match inline {
                 Some(_) => Err(trf("{option} takes no value (“{argument}”)", &[("option", name), ("argument", arg)])),
@@ -110,12 +110,12 @@ pub fn parse<S: AsRef<str>>(args: &[S]) -> Result<Cli, String> {
     Ok(cli)
 }
 
-/// Schützt das Trennzeichen `--` vor GLib: `g_option_context_parse` (GApplication) entfernt
-/// ein `--`, wenn kein Argument danach mit „-“ beginnt. `parkett -- htop` kam dann als
-/// `parkett htop` an und scheiterte mit „Unbekannte Option“ – aber nur beim ersten Start,
-/// nicht bei einer laufenden Instanz. Das erste echte `--` (nicht der Wert von `-d`/`-p`/`-t`)
-/// wird darum zum gleichbedeutenden `--command`, das GLib stehen lässt. `args[0]` ist das
-/// Programm.
+/// Protects the separator `--` from GLib: `g_option_context_parse` (GApplication) removes
+/// a `--` if no argument after it starts with "-". `parkett -- htop` then arrived as
+/// `parkett htop` and failed with "Unknown option" – but only on first start,
+/// not with a running instance. The first real `--` (not the value of `-d`/`-p`/`-t`)
+/// therefore becomes the equivalent `--command`, which GLib leaves alone. `args[0]` is the
+/// program.
 pub fn protect_separator(mut args: Vec<String>) -> Vec<String> {
     let mut i = 1;
     while i < args.len() {
@@ -158,7 +158,7 @@ mod tests {
         let cli = parse(&["-e", "htop -d 5"]).unwrap();
         assert_eq!(cli.command, Some(vec!["htop -d 5".into()]));
         assert!(cli.command_needs_split, "R-10");
-        // nach -x und -- bleibt ein Argument ein Argument (Pfad mit Leerzeichen)
+        // after -x and -- an argument stays one argument (path with spaces)
         assert!(!parse(&["--", "/opt/mein programm"]).unwrap().command_needs_split);
         assert!(!parse(&["-x", "htop -d 5"]).unwrap().command_needs_split);
     }
@@ -177,15 +177,15 @@ mod tests {
     fn separator_survives_glib() {
         let v = |a: &[&str]| a.iter().map(|s| s.to_string()).collect::<Vec<_>>();
         assert_eq!(protect_separator(v(&["parkett", "--", "htop"])), v(&["parkett", "--command", "htop"]));
-        // nur das erste, danach gehört alles zum Befehl
+        // only the first one, everything after it belongs to the command
         assert_eq!(
             protect_separator(v(&["parkett", "-d", "/tmp", "--", "sh", "--", "x"])),
             v(&["parkett", "-d", "/tmp", "--command", "sh", "--", "x"])
         );
-        // „--“ als Wert einer Option bleibt, ebenso alles nach -e
+        // "--" as the value of an option stays, as does everything after -e
         assert_eq!(protect_separator(v(&["parkett", "-t", "--"])), v(&["parkett", "-t", "--"]));
         assert_eq!(protect_separator(v(&["parkett", "-e", "a", "--"])), v(&["parkett", "-e", "a", "--"]));
-        // was herauskommt, versteht parse wie vorher „--“
+        // parse understands the result like "--" before
         let cli = parse(&protect_separator(v(&["parkett", "--", "htop"]))[1..]).unwrap();
         assert_eq!(cli.command, Some(vec!["htop".into()]));
     }
