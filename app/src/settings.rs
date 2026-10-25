@@ -68,6 +68,16 @@ pub fn context_colors() -> bool {
     settings().boolean("context-colors")
 }
 
+/// Panes with a context draw their background opaque, also with a translucent profile.
+pub fn context_opaque() -> bool {
+    settings().boolean("context-opaque")
+}
+
+/// Tint the header bar while a root pane has the focus.
+pub fn context_headerbar() -> bool {
+    settings().boolean("context-headerbar")
+}
+
 pub fn scrollback_lines() -> i64 {
     settings().int("scrollback-lines").into()
 }

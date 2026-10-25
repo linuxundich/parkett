@@ -9,6 +9,7 @@ use vte::prelude::*;
 use crate::i18n::{gettext, ntrf, trf, N_};
 use crate::shortcuts::live_tooltip;
 use crate::terminal::{Launch, Terminal};
+use parkett_core::context::Kind;
 use parkett_core::layout::DropZone;
 
 mod imp {
@@ -29,6 +30,12 @@ mod imp {
         /// Zone while dropping a dragged pane
         pub drop_hint: OnceCell<gtk::Box>,
         pub context_line: OnceCell<gtk::DrawingArea>,
+        /// Frame in the context color (root)
+        pub frame: OnceCell<gtk::DrawingArea>,
+        /// Badge with the context (`root`, `ssh bender`) at the top right, always visible
+        pub context_badge: OnceCell<gtk::Label>,
+        /// CSS class of the badge's color (`style::color_class`)
+        pub badge_class: RefCell<Option<String>>,
         pub multi: Cell<bool>,
         pub narrow: Cell<bool>,
         pub row: OnceCell<gtk::Box>,
@@ -96,7 +103,7 @@ impl Pane {
             dim.set_draw_func(move |_, cr, w, h| {
                 let Some(t) = t.upgrade() else { return };
                 let (r, g, b) = t.background().to_f64();
-                cr.set_source_rgba(r, g, b, 0.38);
+                cr.set_source_rgba(r, g, b, t.dim_alpha());
                 cr.rectangle(0.0, 0.0, w as f64, h as f64);
                 let _ = cr.fill();
             });
@@ -128,25 +135,66 @@ impl Pane {
             .tooltip_text(gettext("Shared input"))
             .build();
 
-        // Context color (root/SSH): 3 px line at the top in the scheme's color
+        // Context color, graded by risk (approach C): SSH and other users a 3 px line at the
+        // top, containers a dotted one, root a frame around the whole pane
         let context_line = gtk::DrawingArea::builder()
             .valign(gtk::Align::Start)
-            .height_request(3)
+            .height_request(CONTEXT_LINE)
             .can_target(false)
             .visible(false)
             .build();
         {
             let t = terminal.downgrade();
             context_line.set_draw_func(move |_, cr, w, h| {
-                if let Some((line, _)) = t.upgrade().and_then(|t| t.context_accent()) {
-                    let (r, g, b) = line.to_f64();
-                    cr.set_source_rgb(r, g, b);
+                let Some(mark) = t.upgrade().and_then(|t| t.context_mark()) else { return };
+                let (r, g, b) = mark.color.to_f64();
+                cr.set_source_rgb(r, g, b);
+                if mark.kind == Kind::Container {
+                    // shape besides color: dashes, not only purple
+                    let mut x = 0.0;
+                    while x < w as f64 {
+                        cr.rectangle(x, 0.0, 6.0, h as f64);
+                        x += 10.0;
+                    }
+                } else {
                     cr.rectangle(0.0, 0.0, w as f64, h as f64);
-                    let _ = cr.fill();
                 }
+                let _ = cr.fill();
             });
         }
         overlay.add_overlay(&context_line);
+        let frame = gtk::DrawingArea::builder().can_target(false).visible(false).build();
+        {
+            let t = terminal.downgrade();
+            frame.set_draw_func(move |_, cr, w, h| {
+                let Some(mark) = t.upgrade().and_then(|t| t.context_mark()) else { return };
+                let (r, g, b) = mark.color.to_f64();
+                cr.set_source_rgb(r, g, b);
+                let half = FRAME / 2.0;
+                cr.set_line_width(FRAME);
+                cr.rectangle(half, half, w as f64 - FRAME, h as f64 - FRAME);
+                let _ = cr.stroke();
+            });
+        }
+        overlay.add_overlay(&frame);
+        // Badge in text, not only color (accessibility): at the top right, where the floating
+        // title appears – while that is shown it carries the chip itself
+        let context_badge = gtk::Label::builder()
+            .css_classes(["parkett-context-badge"])
+            .halign(gtk::Align::End)
+            .valign(gtk::Align::Start)
+            .margin_end(8)
+            .can_target(false)
+            .visible(false)
+            .build();
+        overlay.add_overlay(&context_badge);
+        // the badge gives way when the cursor gets to the top line
+        let weak = pane.downgrade();
+        terminal.vte().connect_cursor_moved(move |_| {
+            if let Some(p) = weak.upgrade() {
+                p.place_badge();
+            }
+        });
         overlay.add_overlay(&sync_line);
         let drop_hint = gtk::Box::builder().css_classes(["parkett-drop-hint"]).can_target(false).visible(false).build();
         overlay.add_overlay(&drop_hint);
@@ -158,6 +206,13 @@ impl Pane {
         let weak = pane.downgrade();
         probe.connect_resize(move |_, width, _| {
             let Some(p) = weak.upgrade() else { return };
+            // VTE rewraps on resize without reporting the cursor move: place the badge again
+            let w2 = p.downgrade();
+            glib::idle_add_local_once(move || {
+                if let Some(p) = w2.upgrade() {
+                    p.place_badge();
+                }
+            });
             let narrow = width < 380;
             if narrow != p.imp().narrow.get() {
                 p.imp().narrow.set(narrow);
@@ -384,6 +439,8 @@ impl Pane {
         imp.sync_line.set(sync_line).ok();
         imp.drop_hint.set(drop_hint).ok();
         imp.context_line.set(context_line).ok();
+        imp.frame.set(frame).ok();
+        imp.context_badge.set(context_badge).ok();
         imp.dim.set(dim).ok();
         imp.search.set(search).ok();
         imp.badge.set(badge).ok();
@@ -554,30 +611,77 @@ impl Pane {
         self.terminal().vte().grab_focus();
     }
 
-    /// Title in the floating field, with a colored chip in front for root/SSH.
+    /// Title in the floating field, with a colored chip in front for a context; marking
+    /// (line, frame, badge) by the kind of context.
     fn refresh_title(&self) {
         self.imp().lock.get().unwrap().set_visible(self.terminal().read_only());
         let t = self.terminal();
         let title = glib::markup_escape_text(&t.title().unwrap_or_else(|| "Shell".into())).to_string();
-        let chip = match (t.context(), t.context_accent()) {
-            (parkett_core::context::Context::Remote(host), Some((_, bg))) => Some((host, bg)),
-            (parkett_core::context::Context::Superuser, Some((_, bg))) => Some(("root".to_string(), bg)),
-            _ => None,
-        };
-        let markup = match &chip {
-            Some((text, bg)) => format!(
-                "<span background=\"{}\" weight=\"bold\"> {} </span>  {title}",
-                bg.hex(),
-                glib::markup_escape_text(text)
-            ),
+        let mark = t.context_mark();
+        let markup = match &mark {
+            Some(m) => {
+                let black = parkett_core::palette::Rgb { r: 0, g: 0, b: 0 };
+                let white = parkett_core::palette::Rgb { r: 255, g: 255, b: 255 };
+                let fg = if m.color.contrast(&black) > m.color.contrast(&white) { "#000000" } else { "#ffffff" };
+                format!(
+                    "<span background=\"{}\" foreground=\"{fg}\" weight=\"bold\"> {} </span>  {title}",
+                    m.color.hex(),
+                    glib::markup_escape_text(&m.label)
+                )
+            }
             None => title.clone(),
         };
-        self.imp().pill_label.get().unwrap().set_markup(&markup);
-        self.imp().row_label.get().unwrap().set_markup(&markup);
         let imp = self.imp();
-        imp.context_line.get().unwrap().set_visible(chip.is_some());
-        imp.context_line.get().unwrap().queue_draw();
+        imp.pill_label.get().unwrap().set_markup(&markup);
+        imp.row_label.get().unwrap().set_markup(&markup);
+        let root = mark.as_ref().is_some_and(|m| m.kind == Kind::Superuser);
+        let line = imp.context_line.get().unwrap();
+        line.set_visible(mark.is_some() && !root);
+        line.queue_draw();
+        let frame = imp.frame.get().unwrap();
+        frame.set_visible(root);
+        frame.queue_draw();
+        let badge = imp.context_badge.get().unwrap();
+        if let Some(old) = imp.badge_class.borrow_mut().take() {
+            badge.remove_css_class(&old);
+        }
+        if let Some(m) = &mark {
+            let class = crate::style::color_class(m.color);
+            badge.add_css_class(&class);
+            *imp.badge_class.borrow_mut() = Some(class);
+            badge.set_label(&m.label);
+        }
+        // Focus line below the context line or inside the frame
+        let focus = imp.focus_line.get().unwrap();
+        let (top, side) = match &mark {
+            Some(_) if root => (FRAME as i32, FRAME as i32),
+            Some(_) => (CONTEXT_LINE, 0),
+            None => (0, 0),
+        };
+        focus.set_margin_top(top);
+        focus.set_margin_start(side);
+        focus.set_margin_end(side);
         self.update_visibility();
+    }
+
+    /// Badge at the top right; at the bottom right while the cursor is in the top line, so it
+    /// does not cover what is being typed (like the floating title, QA-02).
+    fn place_badge(&self) {
+        let imp = self.imp();
+        let badge = imp.context_badge.get().unwrap();
+        let vte = self.terminal().vte();
+        let top = vte.vadjustment().map_or(0.0, |a| a.value());
+        let cursor_on_top = (vte.cursor_position().1 as f64 - top) < 1.0;
+        let offset = if imp.frame.get().unwrap().is_visible() { FRAME as i32 } else { CONTEXT_LINE };
+        if cursor_on_top {
+            badge.set_valign(gtk::Align::End);
+            badge.set_margin_top(0);
+            badge.set_margin_bottom(8 + offset);
+        } else {
+            badge.set_valign(gtk::Align::Start);
+            badge.set_margin_top(6 + offset);
+            badge.set_margin_bottom(0);
+        }
     }
 
     /// Line for shared input: this pane receives what is typed into another one.
@@ -597,11 +701,11 @@ impl Pane {
         }
     }
 
-    /// Title field and lines: title in split tabs or with context (then with chip),
-    /// the context line replaces the focus line.
+    /// Title field, badge and lines: title in split tabs or with context (then with chip); the
+    /// focus line stays visible next to the context marking.
     pub fn update_visibility(&self) {
         let imp = self.imp();
-        let context = self.terminal().context_accent().is_some();
+        let context = self.terminal().context_mark().is_some();
         let searching = imp.search.get().is_some_and(|s| s.is_visible());
         let row_mode = crate::settings::settings().string("pane-title") == "row";
         let show = imp.multi.get() || context;
@@ -616,6 +720,11 @@ impl Pane {
             pill.remove_css_class("revealed");
         }
         imp.pill_label.get().unwrap().set_visible(!imp.narrow.get());
+        // the badge yields to the revealed title (it shows the chip) and the search; in the
+        // title row the chip is in the row
+        let badge_shown = !(revealed && pill.is_visible()) && !searching && !row_mode;
+        imp.context_badge.get().unwrap().set_visible(context && badge_shown);
+        self.place_badge();
         let row = imp.row.get().unwrap();
         row.set_visible(show && row_mode);
         if imp.focused.get() && imp.multi.get() {
@@ -624,7 +733,7 @@ impl Pane {
             row.remove_css_class("focused");
         }
         // In the row the tint shows focus; the line only in floating mode
-        imp.focus_line.get().unwrap().set_visible(imp.multi.get() && imp.focused.get() && !context && !row_mode);
+        imp.focus_line.get().unwrap().set_visible(imp.multi.get() && imp.focused.get() && !row_mode);
     }
 
     pub fn search_visible(&self) -> bool {
@@ -719,6 +828,10 @@ impl Pane {
     }
 }
 
+/// Height of the context line at the top (px).
+const CONTEXT_LINE: i32 = 3;
+/// Width of the root frame (px).
+const FRAME: f64 = 2.0;
 /// Height of the strip at the top of the pane where the pointer reveals the title (px).
 const HOVER_STRIP: f64 = 40.0;
 /// How long the title stays visible after a focus change.

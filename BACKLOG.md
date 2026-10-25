@@ -97,6 +97,9 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [ ] On the host by hand: deleting a profile in the preferences
 - [x] On the host by hand (Christoph, 2026-10-23): transparency, the Nautilus context menu
       (right click on a folder), several monitors
+- [ ] Context colors with real connections and containers: `ssh root@host`, `sudo -i` on a server
+      whose distribution sets the title (Fedora, Debian), toolbox, distrobox, `docker exec -it`
+      (VM test used stand-in processes with the same name and command line)
 - [ ] Sixel output with a VTE that has Sixel (Arch and Fedora 44 build without it)
 - [ ] Launch through `xdg-terminal-exec` (installed neither in the VM nor on the host)
 - [ ] Bell with sound
@@ -117,6 +120,17 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
       output in the scrollback, search text replaced with Ctrl+A); not reproducible afterwards
 
 ## Done
+
+### Context colors, approach C (2026-10-25)
+- [x] Analysis and mockups with three approaches (`mockups/context-colors.html`); chosen: C, graded
+      by risk
+- [x] Fixed meaning with the shade from the scheme by hue (`Face::context_color`), tint with
+      contrast protection, dimming at most 25 % with 4.5:1 for text; test over all 14 schemes
+- [x] New contexts: root on another host (`ssh root@`, title `root@…`), containers, other users
+- [x] root frame, SSH/other-user line, dashed container line, badge that yields to the cursor,
+      focus line always, hatched shared input, red header bar for root, context panes opaque
+- [x] VM check (Fedora 44, Papercolor light and dark, 95 % opacity) with stand-in processes for
+      ssh and podman, real `sudo -s` and `sudo -u nobody`
 
 ### Housekeeping (2026-10-25)
 - [x] English file names: `build-aux/qa/throughput.sh`, `measure.sh`, `icon/preview.png`,

@@ -126,9 +126,23 @@ can be turned off under *Einstellungen › Allgemein*.
 the terminal if the installed VTE library is built with Sixel support. Arch (`vte4` 0.84.1) and Fedora 44 (`vte291-gtk4` 0.84.1) currently build it
 without; in that case the switch under *Einstellungen › Allgemein* is grayed out and states the reason.
 
-**Context color:** if `ssh`/`mosh` or a program running as root (`sudo`, `su`,
-`doas`, `run0`, `pkexec`) is running in the pane, the background is tinted slightly and a colored line with
-the host name or "root" appears. Can be turned off under *Einstellungen › Allgemein*.
+**Context color:** a pane shows what runs in it, the louder the riskier:
+
+| Context | Detected by | Marking |
+|---|---|---|
+| root | a program as root, `sudo`, `su`, `doas`, `run0`, `pkexec` | red frame, badge *root*, tinted background, red header bar while focused |
+| root on another host | `ssh root@host`, `ssh -l root`, or the remote shell's title starts with `root@` (e.g. after `sudo -i` on the server) | like root, badge *root@host* |
+| SSH | `ssh`, `mosh`, `autossh`, `et`, `telnet` | blue line, badge *ssh host*, light tint |
+| Container | `toolbox`, `distrobox`, `podman`/`docker exec -it`, `machinectl shell`, `systemd-nspawn` | purple dashed line, badge with the container |
+| Other user | `sudo -u postgres`, `su - www`, a program running as another user | amber line, badge with the user |
+
+The colors have a fixed meaning; the shade comes from the color scheme (the color with the nearest
+hue), otherwise from GNOME's palette. The tint weakens the contrast of text by at most 12 %, and
+inactive panes are dimmed by at most 25 % so that text keeps 4.5:1. Panes with a context draw their
+background opaque even with a translucent profile. The badge sits at the top right and moves to the
+bottom right while the cursor is in the top line. All of it can be turned off under
+*Einstellungen › Allgemein* (*Kontextfarbe*, *Deckender Hintergrund bei Kontextfarbe*, *Rote Kopfleiste
+für root*). Shared input is marked by a hatched line.
 
 ## Command line
 
@@ -252,7 +266,8 @@ tab tooltip names the automatic profile.
 The format is the same as Ptyxis (full example: `data/palettes/tango.palette`): section
 `[Palette]` with `Name=`, then `[Light]` and `[Dark]`, each with `Foreground`, `Background`,
 `Color0` to `Color15` and optionally `Cursor`, `SuperuserBackground` (panes running as root) and
-`RemoteBackground` (SSH). Like Ptyxis, Parkett derives missing context colors from the palette.
+`RemoteBackground` (SSH). Without them Parkett tints toward the scheme's red or blue; with them it
+uses them as long as text stays readable.
 
 If a Tilix scheme has only one variant, Parkett uses it for both light and dark and says so
 during import.

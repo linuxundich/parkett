@@ -747,6 +747,19 @@ impl Window {
 
     fn update_title(&self) {
         let title = self.imp().title.get().unwrap();
+        // root in the focused pane: header bar red (approach C, setting)
+        let root = crate::settings::context_headerbar()
+            && self
+                .current_tab()
+                .and_then(|t| t.focused_pane().terminal().context_mark())
+                .is_some_and(|m| m.kind == parkett_core::context::Kind::Superuser);
+        if root != self.has_css_class("parkett-root") {
+            if root {
+                self.add_css_class("parkett-root");
+            } else {
+                self.remove_css_class("parkett-root");
+            }
+        }
         match self.current_tab() {
             Some(tab) => {
                 // template from the preferences; {title} is the tab title (custom name or

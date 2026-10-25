@@ -69,12 +69,14 @@ Closing the last tab ends the session, and the next start is a fresh one.
 
 ### Know where you are
 
-A pane that runs an SSH connection turns blue, a pane with root rights turns red. The colors
-come from the color scheme, and every pane decides for itself, so a split with a local shell
-next to a remote one stays easy to tell apart.
+Every pane shows what runs in it, the louder the riskier: root gets a red frame, a badge and a
+tinted background, also on another host after `ssh root@` or `sudo -i` there. SSH turns blue,
+containers purple, other users amber. The shades come from the color scheme, text stays readable,
+and every pane decides for itself, so a split with a local shell next to a remote one stays easy to
+tell apart.
 
 <p align="center">
-  <img src="screenshots/parkett-context-colors.webp" alt="Two panes side by side: an SSH connection with a blue tint and a root shell with a red tint" width="80%">
+  <img src="screenshots/parkett-context-colors.webp" alt="Five panes: a local shell, an SSH connection with a blue line and badge, a toolbox container with a dashed purple line, a shell of another user with an amber line, and a root shell with a red frame, tint and badge; the header bar is red because the root pane has the focus" width="80%">
 </p>
 
 ### Profiles and color schemes

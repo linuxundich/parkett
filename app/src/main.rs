@@ -30,7 +30,11 @@ vte-terminal { padding: 6px 8px; }
 }
 .parkett-exit-bar.neutral { background: color-mix(in srgb, var(--window-fg-color) 5%, var(--view-bg-color)); }
 .parkett-focus-line { background: var(--accent-bg-color); }
-.parkett-sync-line { background: var(--warning-bg-color); }
+/* shared input: hatched, so it is not confused with a context line by color alone */
+.parkett-sync-line {
+  background-image: repeating-linear-gradient(135deg, var(--warning-bg-color) 0 6px, transparent 6px 10px);
+}
+.parkett-context-badge { padding: 2px 7px; border-radius: 5px; font-size: 0.8em; font-weight: 700; }
 .parkett-drop-hint {
   background: color-mix(in srgb, var(--accent-bg-color) 28%, transparent);
   border: 2px solid var(--accent-bg-color);
@@ -53,6 +57,11 @@ paned > separator { background: var(--border-color); }
 window.parkett-translucent { background-color: transparent; }
 window.parkett-translucent toolbarview > .top-bar { background-color: var(--headerbar-bg-color); }
 window.parkett-translucent paned > separator { background: color-mix(in srgb, var(--window-fg-color) 18%, var(--window-bg-color)); }
+/* root in the focused pane: header bar tinted red (like Ptyxis); after the translucent rule */
+window.parkett-root toolbarview > .top-bar,
+window.parkett-root.parkett-translucent toolbarview > .top-bar {
+  background-color: color-mix(in srgb, var(--destructive-bg-color) 30%, var(--headerbar-bg-color));
+}
 .parkett-tile-preview { border-radius: 8px; box-shadow: 0 0 0 1px var(--border-color); }
 .parkett-schemes > flowboxchild { border-radius: 12px; padding: 6px; }
 .parkett-schemes > flowboxchild:selected { background: color-mix(in srgb, var(--accent-bg-color) 18%, transparent); box-shadow: inset 0 0 0 2px var(--accent-bg-color); }

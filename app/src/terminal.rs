@@ -14,7 +14,7 @@ use gtk::glib::translate::{from_glib_full, ToGlibPtr};
 use gtk::{gio, glib, pango};
 use vte::prelude::*;
 
-use parkett_core::context::{self, Context};
+use parkett_core::context::{self, Context, Kind};
 use parkett_core::link::{Action as LinkAction, CustomLink};
 use parkett_core::palette::Rgb;
 use parkett_core::profile::{Bell, CursorBlink, CursorShape, ExitAction, Profile};
@@ -55,10 +55,12 @@ struct Inner {
     pending_input: RefCell<Option<String>>,
     /// last output in the terminal (startup command only once it is quiet, R-09)
     last_output: Cell<Instant>,
-    /// root/SSH in the foreground (context color)
+    /// root, SSH, container or other user in the foreground (context color)
     context: RefCell<Context>,
-    /// Accent color of the context for line and chip
-    accent: Cell<Option<(Rgb, Rgb)>>,
+    /// Marking of the context for line, frame and badge
+    mark: RefCell<Option<ContextMark>>,
+    /// Dimming of the pane when inactive (`Face::dim_alpha`)
+    dim_alpha: Cell<f64>,
     child_pid: Cell<Option<glib::Pid>>,
     exit: Cell<Option<ExitStatus>>,
     on_state_changed: RefCell<Vec<Callback>>,
@@ -110,6 +112,16 @@ static NEXT_UID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::ne
 
 #[derive(Clone)]
 pub struct Terminal(Rc<Inner>);
+
+/// How a pane marks its context (approach C, `mockups/context-colors.html`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ContextMark {
+    pub kind: Kind,
+    /// strong color for line, frame and badge
+    pub color: Rgb,
+    /// text of the badge (`root`, `ssh bender`, …)
+    pub label: String,
+}
 
 /// Foreground of the PTY (`read_foreground`).
 struct Foreground {
@@ -202,7 +214,8 @@ impl Terminal {
             pending_input: RefCell::new(None),
             last_output: Cell::new(Instant::now()),
             context: RefCell::new(Context::Local),
-            accent: Cell::new(None),
+            mark: RefCell::new(None),
+            dim_alpha: Cell::new(0.25),
             child_pid: Cell::new(None),
             exit: Cell::new(None),
             on_state_changed: RefCell::default(),
@@ -452,9 +465,14 @@ impl Terminal {
         self.0.context.borrow().clone()
     }
 
-    /// (Line, chip background) for the current context; `None` = local or turned off.
-    pub fn context_accent(&self) -> Option<(Rgb, Rgb)> {
-        self.0.accent.get()
+    /// Marking of the current context; `None` = local or turned off.
+    pub fn context_mark(&self) -> Option<ContextMark> {
+        self.0.mark.borrow().clone()
+    }
+
+    /// Opacity of the dimming when the pane is inactive: text stays at 4.5:1.
+    pub fn dim_alpha(&self) -> f64 {
+        self.0.dim_alpha.get()
     }
 
     /// Polls the foreground process (like Ptyxis, but per pane): every second while
@@ -593,7 +611,18 @@ impl Terminal {
 
     fn context_of(&self, fg: Option<&Foreground>) -> Context {
         match fg {
-            Some(f) => context::classify(&f.comm, &f.args, f.euid),
+            Some(f) => {
+                let own_uid = unsafe { libc::getuid() };
+                let title = self.0.vte.termprop_string("xterm.title").0.map(String::from);
+                context::classify(&context::Process {
+                    comm: &f.comm,
+                    args: &f.args,
+                    euid: f.euid,
+                    own_uid,
+                    euid_name: f.euid.filter(|&u| u != 0 && u != own_uid).and_then(user_name),
+                    title: title.as_deref(),
+                })
+            }
             None => Context::Local,
         }
     }
@@ -626,7 +655,7 @@ impl Terminal {
         if self.0.exit.get().is_some() {
             return None;
         }
-        if let Context::Remote(host) = self.context() {
+        if let Some(host) = self.context().remote_host().map(String::from) {
             let name = foreground.unwrap_or_else(|| "ssh".into());
             return Some(if name == host { name } else { format!("{name} {host}") });
         }
@@ -896,7 +925,12 @@ impl Terminal {
         self.0.vte.connect_termprop_changed(None, move |_, name| {
             let Some(inner) = weak.upgrade() else { return };
             match name {
-                "xterm.title" => Terminal(inner).emit_state_changed(),
+                "xterm.title" => {
+                    let t = Terminal(inner);
+                    t.emit_state_changed();
+                    // `root@host` in the title of a remote shell: root on the other host
+                    t.poll_soon();
+                }
                 "vte.cwd" => {
                     let t = Terminal(inner);
                     t.check_appearance();
@@ -928,10 +962,7 @@ impl Terminal {
     fn appearance_profile(&self) -> Profile {
         let manager = ProfileManager::get();
         let own = manager.profile(&self.profile_id());
-        let host = match &*self.0.context.borrow() {
-            Context::Remote(h) => Some(h.clone()),
-            _ => None,
-        };
+        let host = self.0.context.borrow().remote_host().map(String::from);
         // like the tab name: OSC 7, otherwise the shell's folder (/proc) – without vte.sh there
         // is no OSC 7, and folder rules would never apply
         let cwd = if host.is_none() { self.working_directory() } else { None };
@@ -966,23 +997,28 @@ impl Terminal {
         let face = palette.face(sm.is_dark());
         let colors: Vec<gtk::gdk::RGBA> = face.colors.iter().map(rgba).collect();
         let refs: Vec<&gtk::gdk::RGBA> = colors.iter().collect();
-        // Context color: tint the background slightly toward the palette color for root/SSH,
-        // line and chip in the strong color (red or blue of the scheme)
-        let (background, accent) = match (&*self.0.context.borrow(), crate::settings::context_colors()) {
-            (Context::Superuser, true) => (
-                face.background.mix(&face.superuser_background, 0.35),
-                Some((face.colors[9], face.superuser_background)),
-            ),
-            (Context::Remote(_), true) => {
-                (face.background.mix(&face.remote_background, 0.35), Some((face.colors[12], face.remote_background)))
-            }
-            _ => (face.background, None),
+        // Context color: fixed meaning, shade from the scheme; only root and SSH tint the
+        // background, with contrast protection (`Face::context_background`)
+        let mark = if crate::settings::context_colors() {
+            let context = self.0.context.borrow();
+            context.kind().map(|kind| ContextMark {
+                kind,
+                color: face.context_color(kind),
+                label: context.label().unwrap_or_default(),
+            })
+        } else {
+            None
         };
-        self.0.accent.set(accent);
+        let background = mark.as_ref().map_or(face.background, |m| face.context_background(m.kind));
+        self.0.dim_alpha.set(face.dim_alpha(&background));
+        let marked = mark.is_some();
+        *self.0.mark.borrow_mut() = mark;
         let vte = &self.0.vte;
         // Transparency: only the background gets alpha; the window behind it is switched
         // to translucent for that (Window::update_translucency)
-        let opacity = look.opacity();
+        // a context draws opaque: the marking must not depend on what is behind the window,
+        // and text behind it would shine through (setting, on by default)
+        let opacity = if marked && crate::settings::context_opaque() { 1.0 } else { look.opacity() };
         let mut bg = rgba(&background);
         bg.set_alpha(opacity as f32);
         vte.set_colors(Some(&rgba(&face.foreground)), Some(&bg), &refs);
@@ -1213,7 +1249,7 @@ impl Terminal {
                 w.toast(msg);
             }
         };
-        if matches!(self.detect_context(), Context::Remote(_)) {
+        if self.detect_context().remote_host().is_some() {
             toast(&gettext("The path is on the other computer"));
             return;
         }
@@ -1255,7 +1291,7 @@ impl Terminal {
         // Many programs omit the host (`file:///path`) – if a connection is currently running
         // in the pane, that one is not from here either (R-04)
         if scheme == "file"
-            && (matches!(self.detect_context(), Context::Remote(_))
+            && (self.detect_context().remote_host().is_some()
                 || !parkett_core::uri::is_local_file(uri, glib::host_name().as_str()))
         {
             glib::g_warning!("parkett", "file: link to another computer not opened: {uri}");
@@ -1381,7 +1417,10 @@ impl Terminal {
         // Apply context color and Sixel on/off immediately
         let weak = Rc::downgrade(&self.0);
         let ctx = crate::settings::settings().connect_changed(None, move |_, key| {
-            if !matches!(key, "context-colors" | "enable-sixel" | "follow-high-contrast") {
+            if !matches!(
+                key,
+                "context-colors" | "context-opaque" | "context-headerbar" | "enable-sixel" | "follow-high-contrast"
+            ) {
                 return;
             }
             if let Some(inner) = weak.upgrade() {
@@ -1806,6 +1845,16 @@ fn decode_wait_status(status: i32) -> ExitStatus {
     } else {
         ExitStatus::Signal(status & 0x7f)
     }
+}
+
+/// Name of a local user from the user database, for the badge of another user.
+fn user_name(uid: u32) -> Option<String> {
+    let passwd = std::fs::read_to_string("/etc/passwd").ok()?;
+    passwd.lines().find_map(|l| {
+        let mut f = l.split(':');
+        let name = f.next()?;
+        (f.nth(1)?.parse::<u32>().ok()? == uid).then(|| name.to_string())
+    })
 }
 
 #[cfg(test)]

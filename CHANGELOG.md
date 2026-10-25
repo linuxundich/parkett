@@ -34,7 +34,27 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Search for whole words only (*W* in the search bar).
 - Template for the window title (*Einstellungen › Allgemein*, default `{title}`).
 
+### Added
+- Context colors, graded by risk: root on another host (`ssh root@host`, or the remote shell's
+  title starts with `root@`, e.g. after `sudo -i` on the server), containers (toolbox, distrobox,
+  `podman`/`docker exec -it`, `machinectl shell`) and other users (`sudo -u postgres`, `su - www`).
+- A badge with the context (`root`, `ssh bender`, `root@bender`, the container or the user) at the
+  top right of the pane; it moves to the bottom while the cursor is in the top line.
+- Settings *Deckender Hintergrund bei Kontextfarbe* (on: panes with a context are opaque even with a
+  translucent profile) and *Rote Kopfleiste für root* (on: the header bar turns red while a root
+  pane has the focus).
+
 ### Changed
+- Context colors have a fixed meaning: root red, SSH blue, containers purple, other users amber. The
+  shade comes from the scheme by hue, otherwise from GNOME's palette. Before, Parkett took fixed
+  palette slots, which gave SSH orange and a green root line in Papercolor (9 of 28 scheme variants
+  were off).
+- root is marked by a frame, tint and badge; SSH by a line, badge and a lighter tint; containers by a
+  dashed line. The tint weakens text contrast by at most 12 %.
+- Inactive panes are dimmed by at most 25 % and text keeps 4.5:1 (was 38 %, which brought text in
+  light schemes down to about 2:1).
+- The focus line stays visible next to the context marking; shared input has a hatched line, so
+  it is no longer confused with an orange context line.
 - The context color for SSH and root follows faster: the foreground is checked about 40 ms
   after new output and at the shell's command start and prompt (at most every 200 ms, only in
   the visible pane) instead of only once a second.

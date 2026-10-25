@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //! Color schemes in Ptyxis' palette format, plus import of Tilix schemes (JSON).
 //!
-//! A palette has a light and a dark variant (`Face`). Missing colors for
-//! root and SSH panes are derived from the palette as in Ptyxis
-//! (`ptyxis-palette.c: ptyxis_palette_load_face`).
+//! A palette has a light and a dark variant (`Face`). The colors of the context marking
+//! (root, SSH, container, other user) come from the palette by hue, with the GNOME colors as
+//! fallback; tint and dimming keep text readable.
 
 use std::collections::HashMap;
 use std::fmt;
 
+use crate::context::Kind;
 use crate::i18n::{gettext, trf};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -73,12 +74,35 @@ impl Rgb {
         (a.max(b) + 0.05) / (a.min(b) + 0.05)
     }
 
+    /// Hue (0–360°), saturation and lightness (0–1), as in CSS `hsl()`.
+    pub fn hsl(&self) -> (f64, f64, f64) {
+        let (r, g, b) = self.to_f64();
+        let (max, min) = (r.max(g).max(b), r.min(g).min(b));
+        let l = (max + min) / 2.0;
+        if max == min {
+            return (0.0, 0.0, l);
+        }
+        let d = max - min;
+        let s = if l > 0.5 { d / (2.0 - max - min) } else { d / (max + min) };
+        let h = if max == r {
+            (g - b) / d + if g < b { 6.0 } else { 0.0 }
+        } else if max == g {
+            (b - r) / d + 2.0
+        } else {
+            (r - g) / d + 4.0
+        };
+        (h * 60.0, s, l)
+    }
+
     /// `alpha` share of `fg` over `self`.
     pub fn mix(&self, fg: &Rgb, alpha: f64) -> Rgb {
         let m = |b: u8, f: u8| ((1.0 - alpha) * b as f64 + alpha * f as f64).round().clamp(0.0, 255.0) as u8;
         Rgb { r: m(self.r, fg.r), g: m(self.g, fg.g), b: m(self.b, fg.b) }
     }
 }
+
+/// The colorful palette colors (normal and bright, without black, white and grays).
+const ANSI_COLORS: [usize; 12] = [1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14];
 
 /// One variant (light or dark) of a palette.
 #[derive(Clone, Debug, PartialEq)]
@@ -88,10 +112,10 @@ pub struct Face {
     pub cursor: Option<Rgb>,
     pub cursor_foreground: Option<Rgb>,
     pub colors: [Rgb; 16],
-    /// background for panes with root privileges (context color)
-    pub superuser_background: Rgb,
-    /// background for panes with an SSH connection (context color)
-    pub remote_background: Rgb,
+    /// background for panes with root privileges, if the palette sets one (Ptyxis format)
+    pub superuser_background: Option<Rgb>,
+    /// background for panes with an SSH connection, if the palette sets one
+    pub remote_background: Option<Rgb>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -164,18 +188,91 @@ impl Face {
         self.background.mix(accent, if self.background.is_dark() { 0.3 } else { 0.25 })
     }
 
-    /// Builds a variant and derives missing context colors (Ptyxis rules).
     pub fn new(foreground: Rgb, background: Rgb, colors: [Rgb; 16], cursor: Option<Rgb>) -> Face {
-        let dark = background.is_dark();
         Face {
             foreground,
             background,
             cursor,
             cursor_foreground: None,
             colors,
-            superuser_background: background.mix(&colors[1], if dark { 0.33 } else { 0.5 }),
-            remote_background: background.mix(&colors[12], if dark { 0.33 } else { 0.5 }),
+            superuser_background: None,
+            remote_background: None,
         }
+    }
+
+    /// Strong color of a context (line, frame, badge). Fixed meaning – root red, SSH blue,
+    /// container purple, other user amber – the shade from the palette: the color with the
+    /// nearest hue that is saturated enough and stands out from the background by 3:1. The slots
+    /// `Color1`/`Color12` were wrong in 9 of 28 variants (Papercolor: SSH orange, root line green).
+    /// Without a match the GNOME color (Adwaita palette) of the matching lightness.
+    pub fn context_color(&self, kind: Kind) -> Rgb {
+        let (hue, tolerance, light, dark) = match kind {
+            Kind::Superuser => (0.0, 12.0, "#c01c28", "#f66151"),
+            Kind::Remote => (215.0, 25.0, "#1c71d8", "#62a0ea"),
+            Kind::Container => (285.0, 25.0, "#813d9c", "#c061cb"),
+            Kind::OtherUser => (40.0, 12.0, "#c64600", "#ffa348"),
+        };
+        let mut best: Option<(f64, Rgb)> = None;
+        for c in ANSI_COLORS.iter().map(|&i| self.colors[i]) {
+            let (h, s, l) = c.hsl();
+            let d = (h - hue).abs().min(360.0 - (h - hue).abs());
+            if d <= tolerance
+                && s >= 0.3
+                && (0.2..0.85).contains(&l)
+                && c.contrast(&self.background) >= 3.0
+                && best.is_none_or(|(bd, _)| d < bd)
+            {
+                best = Some((d, c));
+            }
+        }
+        best.map(|(_, c)| c)
+            .unwrap_or_else(|| Rgb::parse(if self.background.is_dark() { dark } else { light }).unwrap())
+    }
+
+    /// Background of a pane in this context. Only root and SSH are tinted (SSH half as
+    /// strongly), the other contexts keep the background. The tint may weaken the contrast of the
+    /// text by at most 12 % and that of the palette colors by at most 15 %, otherwise it gets
+    /// weaker, if need be down to nothing. A background set in the palette counts as the strongest tint.
+    pub fn context_background(&self, kind: Kind) -> Rgb {
+        let dark = self.background.is_dark();
+        let (explicit, share) = match kind {
+            Kind::Superuser => (self.superuser_background, 1.0),
+            Kind::Remote => (self.remote_background, 0.5),
+            _ => return self.background,
+        };
+        let (target, max) = match explicit {
+            Some(c) => (c, share),
+            None => (self.context_color(kind), share * if dark { 0.16 } else { 0.12 }),
+        };
+        let text = self.foreground.contrast(&self.background);
+        let colors = self.weakest_color(&self.background);
+        let mut alpha = max;
+        while alpha > 0.005 {
+            let tinted = self.background.mix(&target, alpha);
+            if self.foreground.contrast(&tinted) >= 0.88 * text && self.weakest_color(&tinted) >= 0.85 * colors {
+                return tinted;
+            }
+            alpha -= 0.01;
+        }
+        self.background
+    }
+
+    /// Lowest contrast of the colorful palette colors on `background`.
+    fn weakest_color(&self, background: &Rgb) -> f64 {
+        ANSI_COLORS.iter().map(|&i| self.colors[i].contrast(background)).fold(f64::INFINITY, f64::min)
+    }
+
+    /// Opacity of the dimming of inactive panes over `background`: at most 25 %, and the dimmed
+    /// text keeps 4.5:1 (it was 38 % – with tint, text fell to 2:1 in light schemes).
+    pub fn dim_alpha(&self, background: &Rgb) -> f64 {
+        let mut alpha: f64 = 0.25;
+        while alpha > 0.005 {
+            if self.foreground.mix(background, alpha).contrast(background) >= 4.5 {
+                return alpha;
+            }
+            alpha -= 0.01;
+        }
+        0.0
     }
 
     fn from_section(sec: &Section, scope: &str) -> Result<Face, PaletteError> {
@@ -190,12 +287,8 @@ impl Face {
         let mut face =
             Face::new(required(sec, "Foreground", scope)?, required(sec, "Background", scope)?, colors, cursor);
         face.cursor_foreground = color(sec, "CursorForeground")?;
-        if let Some(c) = color(sec, "SuperuserBackground")? {
-            face.superuser_background = c;
-        }
-        if let Some(c) = color(sec, "RemoteBackground")? {
-            face.remote_background = c;
-        }
+        face.superuser_background = color(sec, "SuperuserBackground")?;
+        face.remote_background = color(sec, "RemoteBackground")?;
         Ok(face)
     }
 
@@ -210,11 +303,12 @@ impl Face {
         for (i, c) in self.colors.iter().enumerate() {
             out.push_str(&format!("Color{i}={}\n", c.hex()));
         }
-        out.push_str(&format!(
-            "SuperuserBackground={}\nRemoteBackground={}\n",
-            self.superuser_background.hex(),
-            self.remote_background.hex()
-        ));
+        if let Some(c) = self.superuser_background {
+            out.push_str(&format!("SuperuserBackground={}\n", c.hex()));
+        }
+        if let Some(c) = self.remote_background {
+            out.push_str(&format!("RemoteBackground={}\n", c.hex()));
+        }
     }
 }
 
@@ -456,14 +550,60 @@ mod tests {
     }
 
     #[test]
-    fn ptyxis_gnome_values_and_derived_context_colors() {
+    fn ptyxis_gnome_values() {
         let p = builtin().into_iter().find(|p| p.id == "gnome").unwrap();
         assert_eq!(p.name, "GNOME");
         assert_eq!(p.dark.background.hex(), "#1c1c1f");
         assert_eq!(p.light.colors[1].hex(), "#c01c28");
-        // derived: 33 % Color1 over a dark background
-        assert_eq!(p.dark.superuser_background, p.dark.background.mix(&p.dark.colors[1], 0.33));
-        assert_eq!(p.light.remote_background, p.light.background.mix(&p.light.colors[12], 0.5));
+        assert_eq!(p.dark.superuser_background, None);
+    }
+
+    /// Approach C over all built-in schemes, light and dark: hue matches the meaning, the line
+    /// stands out, tint and dimming keep text readable.
+    #[test]
+    fn context_colors_in_all_palettes() {
+        for p in builtin() {
+            for (name, f) in [("light", &p.light), ("dark", &p.dark)] {
+                let ctx = format!("{} {name}", p.id);
+                for (kind, hue) in
+                    [(Kind::Superuser, 0.0), (Kind::Remote, 215.0), (Kind::Container, 285.0), (Kind::OtherUser, 40.0)]
+                {
+                    let c = f.context_color(kind);
+                    let (h, _, _) = c.hsl();
+                    let d = (h - hue).abs().min(360.0 - (h - hue).abs());
+                    assert!(d <= 30.0, "{ctx} {kind:?}: hue {h:.0} for {}", c.hex());
+                    assert!(
+                        c.contrast(&f.background) >= 3.0,
+                        "{ctx} {kind:?}: line only {:.1}:1",
+                        c.contrast(&f.background)
+                    );
+                    let bg = f.context_background(kind);
+                    let text = f.foreground.contrast(&f.background);
+                    assert!(f.foreground.contrast(&bg) >= 0.88 * text - 1e-9, "{ctx} {kind:?}: tint too strong");
+                    let dim = f.dim_alpha(&bg);
+                    assert!(dim <= 0.25);
+                    let dimmed = f.foreground.mix(&bg, dim).contrast(&bg);
+                    assert!(dim == 0.0 || dimmed >= 4.5, "{ctx} {kind:?}: dimmed text {dimmed:.1}:1");
+                }
+                assert_eq!(f.context_background(Kind::Container), f.background);
+                assert_ne!(f.context_background(Kind::Superuser), f.background, "{ctx}: root without tint");
+            }
+        }
+        // Papercolor dark puts orange in Color12 and green in Color9 (screenshot 2026-10-25)
+        let paper = builtin().into_iter().find(|p| p.id == "papercolor").unwrap();
+        assert_eq!(paper.dark.context_color(Kind::Superuser).hex(), "#f66151");
+        assert_eq!(paper.dark.context_color(Kind::Remote).hex(), "#5fafd7");
+    }
+
+    #[test]
+    fn explicit_context_background_is_kept_if_readable() {
+        let mut f = builtin().into_iter().find(|p| p.id == "gnome").unwrap().dark;
+        let soft = f.background.mix(&Rgb::parse("#ff0000").unwrap(), 0.1);
+        f.superuser_background = Some(soft);
+        assert_eq!(f.context_background(Kind::Superuser), soft);
+        let mut text = String::new();
+        f.write(&mut text);
+        assert!(text.contains("SuperuserBackground=") && !text.contains("RemoteBackground="));
     }
 
     #[test]

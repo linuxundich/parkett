@@ -66,8 +66,18 @@
     </key>
     <key name="context-colors" type="b">
       <default>true</default>
-      <summary>Context color for root and SSH</summary>
-      <description>Mark panes running a program with root privileges or an SSH connection with a line, a chip and a tinted background. The colors come from the color scheme.</description>
+      <summary>Context color for root, SSH and containers</summary>
+      <description>Mark panes by what runs in them: root (here or on another computer) with a red frame, badge and tinted background, SSH with a blue line, badge and a light tint, containers (purple) and other users (amber) with a line and badge. The shades come from the color scheme.</description>
+    </key>
+    <key name="context-opaque" type="b">
+      <default>true</default>
+      <summary>Opaque background for root, SSH and containers</summary>
+      <description>Panes with a context color draw their background opaque, even if the profile has a translucent background.</description>
+    </key>
+    <key name="context-headerbar" type="b">
+      <default>true</default>
+      <summary>Red header bar for root</summary>
+      <description>Tint the header bar red while a pane with root privileges has the focus.</description>
     </key>
     <key name="follow-high-contrast" type="b">
       <default>true</default>

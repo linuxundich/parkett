@@ -49,10 +49,22 @@ fn general_page() -> adw::PreferencesPage {
     let tabbar = adw::SwitchRow::builder().title(gettext("Hide tab bar with a single tab")).build();
     settings.bind("autohide-tab-bar", &tabbar, "active").build();
     let context = adw::SwitchRow::builder()
-        .title(gettext("Context color for root and SSH"))
-        .subtitle(gettext("Line, chip and tinted background, colors from the color scheme"))
+        .title(gettext("Context color for root, SSH and containers"))
+        .subtitle(gettext("root red with frame, SSH blue, containers purple, other users amber; with badge"))
         .build();
     settings.bind("context-colors", &context, "active").build();
+    let context_opaque = adw::SwitchRow::builder()
+        .title(gettext("Opaque background with context color"))
+        .subtitle(gettext("Even if the profile's background is translucent"))
+        .build();
+    settings.bind("context-opaque", &context_opaque, "active").build();
+    settings.bind("context-colors", &context_opaque, "sensitive").get_only().build();
+    let context_headerbar = adw::SwitchRow::builder()
+        .title(gettext("Red header bar for root"))
+        .subtitle(gettext("While a pane with root privileges has the focus"))
+        .build();
+    settings.bind("context-headerbar", &context_headerbar, "active").build();
+    settings.bind("context-colors", &context_headerbar, "sensitive").get_only().build();
     let contrast = adw::SwitchRow::builder()
         .title(gettext("Follow system high contrast"))
         .subtitle(gettext("Color scheme “High Contrast” in all panes while it is on in GNOME"))
@@ -89,6 +101,8 @@ fn general_page() -> adw::PreferencesPage {
     look.add(&title);
     look.add(&dim);
     look.add(&context);
+    look.add(&context_opaque);
+    look.add(&context_headerbar);
     look.add(&labels);
     look.add(&template);
     let window_title = adw::EntryRow::builder()

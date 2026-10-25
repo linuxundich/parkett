@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parkett Kontextfarben</title>
+<style>
+:root {
+  --page-bg: #f6f5f4; --page-fg: #241f31; --muted: #5e5c64; --card: #ffffff; --line: #deddda;
+  --accent: #3584e4; --warn: #e5a50a; --bad: #c01c28; --good: #26a269;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page-bg: #1e1e1e; --page-fg: #f6f5f4; --muted: #a8a6ad; --card: #2a2a2a; --line: #3d3d3d;
+    --bad: #f66151; --good: #57e389;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page-bg); color: var(--page-fg);
+  font: 15px/1.5 "Cantarell", "Inter", system-ui, sans-serif; }
+main { max-width: 1240px; margin: 0 auto; padding: 24px 16px 80px; }
+h1 { font-size: 26px; margin: 0 0 4px; }
+h2 { font-size: 20px; margin: 40px 0 8px; }
+h3 { font-size: 16px; margin: 20px 0 6px; }
+p, li { max-width: 80ch; }
+.muted { color: var(--muted); }
+table { border-collapse: collapse; margin: 8px 0; font-size: 14px; }
+th, td { border-bottom: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+th { font-weight: 600; }
+code { font-family: "Source Code Pro", ui-monospace, monospace; font-size: 13px; }
+.bad { color: var(--bad); font-weight: 600; }
+.good { color: var(--good); font-weight: 600; }
+.controls { position: sticky; top: 0; z-index: 10; background: var(--page-bg); border-bottom: 1px solid var(--line);
+  padding: 10px 0; display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 14px; }
+.controls label { display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; }
+.controls select { font: inherit; padding: 2px 4px; }
+.approach { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 18px 0; }
+.approach header { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; }
+.approach header h2 { margin: 0; }
+.tag { font-size: 12px; padding: 1px 8px; border-radius: 99px; background: var(--accent); color: #fff; }
+.proscons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 14px; margin: 8px 0 12px; }
+.proscons ul { margin: 0; padding-left: 18px; }
+@media (max-width: 760px) { .proscons { grid-template-columns: 1fr; } }
+
+/* Schreibtisch hinter dem Fenster: zeigt, was bei Transparenz durchscheint */
+.desk { position: relative; border-radius: 10px; overflow: hidden; padding: 18px;
+  background: linear-gradient(135deg, #8fb3e8, #c3d4ee 60%, #e9eef7); }
+.desk .doc { position: absolute; left: 34%; top: 10px; width: 64%; bottom: 10px; background: #fff; color: #111;
+  font: 13px/1.5 ui-monospace, monospace; padding: 12px; overflow: hidden; white-space: pre; border-radius: 6px; }
+.win { position: relative; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+.hb { height: 46px; display: flex; align-items: center; justify-content: center; font: 600 14px system-ui, sans-serif;
+  position: relative; transition: background .2s; }
+.hb .sub { position: absolute; left: 14px; font-weight: 400; font-size: 12px; opacity: .7; }
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pane + .pane, .pane { box-shadow: inset 0 0 0 .5px rgba(0,0,0,.45); }
+@media (max-width: 900px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+.pane { position: relative; height: 196px; padding: 10px 10px 26px; cursor: pointer; overflow: hidden;
+  font: 13px/1.55 "Source Code Pro", ui-monospace, monospace; white-space: pre; }
+.pane .ov { position: absolute; inset: 0; pointer-events: none; }
+.pane .tline { position: absolute; left: 0; right: 0; top: 0; pointer-events: none; }
+.pane .chip { position: absolute; top: 7px; right: 8px; font: 700 11px/1 system-ui, sans-serif; padding: 4px 7px;
+  border-radius: 5px; pointer-events: none; }
+.pane .pill { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); font: 12px/1 system-ui, sans-serif;
+  padding: 5px 9px; border-radius: 99px; display: none; pointer-events: none; white-space: nowrap; }
+.pane:hover .pill { display: block; }
+.pane .pill b { padding: 1px 5px; border-radius: 3px; margin-right: 6px; }
+.pane .meter { position: absolute; right: 6px; bottom: 5px; font: 11px/1 system-ui, sans-serif; padding: 3px 6px;
+  border-radius: 4px; background: rgba(0,0,0,.55); color: #fff; }
+.pane .meter.low { background: #c01c28; }
+.pane .name { position: absolute; left: 8px; bottom: 5px; font: 11px/1 system-ui, sans-serif; opacity: .6; }
+.cur { display: inline-block; width: .6em; height: 1.1em; vertical-align: -2px; }
+.legend { font-size: 13px; margin-top: 8px; }
+.plan li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<main>
+<h1>Kontextfarben: lokal, SSH, root</h1>
+<p class="muted">Parkett, Entwurf vom 25.10.2026. Die Fenster unten rechnen live mit den echten Farbschemata aus
+<code>data/palettes/</code>. Ein Klick auf einen Bereich setzt den Fokus, mit der Maus oben im Bereich erscheint der
+schwebende Titel. Unten rechts in jedem Bereich steht der Kontrast: Text zu Hintergrund und die schwächste der zwölf
+bunten Farben (Grenze für Text: 4,5:1).</p>
+
+<h2>Befund</h2>
+<table>
+<tr><th>#</th><th>Problem</th><th>Beleg</th></tr>
+<tr><td>1</td><td><b>Falscher Farbton.</b> Parkett nimmt für root die Slots <code>Color1</code>/<code>Color9</code> und für SSH
+<code>Color12</code>. Nicht jedes Schema legt dort Rot und Blau ab.</td>
+<td>Papercolor dunkel (dein Profil): SSH wird <b>orange-braun</b>, die root-Linie <b>grün</b>. Dracula: SSH lila. Gruvbox
+dunkel: SSH grün. Solarized: root orange. Everforest/Gruvbox hell: SSH türkis. Betroffen sind 9 von 28 Fassungen.</td></tr>
+<tr><td>2</td><td><b>Abdunkeln frisst Lesbarkeit.</b> Inaktive Bereiche bekommen 38 % Hintergrundfarbe über den Text. Mit
+Tönung zusammen fällt der Text unter 4,5:1.</td>
+<td>Abgedunkelter Text im SSH-Bereich: GNOME hell 4,4:1, Papercolor hell 2,9:1, Solarized 2,1–2,5:1, Selenized 2,3–2,9:1.</td></tr>
+<tr><td>3</td><td><b>Transparenz verwässert das Signal.</b> Bei 95 % Deckkraft scheinen helle Fenster dahinter als
+Geistertext durch (im Screenshot links: <i>rsync … gelöscht</i>). Die Tönung wechselt außerdem je nach Hintergrund
+hinter dem Fenster.</td><td>Bei 95 % gehen 5 % jedes Bildpunkts an das Fenster dahinter: Über einem weißen Dokument wird
+Papercolor <code>#1C1C1C</code> zu <code>#272727</code>, und dessen schwarze Schrift bleibt als Muster sichtbar.</td></tr>
+<tr><td>4</td><td><b>Linien sind doppelt belegt.</b> Fokus (Akzent, 2 px), Kontext (3 px, ersetzt den Fokus) und
+gemeinsame Eingabe (4 px, Warnfarbe Orange) liegen alle oben. Im fokussierten SSH-Bereich fehlt die Fokuslinie,
+und Orange heißt mal „SSH“ (Papercolor), mal „gemeinsame Eingabe“.</td><td>Screenshot: links Orange = SSH, rechts oben Grün =
+root, rechts unten Blau = Fokus.</td></tr>
+<tr><td>5</td><td><b>Lücken bei der Erkennung.</b> <code>ssh root@host</code>, Container (toolbox, distrobox,
+<code>podman exec</code>) und <code>sudo -u postgres</code> sehen aus wie normale Bereiche. <code>sudo</code> auf dem fernen
+Rechner bleibt blau.</td><td><code>core::context::classify</code> kennt nur Lokal, Remote, Superuser.</td></tr>
+</table>
+
+<h2>Grundregeln für alle Ansätze</h2>
+<ol class="plan">
+<li><b>Feste Bedeutung, Farbe aus dem Schema.</b> root = Rot, SSH = Blau, Container = Lila, anderer Nutzer = Bernstein.
+Parkett sucht im Schema die Farbe mit dem passenden Farbton (Rot und Bernstein ±12°, Blau und Lila ±25°, genug Sättigung, mindestens 3:1 zum Hintergrund).
+Gibt es keine, nimmt es die GNOME-Farbe (Adwaita-Palette). <code>SuperuserBackground</code>/<code>RemoteBackground</code>
+im Schema gelten weiter.</li>
+<li><b>Tönung mit Kontrastschutz.</b> Die Tönung darf den Kontrast von Text und Schemafarben um höchstens 12–15 % senken.
+Sonst wird sie schwächer, notfalls bis null.</li>
+<li><b>Abdunkeln mit Untergrenze.</b> Höchstens 25 %, und abgedunkelter Text bleibt bei mindestens 4,5:1.</li>
+<li><b>Kontext deckend.</b> Bereiche mit Kontext zeichnen den Hintergrund deckend, auch wenn das Profil transparent ist
+(abschaltbar).</li>
+<li><b>Form statt nur Farbe.</b> Jede Markierung hat neben der Farbe ein Textschild oder ein Muster (Barrierefreiheit).
+Gemeinsame Eingabe bekommt Schraffur statt einer glatten orangen Linie, Fokus bleibt immer sichtbar.</li>
+</ol>
+
+<div class="controls" id="controls">
+  <label>Schema <select id="pal"></select></label>
+  <label>Stil <select id="style"><option value="dark">dunkel</option><option value="light">hell</option></select></label>
+  <label>Deckkraft <select id="op"><option value="1">100 %</option><option value="0.95" selected>95 %</option><option value="0.85">85 %</option></select></label>
+  <label><input type="checkbox" id="opaque" checked> Kontext deckend (A–C)</label>
+  <label><input type="checkbox" id="dim" checked> Inaktive abdunkeln</label>
+  <label><input type="checkbox" id="sync"> Gemeinsame Eingabe (Bereich 1+2)</label>
+  <label><input type="checkbox" id="hb" checked> Kopfleiste färben (C)</label>
+</div>
+
+<section class="approach" id="sec-ist">
+  <header><h2>Ist-Zustand (0.4)</h2><span class="muted">so wie im Screenshot</span></header>
+  <p class="muted">Container, anderer Nutzer und <code>ssh root@</code> werden heute nicht erkannt; die Bereiche zeigen das
+  Verhalten von heute.</p>
+  <div class="desk"><div class="doc"></div><div class="win" data-approach="ist"></div></div>
+</section>
+
+<section class="approach" id="sec-a">
+  <header><h2>A · Tönung, korrigiert</h2><span class="tag">kleinster Umbau</span></header>
+  <div class="proscons">
+    <div><b>Dafür</b><ul><li>Bekanntes Bild, nur richtig: Rot ist immer root, Blau immer SSH.</li>
+      <li>Ganzer Bereich getönt, auch aus dem Augenwinkel erkennbar.</li>
+      <li>Fokuslinie (Akzent) liegt zusätzlich unter der Kontextlinie.</li></ul></div>
+    <div><b>Dagegen</b><ul><li>Tönung kostet immer etwas Kontrast (durch den Schutz höchstens etwa 12 %).</li>
+      <li>Schild (<i>root</i>, <i>bender</i>) nur im schwebenden Titel, also meist versteckt.</li>
+      <li>Fünf Tönungen nebeneinander werden bunt.</li></ul></div>
+  </div>
+  <div class="desk"><div class="doc"></div><div class="win" data-approach="a"></div></div>
+</section>
+
+<section class="approach" id="sec-b">
+  <header><h2>B · Rahmen und Schild</h2><span class="tag">Schema bleibt unberührt</span></header>
+  <div class="proscons">
+    <div><b>Dafür</b><ul><li>Hintergrund und Text bleiben exakt wie im Schema: 100 % Lesbarkeit, Transparenz unverändert.</li>
+      <li>Schild oben rechts immer sichtbar, mit Klartext (<i>root</i>, <i>ssh bender</i>, <i>toolbox</i>).</li>
+      <li>Ruhig bei vielen Bereichen.</li></ul></div>
+    <div><b>Dagegen</b><ul><li>Schwächer im Augenwinkel; ein 2-px-Rahmen fällt in einem großen Bereich weniger auf.</li>
+      <li>Das Schild kann das Ende der ersten Zeile verdecken (wie QA-02, aber nur rechts oben; weicht aus, wenn
+      der Cursor in Zeile 1 rechts steht).</li></ul></div>
+  </div>
+  <div class="desk"><div class="doc"></div><div class="win" data-approach="b"></div></div>
+</section>
+
+<section class="approach" id="sec-c">
+  <header><h2>C · Abgestuft nach Risiko</h2><span class="tag">Empfehlung</span></header>
+  <div class="proscons">
+    <div><b>Dafür</b><ul><li>Je gefährlicher, desto lauter: root bekommt Tönung, Rahmen und Schild, SSH Linie, Schild und
+      leichte Tönung, Container und andere Nutzer nur Linie und Schild.</li>
+      <li>root bleibt das einzige stark getönte Signal und verliert nichts an Wirkung.</li>
+      <li>Optional färbt sich die Kopfleiste rot, solange ein root-Bereich den Fokus hat (wie Ptyxis).</li></ul></div>
+    <div><b>Dagegen</b><ul><li>Drei Darstellungsarten statt einer, etwas mehr Code.</li>
+      <li>Das Schild hat die gleiche Schwäche wie in B.</li></ul></div>
+  </div>
+  <div class="desk"><div class="doc"></div><div class="win" data-approach="c"></div></div>
+</section>
+
+<h2>Weitere Kontexte</h2>
+<table>
+<tr><th>Kontext</th><th>Erkennung</th><th>Farbe</th><th>Nötig?</th></tr>
+<tr><td>root lokal</td><td>euid 0 im Vordergrund, <code>sudo</code>/<code>su</code>/<code>run0</code>/<code>doas</code>/<code>pkexec</code></td><td>Rot</td><td>ja (gibt es)</td></tr>
+<tr><td>SSH</td><td><code>ssh</code>, <code>mosh</code>, <code>et</code> im Vordergrund</td><td>Blau</td><td>ja (gibt es)</td></tr>
+<tr><td>root auf dem fernen Rechner</td><td><code>ssh root@host</code> aus der Befehlszeile; zusätzlich ein Fenstertitel, der mit
+<code>root@</code> beginnt (Fedora, Debian und Ubuntu setzen ihn per PROMPT_COMMAND) – damit wird auch <code>sudo -i</code>
+auf dem Server erkannt</td><td>Rot, Schild <i>root@bender</i></td><td><b>ja</b> – gefährlichster Fall, heute blau</td></tr>
+<tr><td>Container</td><td><code>toolbox</code>, <code>distrobox</code>, <code>podman</code>/<code>docker exec|run -it</code>,
+<code>systemd-nspawn</code>, <code>machinectl shell</code></td><td>Lila</td><td>empfohlen</td></tr>
+<tr><td>anderer Nutzer</td><td>euid weder 0 noch die eigene (<code>sudo -u postgres</code>, <code>su - www</code>)</td><td>Bernstein</td><td>empfohlen, klein</td></tr>
+<tr><td>eigene Markierung je Host</td><td>Regel im automatischen Profil (z. B. <code>prod-*</code>)</td><td>frei wählbar</td><td>später; geht heute schon per Farbschema im Auto-Profil</td></tr>
+</table>
+<p class="muted">Mehr Farben nicht: Jede weitere schwächt die anderen. Gemeinsame Eingabe ist kein Kontext; sie bekommt
+die Schraffur.</p>
+
+<h2>Plan nach deiner Wahl</h2>
+<ol class="plan">
+<li><code>core::context</code>: neue Kontexte <code>RemoteSuperuser(host)</code>, <code>Container(name)</code>,
+<code>OtherUser(name)</code>; <code>ssh root@</code>, Container-Befehle und euid ≠ eigene erkennen, Fenstertitel
+<code>root@…</code> als Hinweis für ferne Rechner. Mit Tests.</li>
+<li><code>core::palette</code>: <code>Face::context_color(kind)</code> nach Farbton mit Rückfall auf Adwaita,
+<code>tint()</code> mit Kontrastschutz, <code>dim_alpha()</code> mit Untergrenze. Test über alle 14 Schemata × hell/dunkel:
+Textkontrast ≥ 4,5:1 auch abgedunkelt, Linie ≥ 3:1.</li>
+<li><code>app/pane.rs</code>: Darstellung nach gewähltem Ansatz (Linie, Rahmen, Schild), Fokuslinie immer,
+Schraffur für gemeinsame Eingabe; Schild weicht dem Cursor aus.</li>
+<li><code>terminal.rs</code>: Kontextbereiche deckend zeichnen (Einstellung <i>Kontext immer deckend</i>, Standard an).</li>
+<li>Bei C: Kopfleiste per CSS-Klasse <code>parkett-root</code> tönen, solange der fokussierte Bereich root ist (Einstellung).</li>
+<li>Doku (USAGE), CHANGELOG, Screenshot <code>parkett-context-colors.webp</code> neu; Test in der VM mit Papercolor,
+Solarized und GNOME, hell und dunkel, 95 % Deckkraft.</li>
+</ol>
+</main>
+
+<script>
+const P = {"catppuccin":{"name":"Catppuccin","light":{"bg":"#EFF1F5","fg":"#4C4F69","c":["#5C5F77","#D20F39","#40A02B","#DF8E1D","#1E66F5","#EA76CB","#179299","#ACB0BE","#6C6F85","#D20F39","#40A02B","#DF8E1D","#1E66F5","#EA76CB","#179299","#BCC0CC"]},"dark":{"bg":"#1E1E2E","fg":"#CDD6F4","c":["#45475A","#F38BA8","#A6E3A1","#F9E2AF","#89B4FA","#F5C2E7","#94E2D5","#BAC2DE","#585B70","#F38BA8","#A6E3A1","#F9E2AF","#89B4FA","#F5C2E7","#94E2D5","#A6ADC8"]}},"dracula":{"name":"Dracula","light":{"bg":"#ffffff","fg":"#282a36","c":["#f1f2ff","#b60021","#006800","#515f00","#6946a3","#a41d74","#006274","#f8f8f2","#8393c7","#ac202f","#006803","#585e06","#6c4993","#962f7c","#006465","#595959"]},"dark":{"bg":"#282a36","fg":"#f8f8f2","c":["#21222c","#ff5555","#50fa7b","#f1fa8c","#bd93f9","#ff79c6","#8be9fd","#f8f8f2","#6272a4","#ff6e6e","#69ff94","#ffffa5","#d6acff","#ff92df","#a4ffff","#ffffff"]}},"everforest":{"name":"Everforest","light":{"bg":"#FDF6E3","fg":"#5C6A72","c":["#5C6A72","#F85552","#8DA101","#DFA000","#3A94C5","#DF69BA","#35A77C","#DFDDC8","#4B565C","#E67E80","#A7C080","#DBBC7F","#7FBBB3","#D699B6","#83C092","#D3C6AA"]},"dark":{"bg":"#2D353B","fg":"#D3C6AA","c":["#4B565C","#E67E80","#A7C080","#DBBC7F","#7FBBB3","#D699B6","#83C092","#D3C6AA","#5C6A72","#F85552","#8DA101","#DFA000","#3A94C5","#DF69BA","#35A77C","#DFDDC8"]}},"github":{"name":"GitHub","light":{"bg":"#F4F4F4","fg":"#3E3E3E","c":["#3E3E3E","#970B16","#07962A","#F8EEC7","#003E8A","#E94691","#89D1EC","#FFFFFF","#666666","#DE0000","#87D5A2","#F1D007","#2E6CBA","#FFA29F","#1CFAFE","#FFFFFF"]},"dark":{"bg":"#101216","fg":"#8B949E","c":["#000000","#F78166","#56D364","#E3B341","#6CA4F8","#DB61A2","#2B7489","#FFFFFF","#4D4D4D","#F78166","#56D364","#E3B341","#6CA4F8","#DB61A2","#2B7489","#FFFFFF"]}},"gnome-high-contrast":{"name":"Hoher Kontrast","light":{"bg":"#ffffff","fg":"#000000","c":["#1e1e1e","#af1924","#186441","#735236","#12488b","#823995","#19616b","#cfcfcf","#5d5d5d","#c74f42","#21864e","#977008","#2876d5","#a955b3","#218190","#ffffff"]},"dark":{"bg":"#000000","fg":"#cfcfcf","c":["#1e1e1e","#cb454f","#26a269","#a2734c","#5078a9","#a850bd","#2aa1b3","#cfcfcf","#5d5d5d","#f6695a","#33d17a","#e9ad0c","#5998e5","#c977d2","#33c7de","#ffffff"]}},"gnome":{"name":"GNOME","light":{"bg":"#ffffff","fg":"#1d1d20","c":["#1d1d20","#c01c28","#26a269","#a2734c","#12488b","#a347ba","#2aa1b3","#cfcfcf","#5d5d5d","#f66151","#33d17a","#e9ad0c","#2a7bde","#c061cb","#33c7de","#ffffff"]},"dark":{"bg":"#1c1c1f","fg":"#ffffff","c":["#241f31","#c01c28","#2ec27e","#f5c211","#1e78e4","#9841bb","#0ab9dc","#c0bfbc","#5e5c64","#ed333b","#57e389","#f8e45c","#51a1ff","#c061cb","#4fd2fd","#f6f5f4"]}},"gruvbox":{"name":"Gruvbox","light":{"bg":"#FBF1C7","fg":"#3C3836","c":["#FBF1C7","#CC241D","#98971A","#D79921","#458588","#B16286","#689D6A","#7C6F64","#928374","#9D0006","#79740E","#B57614","#076678","#8F3F71","#427B58","#3C3836"]},"dark":{"bg":"#282828","fg":"#EBDBB2","c":["#282828","#CC241D","#98971A","#D79921","#458588","#B16286","#689D6A","#A89984","#928374","#FB4934","#B8BB26","#FABD2F","#83A598","#D3869B","#8EC07C","#EBDBB2"]}},"nord":{"name":"Nord","light":{"bg":"#e5e9f0","fg":"#414858","c":["#3b4251","#bf6069","#a3be8b","#eacb8a","#81a1c1","#b48dac","#88c0d0","#d8dee9","#4c556a","#bf6069","#a3be8b","#eacb8a","#81a1c1","#b48dac","#8fbcbb","#eceff4"]},"dark":{"bg":"#2e3440","fg":"#d8dee9","c":["#3b4252","#bf616a","#a3be8c","#ebcb8b","#81a1c1","#b48ead","#88c0d0","#e5e9f0","#4c566a","#bf616a","#a3be8c","#ebcb8b","#81a1c1","#b48ead","#8fbcbb","#eceff4"]}},"one":{"name":"One","light":{"bg":"#F8F8F8","fg":"#2A2B32","c":["#000000","#DA3E39","#41933E","#855504","#315EEE","#930092","#0E6FAD","#8E8F96","#2A2B32","#DA3E39","#41933E","#855504","#315EEE","#930092","#0E6FAD","#FFFEFE"]},"dark":{"bg":"#1E2127","fg":"#ABB2BF","c":["#000000","#E06C75","#98C379","#D19A66","#61AFEF","#C678DD","#56B6C2","#ABB2BF","#5C6370","#E06C75","#98C379","#D19A66","#61AFEF","#C678DD","#56B6C2","#FFFEFE"]}},"papercolor":{"name":"Papercolor","light":{"bg":"#EEEEEE","fg":"#444444","c":["#EEEEEE","#AF0000","#008700","#5F8700","#0087AF","#878787","#005F87","#444444","#BCBCBC","#D70000","#D70087","#8700AF","#D75F00","#D75F00","#005FAF","#005F87"]},"dark":{"bg":"#1C1C1C","fg":"#D0D0D0","c":["#1C1C1C","#AF005F","#5FAF00","#D7AF5F","#5FAFD7","#808080","#D7875F","#D0D0D0","#585858","#5FAF5F","#AFD700","#AF87D7","#FFAF00","#FF5FAF","#00AFAF","#5F8787"]}},"selenized":{"name":"Selenized","light":{"bg":"#fbf3db","fg":"#53676d","c":["#fbf3db","#d2212d","#489100","#ad8900","#0072d4","#ca4898","#009c8f","#53676d","#ece3cc","#cc1729","#428b00","#a78300","#006dce","#c44392","#00978a","#3a4d53"]},"dark":{"bg":"#103c48","fg":"#adbcbc","c":["#103c48","#fa5750","#75b938","#dbb32d","#4695f7","#f275be","#41c7b9","#adbcbc","#184956","#ff665c","#84c747","#ebc13d","#58a3ff","#ff84cd","#53d6c7","#cad8d9"]}},"solarized":{"name":"Solarized","light":{"bg":"#fdf6e3","fg":"#657b83","c":["#073642","#dc322f","#859900","#b58900","#268bd2","#d33682","#2aa198","#eee8d5","#002b36","#cb4b16","#586e75","#657b83","#839496","#6c71c4","#93a1a1","#fdf6e3"]},"dark":{"bg":"#002b36","fg":"#839496","c":["#073642","#dc322f","#859900","#b58900","#268bd2","#d33682","#2aa198","#eee8d5","#002b36","#cb4b16","#586e75","#657b83","#839496","#6c71c4","#93a1a1","#fdf6e3"]}},"tango":{"name":"Tango","light":{"bg":"#eeeeec","fg":"#2e3436","c":["#2e3436","#cc0000","#4e9a06","#c4a000","#3465a4","#75507b","#06989a","#d3d7cf","#555753","#ef2929","#8ae234","#fce94f","#729fcf","#ad7fa8","#34e2e2","#eeeeec"]},"dark":{"bg":"#2e3436","fg":"#d3d7cf","c":["#2e3436","#cc0000","#4e9a06","#c4a000","#3465a4","#75507b","#06989a","#d3d7cf","#555753","#ef2929","#8ae234","#fce94f","#729fcf","#ad7fa8","#34e2e2","#eeeeec"]}},"vs-code":{"name":"VS Code","light":{"bg":"#F9F9F9","fg":"#020202","c":["#020202","#CD3232","#00BC00","#A5A900","#0752A8","#BC05BC","#0598BC","#343434","#5E5E5E","#CD3333","#1BCE1A","#ADBB5B","#0752A8","#C451CE","#52A8C7","#A6A3A6"]},"dark":{"bg":"#1E1E1E","fg":"#CCCCCC","c":["#6A787A","#E9653B","#39E9A8","#E5B684","#44AAE6","#E17599","#3DD5E7","#C3DDE1","#598489","#E65029","#00FF9A","#E89440","#009AFB","#FF578F","#5FFFFF","#D9FBFF"]}}};
+const hx = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const toHex = c => '#' + c.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
+const rgba = (c, a) => `rgba(${c.map(Math.round).join(',')},${a})`;
+const mix = (b, f, a) => b.map((v, i) => (1 - a) * v + a * f[i]);
+const lum = c => { const l = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * l(c[0]) + 0.7152 * l(c[1]) + 0.0722 * l(c[2]); };
+const cr = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+const hsl = c => { const [r, g, b] = c.map(v => v / 255); const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  const l = (mx + mn) / 2; if (mx === mn) return [0, 0, l]; const d = mx - mn;
+  const s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+  let h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h * 60, s, l]; };
+const ANSI = [1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14];
+const worst = (f, bg) => Math.min(...ANSI.map(i => cr(f.c[i], bg)));
+const WHITE = [255, 255, 255], ACCENT = hx('#3584e4'), WARN = hx('#e5a50a');
+
+// feste Bedeutung; Rückfall auf die Adwaita-Palette (hell: dunklere Stufe, dunkel: hellere)
+const KIND = {
+  root: { hue: 0, tol: 12, fb: { dark: '#f66151', light: '#c01c28' } },
+  ssh: { hue: 215, tol: 25, fb: { dark: '#62a0ea', light: '#1c71d8' } },
+  container: { hue: 285, tol: 25, fb: { dark: '#c061cb', light: '#813d9c' } },
+  user: { hue: 40, tol: 12, fb: { dark: '#ffa348', light: '#c64600' } },
+};
+const PANES = [
+  { id: 'local', kind: null, chip: null, title: 'toff@smokki:~', name: 'lokal' },
+  { id: 'ssh', kind: 'ssh', chip: 'ssh bender', title: 'toff@bender:~', name: 'ssh bender' },
+  { id: 'root', kind: 'root', chip: 'root', title: 'root@smokki:/home/toff', name: 'sudo -s' },
+  { id: 'sshroot', kind: 'root', chip: 'root@bender', title: 'root@bender:~', name: 'ssh root@bender' },
+  { id: 'container', kind: 'container', chip: 'toolbox', title: 'toff@toolbx:~', name: 'toolbox enter' },
+  { id: 'user', kind: 'user', chip: 'postgres', title: 'postgres@smokki:~', name: 'sudo -u postgres -i' },
+];
+// Zeilen: [Farbindex oder 'f', Text]; '#' = Cursor
+const pr = (u, h, d, sym = '$') => [[2, '[09:49 '], [2, u], ['f', '@' + h + ' '], [4, d], [2, ']' + sym + ' ']];
+const LINES = {
+  local: [[...pr('toff', 'smokki', '~'), ['f', 'ls']], [[4, 'Dokumente  Projekte  '], [2, 'build.sh  '], [6, 'notes']],
+    [...pr('toff', 'smokki', '~'), ['f', 'git status -s']], [[1, ' M src/main.rs']], [[2, 'A  docs/plan.md']],
+    [...pr('toff', 'smokki', '~'), ['#', '']]],
+  ssh: [[['f', '[toff@bender ~]$ docker ps --format …']], [['f', 'homarr   '], [2, 'Up 3 days']], [['f', 'gatus    '], [2, 'Up 3 days']],
+    [['f', 'npm      '], [1, 'Restarting (1)']], [[3, 'warning: '], ['f', 'disk /data 91 %']], [['f', '[toff@bender ~]$ '], ['#', '']]],
+  root: [[['f', '[root@smokki toff]# pacman -Syu']], [[4, ':: '], ['f', 'Synchronisiere Paketdatenbanken …']],
+    [['f', ' core          '], [2, '120,4 KiB']], [[3, 'Warnung: '], ['f', 'vte4 ist aktuell']], [[1, 'Fehler: '], ['f', 'Sperre /var/lib/pacman/db.lck']],
+    [['f', '[root@smokki toff]# '], ['#', '']]],
+  sshroot: [[['f', '[root@bender ~]# systemctl --failed']], [['f', '  UNIT            LOAD   ACTIVE SUB']],
+    [[1, '● '], ['f', 'borgmatic.service loaded '], [1, 'failed']], [['f', '1 loaded units listed.']], [[3, 'Hinweis: '], ['f', 'journalctl -u borgmatic']],
+    [['f', '[root@bender ~]# '], ['#', '']]],
+  container: [[[5, '⬢ '], ['f', '[toff@toolbx ~]$ cargo build']], [[2, '   Compiling '], ['f', 'parkett v0.4.0']],
+    [[3, 'warning: '], ['f', 'unused variable `x`']], [[2, '    Finished '], ['f', 'dev profile in 8.2s']], [['f', '']],
+    [[5, '⬢ '], ['f', '[toff@toolbx ~]$ '], ['#', '']]],
+  user: [[['f', '[postgres@smokki ~]$ psql']], [['f', 'psql (17.6)']], [['f', 'postgres=# \\l']], [['f', ' Name    | Owner']],
+    [['f', ' homarr  | postgres']], [['f', 'postgres=# '], ['#', '']]],
+};
+const DOC = 'rsync -a --delete /data/emails/ bender:/backup\ngelöscht: alt/2024-03.mbox\ngelöscht: alt/2024-04.mbox\n\n' +
+  'Notizen 25.10.\n- Gatus Alarm prüfen\n- borgmatic Restore-Test\n- PlanetFOSS Bündel\n\nLorem ipsum dolor sit amet,\nconsetetur sadipscing elitr\n' +
+  'sed diam nonumy eirmod tempor\ninvidunt ut labore et dolore\nmagna aliquyam erat, sed diam\nvoluptua. At vero eos et\naccusam et justo duo dolores';
+
+let focus = 1;
+
+function face() {
+  const p = P[document.getElementById('pal').value], st = document.getElementById('style').value;
+  const f = p[st]; return { bg: hx(f.bg), fg: hx(f.fg), c: f.c.map(hx), su: f.su && hx(f.su), re: f.re && hx(f.re), st };
+}
+
+// Farbe mit passendem Farbton aus dem Schema, sonst Adwaita
+function kindColor(f, kind) {
+  const k = KIND[kind]; let best = null;
+  for (const i of ANSI) {
+    const [h, s, l] = hsl(f.c[i]);
+    const d = Math.min(Math.abs(h - k.hue), 360 - Math.abs(h - k.hue));
+    if (d <= k.tol && s >= 0.3 && l > 0.2 && l < 0.85 && cr(f.c[i], f.bg) >= 3) {
+      if (!best || d < best.d) best = { c: f.c[i], d };
+    }
+  }
+  return best ? best.c : hx(k.fb[f.st]);
+}
+
+// Tönung mit Kontrastschutz: Text höchstens 12 %, Schemafarben höchstens 15 % schwächer
+function tint(f, color, maxA) {
+  const base = cr(f.fg, f.bg), bw = worst(f, f.bg);
+  for (let a = maxA; a > 0.005; a -= 0.01) {
+    const t = mix(f.bg, color, a);
+    if (cr(f.fg, t) >= 0.88 * base && worst(f, t) >= 0.85 * bw) return t;
+  }
+  return f.bg;
+}
+function dimAlphaNew(f, bg) {
+  for (let a = 0.25; a > 0; a -= 0.01) if (cr(mix(f.fg, bg, a), bg) >= 4.5) return a;
+  return 0;
+}
+
+// Ist-Zustand: Slots 1/9/12, Mischung 0,33/0,5 und 0,35
+function istStyle(f, pane) {
+  const dark = lum(f.bg) < 0.18;
+  const su = f.su || mix(f.bg, f.c[1], dark ? 0.33 : 0.5), re = f.re || mix(f.bg, f.c[12], dark ? 0.33 : 0.5);
+  if (pane.id === 'root') return { bg: mix(f.bg, su, 0.35), line: f.c[9], chipBg: su, chip: 'root' };
+  if (pane.id === 'ssh' || pane.id === 'sshroot') return { bg: mix(f.bg, re, 0.35), line: f.c[12], chipBg: re, chip: 'bender' };
+  return { bg: f.bg };
+}
+
+function style(approach, f, pane) {
+  if (approach === 'ist') return istStyle(f, pane);
+  if (!pane.kind) return { bg: f.bg };
+  const col = kindColor(f, pane.kind), dark = lum(f.bg) < 0.18, max = dark ? 0.16 : 0.12;
+  const s = { line: col, chip: pane.chip, chipBg: col, kind: pane.kind };
+  if (approach === 'a') s.bg = tint(f, col, max);
+  if (approach === 'b') { s.bg = f.bg; s.frame = true; s.badge = true; }
+  if (approach === 'c') {
+    s.badge = true;
+    if (pane.kind === 'root') { s.bg = tint(f, col, max); s.frame = true; }
+    else if (pane.kind === 'ssh') s.bg = tint(f, col, max / 2);
+    else s.bg = f.bg;
+    if (pane.kind === 'container') s.dotted = true;
+  }
+  return s;
+}
+
+function render() {
+  const f = face(), op = +document.getElementById('op').value, opaqueCtx = document.getElementById('opaque').checked;
+  const dimOn = document.getElementById('dim').checked, sync = document.getElementById('sync').checked;
+  const hbOn = document.getElementById('hb').checked, dark = f.st === 'dark';
+  document.querySelectorAll('.doc').forEach(d => d.textContent = DOC);
+  document.querySelectorAll('.win').forEach(win => {
+    const ap = win.dataset.approach;
+    const hbBase = dark ? [48, 48, 48] : [235, 235, 235], hbFg = dark ? '#fff' : '#222';
+    let hb = hbBase;
+    const fp = PANES[focus], fs = style(ap, f, fp);
+    if (ap === 'c' && hbOn && fp.kind === 'root') hb = mix(hbBase, fs.line, dark ? 0.35 : 0.25);
+    let html = `<div class="hb" style="background:${toHex(hb)};color:${hbFg}"><span class="sub">⊞ ⌄ ◫ ⊟</span>${fp.title}</div><div class="grid">`;
+    PANES.forEach((pane, idx) => {
+      const s = style(ap, f, pane), focused = idx === focus;
+      const ctxOpaque = ap !== 'ist' && opaqueCtx && s.line;
+      const alpha = ctxOpaque ? 1 : op;
+      const eff = mix(WHITE, s.bg, alpha); // ungünstigster Fall: weißes Fenster dahinter
+      // Abdunkeln
+      let dimA = 0;
+      if (dimOn && !focused) dimA = ap === 'ist' ? 0.38 : dimAlphaNew(f, eff);
+      const txt = mix(f.fg, eff, dimA);
+      const w = Math.min(...ANSI.map(i => cr(mix(f.c[i], eff, dimA), eff)));
+      const t = cr(txt, eff);
+      const color = i => i === 'f' ? toHex(f.fg) : toHex(f.c[i]);
+      let body = LINES[pane.id].map(line => line.map(([c, tx]) => c === '#'
+        ? `<span class="cur" style="background:${focused ? toHex(f.fg) : 'transparent'};outline:1px solid ${toHex(f.fg)}"></span>`
+        : `<span style="color:${color(c)}">${tx.replace(/</g, '&lt;')}</span>`).join('')).join('\n');
+      let ov = '';
+      if (dimA) ov += `<div class="ov" style="background:${rgba(s.bg, dimA)}"></div>`;
+      // Linien oben
+      const lines = [];
+      if (ap === 'ist') {
+        if (s.line) lines.push({ h: 3, bg: toHex(s.line) });
+        else if (focused) lines.push({ h: 2, bg: toHex(ACCENT) });
+      } else {
+        if (s.line && !s.frame) lines.push({ h: 3, bg: s.dotted
+          ? `repeating-linear-gradient(90deg, ${toHex(s.line)} 0 6px, transparent 6px 10px)` : toHex(s.line) });
+        if (focused) lines.push({ h: 2, bg: toHex(ACCENT) });
+      }
+      if (sync && idx < 2) lines.unshift({ h: 4, bg: ap === 'ist' ? toHex(WARN)
+        : `repeating-linear-gradient(135deg, ${toHex(WARN)} 0 6px, ${dark ? '#000' : '#fff'} 6px 10px)` });
+      let top = s.frame ? 2 : 0;
+      lines.forEach(l => { ov += `<div class="tline" style="top:${top}px;height:${l.h}px;background:${l.bg};${s.frame ? 'left:2px;right:2px' : ''}"></div>`; top += l.h; });
+      if (s.frame) ov += `<div class="ov" style="box-shadow: inset 0 0 0 2px ${toHex(s.line)}"></div>`;
+      if (s.badge) {
+        const tc = cr(s.chipBg, [0, 0, 0]) > cr(s.chipBg, WHITE) ? '#000' : '#fff';
+        ov += `<div class="chip" style="top:${top + 6}px;background:${toHex(s.chipBg)};color:${tc}">${s.chip}</div>`;
+      }
+      // schwebender Titel (bei Hover)
+      const pillBg = dark ? 'rgba(40,40,40,.92)' : 'rgba(250,250,250,.95)';
+      const chipInPill = !s.badge && s.chip
+        ? `<b style="background:${toHex(s.chipBg)};color:${cr(s.chipBg, [0, 0, 0]) > cr(s.chipBg, WHITE) ? '#000' : '#fff'}">${s.chip}</b>` : '';
+      ov += `<div class="pill" style="background:${pillBg};color:${dark ? '#fff' : '#222'}">${chipInPill}${pane.title}</div>`;
+      const low = t < 4.5;
+      ov += `<div class="meter${low ? ' low' : ''}">Text ${t.toFixed(1)} · Farbe ${w.toFixed(1)}</div>`;
+      ov += `<div class="name" style="color:${toHex(f.fg)}">${idx + 1} ${pane.name}</div>`;
+      html += `<div class="pane" data-idx="${idx}" style="background:${rgba(s.bg, alpha)};color:${toHex(f.fg)}">${body}${ov}</div>`;
+    });
+    win.innerHTML = html + '</div>';
+  });
+}
+
+const sel = document.getElementById('pal');
+for (const [id, p] of Object.entries(P)) sel.add(new Option(p.name, id, false, id === 'papercolor'));
+document.getElementById('controls').addEventListener('change', render);
+document.addEventListener('click', e => { const p = e.target.closest('.pane'); if (p) { focus = +p.dataset.idx; render(); } });
+render();
+</script>
+</body>
+</html>

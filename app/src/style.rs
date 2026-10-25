@@ -73,3 +73,41 @@ pub fn selector() -> gtk::Widget {
     });
     row.upcast()
 }
+
+thread_local! {
+    /// Colors that already have a CSS class, and the provider holding their rules
+    static COLOR_CLASSES: std::cell::RefCell<(std::collections::BTreeSet<String>, Option<gtk::CssProvider>)> =
+        Default::default();
+}
+
+/// CSS class with this color as background and readable text on it, for the context badge:
+/// the shade comes from the pane's color scheme, which CSS does not know.
+pub fn color_class(color: parkett_core::palette::Rgb) -> String {
+    let hex = color.hex();
+    let class = format!("parkett-color-{}", &hex[1..]);
+    COLOR_CLASSES.with(|c| {
+        let (known, provider) = &mut *c.borrow_mut();
+        if !known.insert(hex) {
+            return;
+        }
+        let provider = provider.get_or_insert_with(|| {
+            let p = gtk::CssProvider::new();
+            if let Some(display) = gtk::gdk::Display::default() {
+                gtk::style_context_add_provider_for_display(&display, &p, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
+            }
+            p
+        });
+        let black = parkett_core::palette::Rgb { r: 0, g: 0, b: 0 };
+        let white = parkett_core::palette::Rgb { r: 255, g: 255, b: 255 };
+        let css: String = known
+            .iter()
+            .filter_map(|h| parkett_core::palette::Rgb::parse(h))
+            .map(|c| {
+                let text = if c.contrast(&black) > c.contrast(&white) { "#000000" } else { "#ffffff" };
+                format!(".parkett-color-{} {{ background-color: {}; color: {text}; }}\n", &c.hex()[1..], c.hex())
+            })
+            .collect();
+        provider.load_from_string(&css);
+    });
+    class
+}

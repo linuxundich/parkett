@@ -398,9 +398,9 @@ impl Tab {
         let pane = self.focused_pane();
         let t = pane.terminal();
         // In an SSH session the local directory (that of ssh) is meaningless
-        let (dir, host) = match t.context() {
-            parkett_core::context::Context::Remote(host) => (None, Some(host)),
-            _ => (t.working_directory(), None),
+        let (dir, host) = match t.context().remote_host() {
+            Some(host) => (None, Some(host.to_string())),
+            None => (t.working_directory(), None),
         };
         let program = t.label_program();
         let title = title.or_else(|| t.title());

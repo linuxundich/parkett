@@ -24,7 +24,7 @@ libadwaita 0.9 (`v1_8`), vte4 0.10 (`v0_80`), libc. No other crates
 | `profile` | Profiles as TOML, `ProfileStore` (one directory, one file per profile) |
 | `template` | Templates (layout + profile/start command/subdirectory per pane), `TemplateStore`, `instantiate`, `from_layout` |
 | `fuzzy` | Fuzzy search for the command palette |
-| `context` | Context of a pane (local, Remote(Host), Superuser) from process name, command line, UID |
+| `context` | Context of a pane (local, Superuser, Remote(host), RemoteSuperuser(host), Container, OtherUser) from process name, command line, UID and terminal title |
 | `cli` | Command-line parsing (own parser: everything after `--` is the command) |
 | `session` | Session as JSON, tabs in the template format (directory `/`, absolute paths as subdirectory, no commands) |
 | `paths` | Expand and display `~`, safely append template subdirectories |
@@ -38,7 +38,7 @@ libadwaita 0.9 (`v1_8`), vte4 0.10 (`v0_80`), libc. No other crates
 | `main` | Application, CSS, app actions, shortcuts overview |
 | `window` | `ParkettWindow` (AdwApplicationWindow): header bar with split buttons and style selector, AdwTabBar/AdwTabOverview, command palette, layout mode, template dialogs, Undo toasts |
 | `tab` | `ParkettTab`: holds the `Layout` and the pane widgets; `rebuild()` creates the GtkPaned tree from the model |
-| `pane` | `ParkettPane`: terminal plus floating title (hidden; shown when the pointer is at the top or briefly after a focus change) or title row, focus line, context line, dimming, search bar |
+| `pane` | `ParkettPane`: terminal plus floating title (hidden; shown when the pointer is at the top or briefly after a focus change) or title row, focus line, context line, root frame, context badge, dimming, search bar |
 | `terminal` | VTE widget, process spawning, "process exited" bar, links, search, paste warning, foreground process, context detection |
 | `profiles` | `ProfileManager` (GObject, signal `changed`): profiles, palettes, templates for the whole app |
 | `prefs` | Preferences: General, Profiles (color scheme tiles with live preview), Templates, Shortcuts |
