@@ -100,6 +100,12 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 
 - [ ] Still open from the VM run (2026-10-22/23): context color right after switching tabs;
       renaming a tab through the dialog (custom title via `-t` passed); Orca with speech output
+- [x] VM smoke test 2026-11-07 (Fedora 44, GNOME 50, VTE 0.84.1) after the Backend refactor and the
+      libghostty work (default VTE engine): 15 of 17 checks pass. The two failures (*F10 quits htop*
+      QA-01, *Pane title hides nothing* QA-02) fail the same way on the 0.5.0 release (`2b224da`) in the
+      same VM, so they are not caused by the refactor; cause not looked into (key delivery after a
+      fresh VM boot / the screenshot check's window placement). The libghostty engine is **not** covered
+      by the smoke test (it needs a build with `--features ghostty` and libghostty-vt in the VM)
 - [x] Host run 2026-10-23 (Arch, GNOME 51.1, GTK 4.24.1, libadwaita 1.10.0, VTE 0.84.1) in a
       private headless session (own D-Bus, `mutter --headless`, XDG dirs and GSettings keyfile in
       a temp dir – the desktop instance and `~/.config/parkett` untouched), build from `main`:

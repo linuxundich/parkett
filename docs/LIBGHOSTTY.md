@@ -313,10 +313,13 @@ Not done in 5c (next, 5d and later):
 - `ghostty-vt::on_unknown_osc` (limit 2048 bytes), a test for it.
 
 Still open after 5d: blinking, bold-is-bright, letter spacing, Sixel/Kitty images; Flatpak spawn;
-HiDPI/fractional scaling; accessibility; real pointer and keyboard events; VM smoke test; preferences
+HiDPI/fractional scaling; accessibility; real pointer and keyboard events; VM smoke test of the libghostty engine (the default engine passed 15/17, same as 0.5.0); preferences
 performance against VTE; soft-wrapped links/search;
 `Pty`: environment `COLORTERM`/`TERM` come from `Pty` (VTE sets the same).
 
 Preferences: *Behaviour › Terminal engine* (VTE / libghostty, experimental) appears only in builds with the
 `ghostty` feature; it writes `terminal-backend`, which `PARKETT_BACKEND` still overrides. German texts are in
 `po/de.po`.
+
+VM smoke test (2026-11-07, Fedora 44): default VTE engine 15 of 17 checks pass, the 2 failures (F10/htop,
+QA-02 screenshot) are identical on the 0.5.0 release. Not run for the libghostty engine.
