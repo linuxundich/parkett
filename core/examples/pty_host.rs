@@ -30,6 +30,32 @@ fn main() {
         std::thread::sleep(Duration::from_millis(500));
         pty.write_all(b"echo STILL-ALIVE-$?; exit\n").unwrap();
     }
+    if std::env::var_os("CHECK_FG").is_some() {
+        // interactive bash on the host: find its pid in the OSC it prints, run sleep, ask for the foreground job
+        let mut seen = String::new();
+        let t0 = std::time::Instant::now();
+        let mut pid = None;
+        while pid.is_none() && t0.elapsed() < Duration::from_secs(5) {
+            if let Ok(n) = pty.read(&mut buf) {
+                seen.push_str(&String::from_utf8_lossy(&buf[..n]));
+            }
+            pid = seen
+                .split("parkett-host-pid;")
+                .nth(1)
+                .and_then(|r| r.split('\u{7}').next())
+                .and_then(|p| p.parse::<u32>().ok());
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        println!("host pid from the OSC: {pid:?}");
+        let pid = pid.expect("no host pid");
+        println!("at the prompt: {:?}", parkett_core::pty::host_foreground(pid));
+        pty.write_all(b"sleep 30\n").unwrap();
+        std::thread::sleep(Duration::from_millis(800));
+        println!("while sleep runs: {:?}", parkett_core::pty::host_foreground(pid));
+        pty.write_all(&[3]).unwrap();
+        std::thread::sleep(Duration::from_millis(300));
+        pty.write_all(b"exit\n").unwrap();
+    }
     loop {
         match pty.read(&mut buf) {
             Ok(0) | Err(_) => break,

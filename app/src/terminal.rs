@@ -60,6 +60,9 @@ struct Inner {
     /// Dimming of the pane when inactive (`Face::dim_alpha`)
     dim_alpha: Cell<f64>,
     child_pid: Cell<Option<glib::Pid>>,
+    /// Foreground job on the host (Flatpak: /proc is the sandbox's, so the host is asked, see `query_host_foreground`)
+    host_fg: RefCell<Option<Foreground>>,
+    host_query_running: Cell<bool>,
     exit: Cell<Option<ExitStatus>>,
     on_state_changed: RefCell<Vec<Callback>>,
     /// User input (keys, paste), for the shared input in the tab
@@ -122,6 +125,7 @@ pub struct ContextMark {
 }
 
 /// Foreground of the PTY (`read_foreground`).
+#[derive(Clone)]
 struct Foreground {
     pgid: i32,
     /// the shell itself is waiting at the prompt
@@ -205,6 +209,8 @@ impl Terminal {
             mark: RefCell::new(None),
             dim_alpha: Cell::new(0.25),
             child_pid: Cell::new(None),
+            host_fg: RefCell::new(None),
+            host_query_running: Cell::new(false),
             exit: Cell::new(None),
             on_state_changed: RefCell::default(),
             on_input: RefCell::default(),
@@ -570,6 +576,37 @@ impl Terminal {
     }
 
     fn poll(&self) {
+        if parkett_core::pty::in_flatpak() {
+            self.query_host_foreground();
+        }
+        self.poll_core();
+    }
+
+    /// Flatpak: ask the host for the foreground job (in a worker thread, one `flatpak-spawn` call), then
+    /// run the usual evaluation with the answer.
+    fn query_host_foreground(&self) {
+        let Some(pid) = self.0.vte.host_pid() else { return };
+        if self.0.host_query_running.replace(true) || self.0.exit.get().is_some() {
+            return;
+        }
+        let weak = Rc::downgrade(&self.0);
+        glib::spawn_future_local(async move {
+            let answer = gio::spawn_blocking(move || parkett_core::pty::host_foreground(pid)).await.ok().flatten();
+            let Some(inner) = weak.upgrade() else { return };
+            inner.host_query_running.set(false);
+            let fg = answer.map(|h| Foreground {
+                pgid: h.pgid,
+                is_shell: h.pgid as u32 == pid,
+                comm: h.comm,
+                args: h.args,
+                euid: h.euid,
+            });
+            *inner.host_fg.borrow_mut() = fg;
+            Terminal(inner).poll_core();
+        });
+    }
+
+    fn poll_core(&self) {
         self.0.last_poll.set(Instant::now());
         // Read the foreground once, for notification, context and label (D2)
         let fg = self.read_foreground();
@@ -614,9 +651,13 @@ impl Terminal {
     /// template (D2). Pattern like Ptyxis (`agent/ptyxis-process-impl.c`): tcgetpgrp on the
     /// PTY, details from /proc. Only meaningful without the Flatpak sandbox.
     fn read_foreground(&self) -> Option<Foreground> {
-        // In a Flatpak sandbox /proc shows the sandbox, not the host the shell runs on
-        if self.0.exit.get().is_some() || parkett_core::pty::in_flatpak() {
+        if self.0.exit.get().is_some() {
             return None;
+        }
+        // In a Flatpak sandbox /proc shows the sandbox, not the host the shell runs on: the answer of the
+        // last host query (`query_host_foreground`) is used instead
+        if parkett_core::pty::in_flatpak() {
+            return self.0.host_fg.borrow().clone();
         }
         let pgid = self.0.vte.foreground_pgid()?;
         let comm = std::fs::read_to_string(format!("/proc/{pgid}/comm")).unwrap_or_default().trim().to_string();

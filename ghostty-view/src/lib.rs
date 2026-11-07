@@ -234,6 +234,11 @@ impl GhosttyView {
         self.imp().set_context_menu(model.upcast_ref());
     }
 
+    /// pid of the shell on the host when it was started through `flatpak-spawn --host` (reported by the shell).
+    pub fn host_pid(&self) -> Option<u32> {
+        self.imp().host_pid()
+    }
+
     pub fn child_pid(&self) -> Option<u32> {
         self.imp().child_pid()
     }

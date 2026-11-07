@@ -46,6 +46,46 @@ pub fn host_user_shell() -> Option<String> {
     (out.status.success() && shell.starts_with('/')).then_some(shell)
 }
 
+/// The job in the foreground of a terminal on the host, as `read_foreground` needs it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HostForeground {
+    pub pgid: i32,
+    pub comm: String,
+    pub args: Vec<String>,
+    pub euid: Option<u32>,
+}
+
+/// Ask the host which job is in the foreground of the terminal of the host process `shell_pid`
+/// (its `tpgid` in `/proc/<pid>/stat`), with name, command line and effective user. One
+/// `flatpak-spawn --host` call; takes some milliseconds, so call it off the main thread.
+pub fn host_foreground(shell_pid: u32) -> Option<HostForeground> {
+    const SCRIPT: &str = r#"
+tp=$(sed 's/.*) //' "/proc/$1/stat" 2>/dev/null | cut -d' ' -f6)
+[ -n "$tp" ] && [ "$tp" -gt 0 ] 2>/dev/null || exit 1
+printf '%s\n' "$tp"
+cat "/proc/$tp/comm" || exit 1
+tr '\0' '\037' < "/proc/$tp/cmdline"; echo
+awk '/^Uid:/{print $3}' "/proc/$tp/status"
+"#;
+    let out = std::process::Command::new("flatpak-spawn")
+        .args(["--host", "sh", "-c", SCRIPT, "sh", &shell_pid.to_string()])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    parse_host_foreground(&String::from_utf8_lossy(&out.stdout))
+}
+
+fn parse_host_foreground(text: &str) -> Option<HostForeground> {
+    let mut lines = text.lines();
+    let pgid = lines.next()?.trim().parse().ok()?;
+    let comm = lines.next()?.trim().to_string();
+    let args = lines.next()?.split('\u{1f}').filter(|a| !a.is_empty()).map(String::from).collect();
+    let euid = lines.next().and_then(|l| l.trim().parse().ok());
+    Some(HostForeground { pgid, comm, args, euid })
+}
+
 /// `TERM` and `COLORTERM` like VTE sets them; the profile may override them.
 const DEFAULT_ENV: [(&str, &str); 2] = [("TERM", "xterm-256color"), ("COLORTERM", "truecolor")];
 
@@ -73,6 +113,9 @@ pub fn host_argv(opts: &SpawnOptions) -> Vec<String> {
         v.push(format!("--env={e}"));
     }
     v.push("--".into());
+    // The host shell reports its own pid through the terminal (an unknown OSC the widget picks up):
+    // the sandbox cannot see host pids, and `host_foreground` needs this one to find the foreground job.
+    v.extend(["sh", "-c", r#"printf '\033]777;parkett-host-pid;%s\007' "$$"; exec "$@""#, "sh"].map(String::from));
     v.extend(opts.argv.iter().cloned());
     v
 }
@@ -308,6 +351,21 @@ mod tests {
     }
 
     #[test]
+    fn host_foreground_output_is_parsed() {
+        let f = parse_host_foreground("4242\nssh\nssh\u{1f}-p\u{1f}22\u{1f}bender\n1000\n").unwrap();
+        assert_eq!(
+            f,
+            HostForeground {
+                pgid: 4242,
+                comm: "ssh".into(),
+                args: vec!["ssh".into(), "-p".into(), "22".into(), "bender".into()],
+                euid: Some(1000)
+            }
+        );
+        assert!(parse_host_foreground("").is_none());
+    }
+
+    #[test]
     fn host_command_line() {
         let o = SpawnOptions {
             argv: vec!["bash".into(), "-l".into()],
@@ -328,6 +386,10 @@ mod tests {
                 "--env=FOO=bar",
                 "--env=TERM=vt100",
                 "--",
+                "sh",
+                "-c",
+                r#"printf '\033]777;parkett-host-pid;%s\007' "$$"; exec "$@""#,
+                "sh",
                 "bash",
                 "-l"
             ]

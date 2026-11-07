@@ -31,6 +31,8 @@ enum Event {
     Prompt(Prompt),
     /// VTE's own marks (`OSC 666`), sent by the distribution's `vte.sh`.
     Mark(crate::ShellEvent),
+    /// pid of the shell on the host (Flatpak start, see `parkett_core::pty::host_argv`)
+    HostPid(u32),
 }
 
 #[derive(Default)]
@@ -66,6 +68,7 @@ pub struct GhosttyView {
     pad: Cell<(f64, f64)>,
     /// Device pixels per logical pixel of the surface (1, 1.25, 1.5, 2 …)
     dev_scale: Cell<f64>,
+    host_pid: Cell<Option<u32>>,
     /// Position of the widget in its window (logical px): the pixel grid is the window's, not ours
     origin: Cell<(f32, f32)>,
     focused: Cell<bool>,
@@ -127,6 +130,7 @@ impl Default for GhosttyView {
             cell: Cell::new((9.0, 18.0)),
             pad: Cell::new((8.0, 6.0)),
             dev_scale: Cell::new(1.0),
+            host_pid: Cell::new(None),
             origin: Cell::new((0.0, 0.0)),
             focused: Cell::new(false),
             im: gtk::IMMulticontext::new(),
@@ -744,6 +748,10 @@ impl GhosttyView {
         }
     }
 
+    pub(crate) fn host_pid(&self) -> Option<u32> {
+        self.host_pid.get()
+    }
+
     pub(crate) fn child_pid(&self) -> Option<u32> {
         self.with_state(|s| s.pty.as_ref().map(|p| p.pid())).flatten()
     }
@@ -863,7 +871,9 @@ impl GhosttyView {
         let ev = events.clone();
         term.on_unknown_osc(move |c| {
             let text = String::from_utf8_lossy(c);
-            if text.starts_with("666;vte.shell.preexec") {
+            if let Some(pid) = text.strip_prefix("777;parkett-host-pid;").and_then(|p| p.trim().parse().ok()) {
+                ev.borrow_mut().push(Event::HostPid(pid));
+            } else if text.starts_with("666;vte.shell.preexec") {
                 ev.borrow_mut().push(Event::Mark(crate::ShellEvent::Preexec));
             } else if text.starts_with("666;vte.shell.precmd") {
                 ev.borrow_mut().push(Event::Mark(crate::ShellEvent::Precmd));
@@ -984,6 +994,7 @@ impl GhosttyView {
                     }
                     Self::emit(&self.bell_cbs);
                 }
+                Event::HostPid(pid) => self.host_pid.set(Some(pid)),
                 Event::Mark(e) => {
                     for cb in self.shell_cbs.borrow().iter() {
                         cb(e);
@@ -1528,6 +1539,9 @@ impl GhosttyView {
                 snapshot.restore();
             };
 
+            // Selection only shows where there is text: empty cells after the last character of a row
+            // (and empty rows) are not drawn as selected, like in VTE.
+            let last_text = row.iter().rposition(|c| !c.text.is_empty() && !c.spacer);
             for (x, cell) in row.iter().enumerate() {
                 if cell.spacer {
                     continue;
@@ -1541,10 +1555,11 @@ impl GhosttyView {
                 }
                 let mut bg = cell.bg;
                 let mut inverse = cell.flags & render::INVERSE != 0;
-                if (cell.selected && highlight.is_none()) || block_at(x, y) {
+                let selected = cell.selected && last_text.is_some_and(|l| x <= l);
+                if (selected && highlight.is_none()) || block_at(x, y) {
                     inverse = !inverse;
                 }
-                if cell.selected && !block_at(x, y) && highlight.is_some() {
+                if selected && !block_at(x, y) && highlight.is_some() {
                     // Selection in the accent color instead of inverted (profile palette)
                     bg = highlight;
                     inverse = false;

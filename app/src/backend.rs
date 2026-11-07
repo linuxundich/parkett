@@ -141,6 +141,15 @@ impl Backend {
         user_shell()
     }
 
+    /// pid of the shell on the host (libghostty engine inside Flatpak), once it has reported it.
+    pub fn host_pid(&self) -> Option<u32> {
+        match self {
+            Backend::Vte(_) => None,
+            #[cfg(feature = "ghostty")]
+            Backend::Ghostty(g) => g.host_pid(),
+        }
+    }
+
     pub fn downgrade(&self) -> WeakBackend {
         match self {
             Backend::Vte(v) => WeakBackend::Vte(v.downgrade()),

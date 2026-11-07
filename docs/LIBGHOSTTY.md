@@ -407,3 +407,18 @@ Login shell in the Flatpak: `Backend::user_shell()` asks the host once (`flatpak
 `parkett_core::pty::host_user_shell`) because `vte_get_user_shell()` and `$SHELL` describe the sandbox there, which gave
 `/bin/sh` (prompt `sh-5.3$`). Now the host's shell (here `/usr/bin/bash`) starts, as seen in the process list of a
 private session. The VTE engine keeps the sandbox shell (it runs in the sandbox).
+
+Context in the Flatpak (root / SSH colors, command label, template command): the sandbox cannot see host pids or
+`/proc`, so the host is asked. The host shell is started as `sh -c 'printf "\e]777;parkett-host-pid;%s\a" "$$"; exec "$@"' sh <shell>`:
+it reports its own pid through the terminal (an unknown OSC that `Terminal::on_unknown_osc` hands to the widget,
+`GhosttyView::host_pid`). `parkett_core::pty::host_foreground(pid)` runs one `flatpak-spawn --host sh -c …` that reads
+`tpgid` from `/proc/<pid>/stat` (the foreground job of the shell's terminal) and then `comm`, `cmdline` and the
+effective uid of that job; `Terminal::query_host_foreground` calls it from a worker thread
+(`gio::spawn_blocking`) at every context poll (1 s when visible) and feeds the answer to the normal evaluation
+(`poll_core`). Checked in a real sandbox with `core/examples/pty_host.rs` (`CHECK_FG=1`): at the prompt `bash`
+(= the shell), while `sleep 30` runs `sleep` with its arguments and euid. The coloring itself (ssh/sudo) was not
+looked at in the Flatpak window. Costs one process start per poll; the directory fallback through `/proc/<pid>/cwd`
+stays off (OSC 7 only).
+
+Selection: cells after the last character of a row (and empty rows) are no longer drawn as selected, like VTE.
+Before, dragging over empty space painted blocks there; copied text was already trimmed.
