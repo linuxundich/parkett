@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: parkett\n"
 "Report-Msgid-Bugs-To: https://github.com/linuxundich/parkett/issues\n"
-"POT-Creation-Date: 2026-10-25 13:47+0100\n"
+"POT-Creation-Date: 2026-11-07 14:53+0100\n"
 "PO-Revision-Date: 2026-10-23 10:00+0200\n"
 "Last-Translator: Christoph Langner <mail@christoph-langner.de>\n"
 "Language-Team: German\n"
@@ -275,11 +275,19 @@ msgstr "Sixel-Grafiken anzeigen"
 msgid "Display images in Sixel format in the terminal. Only works if the installed VTE library is built with Sixel support."
 msgstr "Bilder im Sixel-Format im Terminal darstellen. Wirkt nur, wenn die installierte VTE-Bibliothek mit Sixel gebaut ist."
 
-#: data/de.linuxundich.Parkett.gschema.xml:140
+#: data/de.linuxundich.Parkett.gschema.xml:143
+msgid "Terminal engine"
+msgstr "Terminal-Engine"
+
+#: data/de.linuxundich.Parkett.gschema.xml:144
+msgid "Experimental. “vte” is the default engine. “ghostty” uses libghostty and only works in builds made with the ghostty feature; the environment variable PARKETT_BACKEND overrides this setting. Applies to terminals opened afterwards."
+msgstr "Experimentell. „vte“ ist die Standard-Engine. „ghostty“ nutzt libghostty und funktioniert nur in Builds mit dem Feature ghostty; die Umgebungsvariable PARKETT_BACKEND hat Vorrang vor dieser Einstellung. Gilt für danach geöffnete Terminals."
+
+#: data/de.linuxundich.Parkett.gschema.xml:149
 msgid "Scrollback lines"
 msgstr "Zeilen im Verlauf"
 
-#: data/de.linuxundich.Parkett.gschema.xml:141
+#: data/de.linuxundich.Parkett.gschema.xml:150
 msgid "How many lines each terminal keeps for scrolling back; -1 = unlimited."
 msgstr "Wie viele Zeilen jedes Terminal zum Zurückblättern behält; -1 = unbegrenzt."
 
@@ -287,13 +295,13 @@ msgstr "Wie viele Zeilen jedes Terminal zum Zurückblättern behält; -1 = unbeg
 msgid "Tabs and panes"
 msgstr "Reiter und Bereiche"
 
-#: app/src/commands.rs:31 app/src/prefs.rs:1114 app/src/prefs.rs:1138
+#: app/src/commands.rs:31 app/src/prefs.rs:1131 app/src/prefs.rs:1155
 #: app/src/window.rs:302
 msgid "Bookmarks"
 msgstr "Lesezeichen"
 
-#: app/src/commands.rs:32 app/src/commands.rs:186 app/src/prefs.rs:1342
-#: app/src/prefs.rs:1344 app/src/window.rs:299 app/src/window.rs:1456
+#: app/src/commands.rs:32 app/src/commands.rs:186 app/src/prefs.rs:1359
+#: app/src/prefs.rs:1361 app/src/window.rs:299 app/src/window.rs:1456
 msgid "Templates"
 msgstr "Vorlagen"
 
@@ -339,108 +347,108 @@ msgstr "↑↓ wählen · Eingabe ausführen · Strg+Eingabe in neuem Bereich ·
 msgid "Commands"
 msgstr "Befehle"
 
-#: app/src/main.rs:181
+#: app/src/main.rs:182
 msgid "-e “{command}”: {error}"
 msgstr "-e „{command}“: {error}"
 
-#: app/src/main.rs:213 app/src/window.rs:1363
+#: app/src/main.rs:214 app/src/window.rs:1363
 msgid "Directory “{path}” does not exist"
 msgstr "Verzeichnis „{path}“ gibt es nicht"
 
-#: app/src/main.rs:228
+#: app/src/main.rs:229
 msgid "Profile “{id}” does not exist, using the default profile"
 msgstr "Profil „{id}“ gibt es nicht, nehme das Standardprofil"
 
-#: app/src/main.rs:254 app/src/window.rs:952 app/src/window.rs:977
+#: app/src/main.rs:255 app/src/window.rs:952 app/src/window.rs:977
 #: app/src/window.rs:1014 app/src/window.rs:1056 app/src/window.rs:1261
 #: app/src/window.rs:1266 app/src/window.rs:1271
 msgid "Not enough room to split"
 msgstr "Zu wenig Platz zum Teilen"
 
-#: app/src/main.rs:312
+#: app/src/main.rs:338
 msgid "Terminal with split panes for GNOME"
 msgstr "Terminal mit geteilten Bereichen für GNOME"
 
 #. Translators: your name(s) for the About dialog
-#: app/src/main.rs:314
+#: app/src/main.rs:340
 msgid "translator-credits"
 msgstr "Christoph Langner"
 
-#: app/src/main.rs:366
+#: app/src/main.rs:392
 msgid "Tab 1 … 9"
 msgstr "Reiter 1 … 9"
 
-#: app/src/main.rs:367
+#: app/src/main.rs:393
 msgid "Pane 1 … 9"
 msgstr "Bereich 1 … 9"
 
-#: app/src/pane.rs:135
+#: app/src/pane.rs:134
 msgid "Shared input"
 msgstr "Gemeinsame Eingabe"
 
-#: app/src/pane.rs:237 app/src/pane.rs:352 app/src/shortcuts.rs:56
-#: app/src/terminal.rs:1574
+#: app/src/pane.rs:236 app/src/pane.rs:351 app/src/shortcuts.rs:56
+#: app/src/terminal.rs:1525
 msgid "Maximize pane"
 msgstr "Bereich maximieren"
 
-#: app/src/pane.rs:239 app/src/pane.rs:354 app/src/shortcuts.rs:53
-#: app/src/terminal.rs:1599
+#: app/src/pane.rs:238 app/src/pane.rs:353 app/src/shortcuts.rs:53
+#: app/src/terminal.rs:1550
 msgid "Close pane"
 msgstr "Bereich schließen"
 
-#: app/src/pane.rs:281 app/src/shortcuts.rs:75 app/src/terminal.rs:1583
+#: app/src/pane.rs:280 app/src/shortcuts.rs:75 app/src/terminal.rs:1534
 msgid "Read only"
 msgstr "Schreibgeschützt"
 
-#: app/src/pane.rs:293
+#: app/src/pane.rs:292
 msgid "Search in terminal"
 msgstr "Im Terminal suchen"
 
-#: app/src/pane.rs:303
+#: app/src/pane.rs:302
 msgid "Match case"
 msgstr "Groß-/Kleinschreibung beachten"
 
-#: app/src/pane.rs:306
+#: app/src/pane.rs:305
 msgid "Whole words only"
 msgstr "Nur ganze Wörter"
 
-#: app/src/pane.rs:311
+#: app/src/pane.rs:310
 msgid "Regular expression"
 msgstr "Regulärer Ausdruck"
 
-#: app/src/pane.rs:315 app/src/shortcuts.rs:67
+#: app/src/pane.rs:314 app/src/shortcuts.rs:67
 msgid "Previous match"
 msgstr "Treffer darüber"
 
-#: app/src/pane.rs:315
+#: app/src/pane.rs:314
 msgid "Enter"
 msgstr "Eingabe"
 
-#: app/src/pane.rs:317 app/src/shortcuts.rs:68
+#: app/src/pane.rs:316 app/src/shortcuts.rs:68
 msgid "Next match"
 msgstr "Treffer darunter"
 
-#: app/src/pane.rs:317
+#: app/src/pane.rs:316
 msgid "Shift+Enter"
 msgstr "Umschalt+Eingabe"
 
-#: app/src/pane.rs:320
+#: app/src/pane.rs:319
 msgid "Close search (Esc)"
 msgstr "Suche schließen (Esc)"
 
-#: app/src/pane.rs:323
+#: app/src/pane.rs:322
 msgid "Close search"
 msgstr "Suche schließen"
 
-#: app/src/pane.rs:790
+#: app/src/pane.rs:795
 msgid "Invalid expression: {error}"
 msgstr "Ungültiger Ausdruck: {error}"
 
-#: app/src/pane.rs:868
+#: app/src/pane.rs:871
 msgid "{n}+ matches"
 msgstr "{n}+ Treffer"
 
-#: app/src/pane.rs:870
+#: app/src/pane.rs:873
 msgid "{n} match"
 msgid_plural "{n} matches"
 msgstr[0] "{n} Treffer"
@@ -470,7 +478,7 @@ msgstr "Nummer, Programm und Ordner statt des Titels der Shell"
 msgid "Tab name template"
 msgstr "Vorlage für Reiter-Namen"
 
-#: app/src/prefs.rs:47 app/src/prefs.rs:704
+#: app/src/prefs.rs:47 app/src/prefs.rs:721
 msgid "{n} number · {program} program · {dir} folder · {path} full path · {host} host over SSH · {title} shell title · {profile} profile"
 msgstr "{n} Nummer · {program} Programm · {dir} Ordner · {path} ganzer Pfad · {host} Rechner bei SSH · {title} Titel der Shell · {profile} Profil"
 
@@ -574,281 +582,293 @@ msgstr "Bilder im Terminal, z. B. von img2sixel oder chafa"
 msgid "The installed VTE library is built without Sixel"
 msgstr "Die installierte VTE-Bibliothek ist ohne Sixel gebaut"
 
-#: app/src/prefs.rs:185 app/src/prefs.rs:193
+#: app/src/prefs.rs:182
+msgid "Experimental. Applies to terminals opened afterwards"
+msgstr "Experimentell. Gilt für danach geöffnete Terminals"
+
+#: app/src/prefs.rs:183
+msgid "VTE"
+msgstr "VTE"
+
+#: app/src/prefs.rs:183
+msgid "libghostty (experimental)"
+msgstr "libghostty (experimentell)"
+
+#: app/src/prefs.rs:202 app/src/prefs.rs:210
 msgid "Profiles"
 msgstr "Profile"
 
-#: app/src/prefs.rs:188 app/src/prefs.rs:243
+#: app/src/prefs.rs:205 app/src/prefs.rs:260
 msgid "New profile"
 msgstr "Neues Profil"
 
-#: app/src/prefs.rs:194
+#: app/src/prefs.rs:211
 msgid "A profile defines how a terminal starts and which color scheme it uses."
 msgstr "Ein Profil legt fest, wie ein Terminal startet und welches Farbschema es nutzt."
 
-#: app/src/prefs.rs:214
+#: app/src/prefs.rs:231
 msgid "{scheme} · Default profile"
 msgstr "{scheme} · Standardprofil"
 
-#: app/src/prefs.rs:245
+#: app/src/prefs.rs:262
 msgid "Profile not created: {error}"
 msgstr "Profil nicht angelegt: {error}"
 
-#: app/src/prefs.rs:282 app/src/prefs.rs:1416
+#: app/src/prefs.rs:299 app/src/prefs.rs:1433
 msgid "Not saved: {error}"
 msgstr "Nicht gespeichert: {error}"
 
-#: app/src/prefs.rs:295 app/src/prefs.rs:1281 app/src/prefs.rs:1427
-#: app/src/prefs.rs:1533
+#: app/src/prefs.rs:312 app/src/prefs.rs:1298 app/src/prefs.rs:1444
+#: app/src/prefs.rs:1550
 msgid "Name"
 msgstr "Name"
 
-#: app/src/prefs.rs:307
+#: app/src/prefs.rs:324
 msgid "For new tabs"
 msgstr "Für neue Reiter"
 
-#: app/src/prefs.rs:324
+#: app/src/prefs.rs:341
 msgid "Import…"
 msgstr "Importieren …"
 
-#: app/src/prefs.rs:327
+#: app/src/prefs.rs:344
 msgid "Ptyxis palette (.palette) or Tilix scheme (.json)"
 msgstr "Ptyxis-Palette (.palette) oder Tilix-Schema (.json)"
 
-#: app/src/prefs.rs:330
+#: app/src/prefs.rs:347
 msgid "Color scheme"
 msgstr "Farbschema"
 
-#: app/src/prefs.rs:331
+#: app/src/prefs.rs:348
 msgid "Each scheme has a light and a dark variant (left/right); Parkett follows the system style. The selection applies immediately."
 msgstr "Jedes Schema hat eine helle und eine dunkle Fassung (links/rechts); Parkett folgt dem Systemstil. Die Auswahl gilt sofort."
 
-#: app/src/prefs.rs:417
+#: app/src/prefs.rs:434
 msgid "Color schemes (.palette, .json)"
 msgstr "Farbschemata (.palette, .json)"
 
-#: app/src/prefs.rs:422
+#: app/src/prefs.rs:439
 msgid "Import color scheme"
 msgstr "Farbschema importieren"
 
-#: app/src/prefs.rs:432
+#: app/src/prefs.rs:449
 msgid "“{name}” imported"
 msgstr "„{name}“ importiert"
 
-#: app/src/prefs.rs:434
+#: app/src/prefs.rs:451
 msgid "“{name}” imported (only one variant, applies to light and dark)"
 msgstr "„{name}“ importiert (nur eine Fassung, gilt für hell und dunkel)"
 
-#: app/src/prefs.rs:438
+#: app/src/prefs.rs:455
 msgid "Import failed: {error}"
 msgstr "Import fehlgeschlagen: {error}"
 
-#: app/src/prefs.rs:447
+#: app/src/prefs.rs:464
 msgid "Font and cursor"
 msgstr "Schrift und Cursor"
 
-#: app/src/prefs.rs:449
+#: app/src/prefs.rs:466
 msgid "Use system font"
 msgstr "Systemschrift verwenden"
 
-#: app/src/prefs.rs:450
+#: app/src/prefs.rs:467
 msgid "Monospace font from the GNOME settings"
 msgstr "Festbreitenschrift aus den GNOME-Einstellungen"
 
-#: app/src/prefs.rs:453
+#: app/src/prefs.rs:470
 msgid "Terminal font"
 msgstr "Schrift für das Terminal"
 
-#: app/src/prefs.rs:468
+#: app/src/prefs.rs:485
 msgid "Font"
 msgstr "Schrift"
 
-#: app/src/prefs.rs:496
+#: app/src/prefs.rs:513
 msgid "Background opacity"
 msgstr "Deckkraft des Hintergrunds"
 
-#: app/src/prefs.rs:497
+#: app/src/prefs.rs:514
 msgid "In percent; below 100 the desktop shows through"
 msgstr "In Prozent; unter 100 scheint der Desktop durch"
 
-#: app/src/prefs.rs:518
+#: app/src/prefs.rs:535
 msgid "Show scrollbar"
 msgstr "Bildlaufleiste anzeigen"
 
-#: app/src/prefs.rs:519
+#: app/src/prefs.rs:536
 msgid "Thin bar at the right edge while scrolling; scrolling works without it too"
 msgstr "Schmale Leiste am rechten Rand beim Scrollen; gescrollt wird auch ohne sie"
 
 #
-#: app/src/prefs.rs:545
+#: app/src/prefs.rs:562
 msgid "Bold is bright"
 msgstr "Fett als hell"
 
-#: app/src/prefs.rs:546
+#: app/src/prefs.rs:563
 msgid "Draw bold text in the bright colors"
 msgstr "Fetten Text in den hellen Farben zeichnen"
 
-#: app/src/prefs.rs:552
+#: app/src/prefs.rs:569
 msgid "Line spacing"
 msgstr "Zeilenabstand"
 
-#: app/src/prefs.rs:556
+#: app/src/prefs.rs:573
 msgid "Letter spacing"
 msgstr "Zeichenabstand"
 
-#: app/src/prefs.rs:574
+#: app/src/prefs.rs:591
 msgid "Scroll on output"
 msgstr "Bildlauf bei Ausgabe"
 
-#: app/src/prefs.rs:575
+#: app/src/prefs.rs:592
 msgid "Jump to the end when a program writes"
 msgstr "Ans Ende springen, wenn ein Programm schreibt"
 
-#: app/src/prefs.rs:580
+#: app/src/prefs.rs:597
 msgid "Scroll on keystroke"
 msgstr "Bildlauf bei Tastendruck"
 
-#: app/src/prefs.rs:581
+#: app/src/prefs.rs:598
 msgid "Jump to the end when typing"
 msgstr "Beim Tippen ans Ende springen"
 
-#: app/src/prefs.rs:589
+#: app/src/prefs.rs:606
 msgid "Cursor shape"
 msgstr "Cursorform"
 
-#: app/src/prefs.rs:590
+#: app/src/prefs.rs:607
 msgid "Block"
 msgstr "Block"
 
-#: app/src/prefs.rs:590
+#: app/src/prefs.rs:607
 msgid "I-beam"
 msgstr "Strich"
 
-#: app/src/prefs.rs:590
+#: app/src/prefs.rs:607
 msgid "Underline"
 msgstr "Unterstrich"
 
-#: app/src/prefs.rs:598
+#: app/src/prefs.rs:615
 msgid "Cursor blinks"
 msgstr "Cursor blinkt"
 
-#: app/src/prefs.rs:599
+#: app/src/prefs.rs:616
 msgid "Like the system"
 msgstr "Wie im System"
 
-#: app/src/prefs.rs:599
+#: app/src/prefs.rs:616
 msgid "Always"
 msgstr "Immer"
 
-#: app/src/prefs.rs:599
+#: app/src/prefs.rs:616
 msgid "Never"
 msgstr "Nie"
 
-#: app/src/prefs.rs:607
+#: app/src/prefs.rs:624
 msgid "Bell"
 msgstr "Glocke"
 
-#: app/src/prefs.rs:608
+#: app/src/prefs.rs:625
 msgid "Sound and mark tab"
 msgstr "Ton und Reiter markieren"
 
-#: app/src/prefs.rs:608
+#: app/src/prefs.rs:625
 msgid "Mark tab only"
 msgstr "Nur Reiter markieren"
 
-#: app/src/prefs.rs:608 app/src/shortcuts.rs:154
+#: app/src/prefs.rs:625 app/src/shortcuts.rs:154
 msgid "Off"
 msgstr "Aus"
 
-#: app/src/prefs.rs:615
+#: app/src/prefs.rs:632
 msgid "Startup"
 msgstr "Start"
 
-#: app/src/prefs.rs:616
+#: app/src/prefs.rs:633
 msgid "Run as login shell"
 msgstr "Als Login-Shell starten"
 
-#: app/src/prefs.rs:626
+#: app/src/prefs.rs:643
 msgid "Command instead of shell (e.g. ssh bender)"
 msgstr "Befehl statt Shell (z. B. ssh bender)"
 
-#: app/src/prefs.rs:630
+#: app/src/prefs.rs:647
 msgid "Start directory (empty = preferences)"
 msgstr "Startverzeichnis (leer = Einstellung)"
 
-#: app/src/prefs.rs:634
+#: app/src/prefs.rs:651
 msgid "Environment variables (NAME=value, separated by spaces)"
 msgstr "Umgebungsvariablen (NAME=wert, mit Leerzeichen getrennt)"
 
-#: app/src/prefs.rs:671
+#: app/src/prefs.rs:688
 msgid "Use automatically"
 msgstr "Automatisch verwenden"
 
-#: app/src/prefs.rs:672
+#: app/src/prefs.rs:689
 msgid "Panes show the color scheme, font and opacity of this profile while a rule matches – for example while “ssh bender” is running. Separate several entries with commas, * as wildcard."
 msgstr "Bereiche zeigen Farbschema, Schrift und Deckkraft dieses Profils, solange eine Regel passt – etwa während „ssh bender“ läuft. Mehrere Einträge mit Komma trennen, * als Platzhalter."
 
-#: app/src/prefs.rs:675
+#: app/src/prefs.rs:692
 msgid "For hosts (e.g. bender, *.tuxedo.de)"
 msgstr "Für Rechner (z. B. bender, *.tuxedo.de)"
 
-#: app/src/prefs.rs:679
+#: app/src/prefs.rs:696
 msgid "For folders, including subfolders (e.g. ~/client)"
 msgstr "Für Ordner, auch darunter (z. B. ~/kunde)"
 
-#: app/src/prefs.rs:702
+#: app/src/prefs.rs:719
 msgid "Tab name template (empty = preferences)"
 msgstr "Vorlage für Reiter-Namen (leer = Einstellung)"
 
-#: app/src/prefs.rs:714
+#: app/src/prefs.rs:731
 msgid "Tabs"
 msgstr "Reiter"
 
-#: app/src/prefs.rs:721
+#: app/src/prefs.rs:738
 msgid "When the process exits"
 msgstr "Wenn der Prozess endet"
 
-#: app/src/prefs.rs:723
+#: app/src/prefs.rs:740
 msgid "Show bar"
 msgstr "Leiste anzeigen"
 
-#: app/src/prefs.rs:724
+#: app/src/prefs.rs:741
 msgid "Close pane (on success)"
 msgstr "Bereich schließen (bei Erfolg)"
 
-#: app/src/prefs.rs:725 app/src/terminal.rs:172
+#: app/src/prefs.rs:742 app/src/terminal.rs:160
 msgid "Restart"
 msgstr "Neu starten"
 
-#: app/src/prefs.rs:751
+#: app/src/prefs.rs:768
 msgid "Delete profile"
 msgstr "Profil löschen"
 
-#: app/src/prefs.rs:813
+#: app/src/prefs.rs:830
 msgid "Only one variant – applies to light and dark"
 msgstr "Nur eine Fassung – gilt für hell und dunkel"
 
-#: app/src/prefs.rs:815
+#: app/src/prefs.rs:832
 msgid "Color scheme {name}"
 msgstr "Farbschema {name}"
 
-#: app/src/prefs.rs:850
+#: app/src/prefs.rs:867
 msgid "Shortcuts"
 msgstr "Kürzel"
 
-#: app/src/prefs.rs:855
+#: app/src/prefs.rs:872
 msgid "Click a row and press a new combination."
 msgstr "Zeile anklicken und neue Kombination drücken."
 
-#: app/src/prefs.rs:857
+#: app/src/prefs.rs:874
 msgid "Reset all"
 msgstr "Alle zurücksetzen"
 
-#: app/src/prefs.rs:885
+#: app/src/prefs.rs:902
 msgid "Custom"
 msgstr "Eigene Belegung"
 
-#: app/src/prefs.rs:903
+#: app/src/prefs.rs:920
 msgid ""
 "Current: {current}\n"
 "Press a new combination. Esc cancels, Backspace disables the shortcut."
@@ -856,204 +876,204 @@ msgstr ""
 "Aktuell: {current}\n"
 "Neue Kombination drücken. Esc bricht ab, Rücktaste schaltet das Kürzel aus."
 
-#: app/src/prefs.rs:908 app/src/prefs.rs:1299 app/src/terminal.rs:1722
-#: app/src/terminal.rs:1777 app/src/window.rs:854 app/src/window.rs:874
+#: app/src/prefs.rs:925 app/src/prefs.rs:1316 app/src/terminal.rs:1666
+#: app/src/terminal.rs:1721 app/src/window.rs:854 app/src/window.rs:874
 #: app/src/window.rs:1335 app/src/window.rs:1393
 msgid "Cancel"
 msgstr "Abbrechen"
 
-#: app/src/prefs.rs:908
+#: app/src/prefs.rs:925
 msgid "Restore default"
 msgstr "Standard wiederherstellen"
 
-#: app/src/prefs.rs:962
+#: app/src/prefs.rs:979
 msgid "{label} is already assigned to “{other}”. Please press a different combination."
 msgstr "{label} ist schon „{other}“ zugeordnet. Bitte eine andere Kombination drücken."
 
-#: app/src/prefs.rs:986
+#: app/src/prefs.rs:1003
 msgid "Add link"
 msgstr "Link hinzufügen"
 
 #
-#: app/src/prefs.rs:991
+#: app/src/prefs.rs:1008
 msgid "Custom links"
 msgstr "Eigene Links"
 
-#: app/src/prefs.rs:992
+#: app/src/prefs.rs:1009
 msgid "Text matching a regular expression becomes a link (Ctrl+click). The target is an address or a command; $0 is the whole match, $1 to $9 the groups."
 msgstr "Text, der zu einem regulären Ausdruck passt, wird zum Link (Strg+Klick). Das Ziel ist eine Adresse oder ein Befehl; $0 ist der ganze Treffer, $1 bis $9 die Gruppen."
 
 #
-#: app/src/prefs.rs:1011
+#: app/src/prefs.rs:1028
 msgid "Regular expression (e.g. \\bPARK-(\\d+))"
 msgstr "Regulärer Ausdruck (z. B. \\bPARK-(\\d+))"
 
-#: app/src/prefs.rs:1015
+#: app/src/prefs.rs:1032
 msgid "Target (e.g. https://tracker.example/$1)"
 msgstr "Ziel (z. B. https://tracker.example/$1)"
 
 #
-#: app/src/prefs.rs:1028
+#: app/src/prefs.rs:1045
 msgid "Remove link"
 msgstr "Link entfernen"
 
-#: app/src/prefs.rs:1116
+#: app/src/prefs.rs:1133
 msgid "Add folder…"
 msgstr "Ordner hinzufügen …"
 
 #
-#: app/src/prefs.rs:1117
+#: app/src/prefs.rs:1134
 msgid "Add command…"
 msgstr "Befehl hinzufügen …"
 
 #
-#: app/src/prefs.rs:1132
+#: app/src/prefs.rs:1149
 msgid "Add bookmark"
 msgstr "Lesezeichen hinzufügen"
 
 #
-#: app/src/prefs.rs:1139
+#: app/src/prefs.rs:1156
 msgid "Folders, commands and SSH hosts for the command palette (~) and the main menu: Enter opens a new tab, Ctrl+Enter a new pane, Alt+Enter uses the active pane. Commands are typed into the shell."
 msgstr "Ordner, Befehle und SSH-Ziele für die Befehlspalette (~) und das Hauptmenü: Eingabe öffnet einen neuen Reiter, Strg+Eingabe einen neuen Bereich, Alt+Eingabe nutzt den aktiven Bereich. Befehle werden in die Shell getippt."
 
-#: app/src/prefs.rs:1150 app/src/prefs.rs:1265 app/src/prefs.rs:1330
+#: app/src/prefs.rs:1167 app/src/prefs.rs:1282 app/src/prefs.rs:1347
 msgid "Bookmarks not saved: {error}"
 msgstr "Lesezeichen nicht gespeichert: {error}"
 
-#: app/src/prefs.rs:1172
+#: app/src/prefs.rs:1189
 msgid "No bookmarks yet"
 msgstr "Noch keine Lesezeichen"
 
-#: app/src/prefs.rs:1173
+#: app/src/prefs.rs:1190
 msgid "In the terminal: command palette or main menu › “Current folder as bookmark”"
 msgstr "Im Terminal: Befehlspalette oder Hauptmenü › „Aktuellen Ordner als Lesezeichen“"
 
-#: app/src/prefs.rs:1195
+#: app/src/prefs.rs:1212
 msgid "Move up"
 msgstr "Nach oben"
 
-#: app/src/prefs.rs:1196
+#: app/src/prefs.rs:1213
 msgid "Move down"
 msgstr "Nach unten"
 
-#: app/src/prefs.rs:1197
+#: app/src/prefs.rs:1214
 msgid "Delete"
 msgstr "Löschen"
 
-#: app/src/prefs.rs:1256
+#: app/src/prefs.rs:1273
 msgid "Folder as bookmark"
 msgstr "Ordner als Lesezeichen"
 
-#: app/src/prefs.rs:1264 app/src/window.rs:1033
+#: app/src/prefs.rs:1281 app/src/window.rs:1033
 msgid "This folder is already a bookmark"
 msgstr "Dieser Ordner ist schon ein Lesezeichen"
 
-#: app/src/prefs.rs:1278
+#: app/src/prefs.rs:1295
 msgid "Type"
 msgstr "Art"
 
-#: app/src/prefs.rs:1279 app/src/terminal.rs:412
+#: app/src/prefs.rs:1296 app/src/terminal.rs:444
 msgid "Command"
 msgstr "Befehl"
 
-#: app/src/prefs.rs:1279
+#: app/src/prefs.rs:1296
 msgid "SSH host"
 msgstr "SSH-Ziel"
 
-#: app/src/prefs.rs:1282 app/src/prefs.rs:1289
+#: app/src/prefs.rs:1299 app/src/prefs.rs:1306
 msgid "Command (e.g. journalctl -f)"
 msgstr "Befehl (z. B. journalctl -f)"
 
-#: app/src/prefs.rs:1287
+#: app/src/prefs.rs:1304
 msgid "Host, with options if needed (e.g. -p 2222 toff@bender)"
 msgstr "Ziel, bei Bedarf mit Optionen (z. B. -p 2222 toff@bender)"
 
 #
-#: app/src/prefs.rs:1297
+#: app/src/prefs.rs:1314
 msgid "Add command"
 msgstr "Befehl hinzufügen"
 
-#: app/src/prefs.rs:1299
+#: app/src/prefs.rs:1316
 msgid "Add"
 msgstr "Hinzufügen"
 
-#: app/src/prefs.rs:1345
+#: app/src/prefs.rs:1362
 msgid "A template opens a tab with a ready-made layout, profiles and start commands. New templates are made from a running tab: menu on the New button › “Save current tab as template…”."
 msgstr "Eine Vorlage öffnet einen Reiter mit fertiger Aufteilung, Profilen und Startbefehlen. Neue Vorlagen entstehen aus einem laufenden Reiter: Menü am Neu-Knopf › „Aktuellen Reiter als Vorlage speichern …“."
 
-#: app/src/prefs.rs:1361
+#: app/src/prefs.rs:1378
 msgid "No templates yet"
 msgstr "Noch keine Vorlagen"
 
-#: app/src/prefs.rs:1362
+#: app/src/prefs.rs:1379
 msgid "Split a tab as you like and save it as a template"
 msgstr "Teile einen Reiter wie gewünscht auf und speichere ihn als Vorlage"
 
-#: app/src/prefs.rs:1371
+#: app/src/prefs.rs:1388
 msgid "Choose directory when opening"
 msgstr "Verzeichnis beim Öffnen wählen"
 
-#: app/src/prefs.rs:1378
+#: app/src/prefs.rs:1395
 msgid "{n} pane · {dir}"
 msgid_plural "{n} panes · {dir}"
 msgstr[0] "{n} Bereich · {dir}"
 msgstr[1] "{n} Bereiche · {dir}"
 
-#: app/src/prefs.rs:1396
+#: app/src/prefs.rs:1413
 msgid "The template no longer exists"
 msgstr "Die Vorlage gibt es nicht mehr"
 
-#: app/src/prefs.rs:1437
+#: app/src/prefs.rs:1454
 msgid "Fixed directory (empty = choose when opening)"
 msgstr "Festes Verzeichnis (leer = beim Öffnen wählen)"
 
-#: app/src/prefs.rs:1457 core/src/label.rs:104
+#: app/src/prefs.rs:1474 core/src/label.rs:104
 msgid "Shell"
 msgstr "Shell"
 
-#: app/src/prefs.rs:1473
+#: app/src/prefs.rs:1490
 msgid "Equalize"
 msgstr "Angleichen"
 
-#: app/src/prefs.rs:1475
+#: app/src/prefs.rs:1492
 msgid "Layout"
 msgstr "Aufteilung"
 
-#: app/src/prefs.rs:1476
+#: app/src/prefs.rs:1493
 msgid "Comes from the tab the template was saved from; split or remove panes with the buttons on them."
 msgstr "Kommt aus dem Reiter, aus dem die Vorlage gespeichert wurde; mit den Knöpfen an den Bereichen teilen oder entfernen."
 
-#: app/src/prefs.rs:1511 app/src/shortcuts.rs:50 app/src/terminal.rs:1572
+#: app/src/prefs.rs:1528 app/src/shortcuts.rs:50 app/src/terminal.rs:1523
 #: app/src/window.rs:401 app/src/window.rs:1459
 msgid "Split right"
 msgstr "Rechts teilen"
 
-#: app/src/prefs.rs:1512 app/src/shortcuts.rs:51 app/src/terminal.rs:1573
+#: app/src/prefs.rs:1529 app/src/shortcuts.rs:51 app/src/terminal.rs:1524
 #: app/src/window.rs:402 app/src/window.rs:1460
 msgid "Split down"
 msgstr "Unten teilen"
 
-#: app/src/prefs.rs:1513
+#: app/src/prefs.rs:1530
 msgid "Remove pane"
 msgstr "Bereich entfernen"
 
-#: app/src/prefs.rs:1530
+#: app/src/prefs.rs:1547
 msgid "Pane {n}"
 msgstr "Bereich {n}"
 
-#: app/src/prefs.rs:1534
+#: app/src/prefs.rs:1551
 msgid "Profile"
 msgstr "Profil"
 
-#: app/src/prefs.rs:1537
+#: app/src/prefs.rs:1554
 msgid "Start command (typed into the shell)"
 msgstr "Startbefehl (wird in die Shell getippt)"
 
-#: app/src/prefs.rs:1538
+#: app/src/prefs.rs:1555
 msgid "Subdirectory"
 msgstr "Unterverzeichnis"
 
-#: app/src/prefs.rs:1582
+#: app/src/prefs.rs:1599
 msgid "Delete template"
 msgstr "Vorlage löschen"
 
@@ -1107,7 +1127,7 @@ msgstr "Bereiche"
 #: app/src/shortcuts.rs:71 app/src/shortcuts.rs:72 app/src/shortcuts.rs:73
 #: app/src/shortcuts.rs:74 app/src/shortcuts.rs:75 app/src/shortcuts.rs:76
 #: app/src/shortcuts.rs:77 app/src/shortcuts.rs:80 app/src/shortcuts.rs:84
-#: app/src/shortcuts.rs:85 app/src/terminal.rs:1590
+#: app/src/shortcuts.rs:85 app/src/terminal.rs:1541
 msgid "Terminal"
 msgstr "Terminal"
 
@@ -1164,7 +1184,7 @@ msgstr "Layout-Modus"
 msgid "Split automatically"
 msgstr "Automatisch teilen"
 
-#: app/src/shortcuts.rs:54 app/src/terminal.rs:1593
+#: app/src/shortcuts.rs:54 app/src/terminal.rs:1544
 msgid "Input to all panes"
 msgstr "Eingabe an alle Bereiche"
 
@@ -1172,7 +1192,7 @@ msgstr "Eingabe an alle Bereiche"
 msgid "Pane receives shared input"
 msgstr "Bereich empfängt gemeinsame Eingabe"
 
-#: app/src/shortcuts.rs:57 app/src/terminal.rs:1575
+#: app/src/shortcuts.rs:57 app/src/terminal.rs:1526
 msgid "Equalize sizes"
 msgstr "Größen angleichen"
 
@@ -1212,36 +1232,36 @@ msgstr "Trenner nach unten"
 msgid "Search"
 msgstr "Suchen"
 
-#: app/src/shortcuts.rs:69 app/src/terminal.rs:1555 app/src/window.rs:180
+#: app/src/shortcuts.rs:69 app/src/terminal.rs:1506 app/src/window.rs:180
 msgid "Copy"
 msgstr "Kopieren"
 
-#: app/src/shortcuts.rs:70 app/src/terminal.rs:1557 app/src/terminal.rs:1722
-#: app/src/terminal.rs:1777
+#: app/src/shortcuts.rs:70 app/src/terminal.rs:1508 app/src/terminal.rs:1666
+#: app/src/terminal.rs:1721
 msgid "Paste"
 msgstr "Einfügen"
 
-#: app/src/shortcuts.rs:71 app/src/terminal.rs:1559
+#: app/src/shortcuts.rs:71 app/src/terminal.rs:1510
 msgid "Select all"
 msgstr "Alles auswählen"
 
-#: app/src/shortcuts.rs:72 app/src/terminal.rs:1580
+#: app/src/shortcuts.rs:72 app/src/terminal.rs:1531
 msgid "Save output…"
 msgstr "Ausgabe speichern …"
 
-#: app/src/shortcuts.rs:73 app/src/terminal.rs:1558
+#: app/src/shortcuts.rs:73 app/src/terminal.rs:1509
 msgid "Paste special…"
 msgstr "Erweitert einfügen …"
 
-#: app/src/shortcuts.rs:74 app/src/terminal.rs:1556
+#: app/src/shortcuts.rs:74 app/src/terminal.rs:1507
 msgid "Copy as HTML"
 msgstr "Als HTML kopieren"
 
-#: app/src/shortcuts.rs:76 app/src/terminal.rs:1581
+#: app/src/shortcuts.rs:76 app/src/terminal.rs:1532
 msgid "Reset"
 msgstr "Zurücksetzen"
 
-#: app/src/shortcuts.rs:77 app/src/terminal.rs:1582
+#: app/src/shortcuts.rs:77 app/src/terminal.rs:1533
 msgid "Reset and clear"
 msgstr "Zurücksetzen und leeren"
 
@@ -1269,216 +1289,216 @@ msgstr "Reiter 1–9 wählen"
 msgid "Please combine with Ctrl, Alt or Super (only F keys work alone)"
 msgstr "Bitte mit Strg, Alt oder Super kombinieren (ohne nur F-Tasten)"
 
-#: app/src/tab.rs:173
+#: app/src/tab.rs:172
 msgid "Show all"
 msgstr "Alle zeigen"
 
-#: app/src/tab.rs:195
+#: app/src/tab.rs:194
 msgid "focus"
 msgstr "Fokus"
 
-#: app/src/tab.rs:196
+#: app/src/tab.rs:195
 msgid "Shift+Arrow"
 msgstr "Umschalt+Pfeil"
 
-#: app/src/tab.rs:196
+#: app/src/tab.rs:195
 msgid "size"
 msgstr "Größe"
 
-#: app/src/tab.rs:197
+#: app/src/tab.rs:196
 msgid "split"
 msgstr "teilen"
 
-#: app/src/tab.rs:198
+#: app/src/tab.rs:197
 msgid "M+Arrow"
 msgstr "M+Pfeil"
 
-#: app/src/tab.rs:198
+#: app/src/tab.rs:197
 msgid "swap"
 msgstr "tauschen"
 
-#: app/src/tab.rs:199
+#: app/src/tab.rs:198
 msgid "maximize"
 msgstr "maximieren"
 
-#: app/src/tab.rs:200
+#: app/src/tab.rs:199
 msgid "equalize"
 msgstr "angleichen"
 
-#: app/src/tab.rs:201
+#: app/src/tab.rs:200
 msgid "close"
 msgstr "schließen"
 
-#: app/src/tab.rs:202
+#: app/src/tab.rs:201
 msgid "jump"
 msgstr "springen"
 
-#: app/src/tab.rs:203
+#: app/src/tab.rs:202
 msgid "done"
 msgstr "fertig"
 
-#: app/src/tab.rs:893
+#: app/src/tab.rs:889
 msgid "<b>Maximized</b> · {n} pane hidden"
 msgid_plural "<b>Maximized</b> · {n} panes hidden"
 msgstr[0] "<b>Maximiert</b> · {n} Bereich ausgeblendet"
 msgstr[1] "<b>Maximiert</b> · {n} Bereiche ausgeblendet"
 
-#: app/src/terminal.rs:173 app/src/window.rs:854
+#: app/src/terminal.rs:161 app/src/window.rs:854
 msgid "Close"
 msgstr "Schließen"
 
-#: app/src/terminal.rs:410
+#: app/src/terminal.rs:442
 msgid "Command finished"
 msgstr "Befehl beendet"
 
-#: app/src/terminal.rs:413
+#: app/src/terminal.rs:445
 msgid "{command} · after {duration}"
 msgstr "{command} · nach {duration}"
 
-#: app/src/terminal.rs:425
+#: app/src/terminal.rs:457
 msgid "New output"
 msgstr "Neue Ausgabe"
 
-#: app/src/terminal.rs:440
+#: app/src/terminal.rs:472
 msgid "No output for {seconds} s"
 msgstr "Seit {seconds} s keine Ausgabe"
 
-#: app/src/terminal.rs:810
+#: app/src/terminal.rs:820
 msgid "<b>{program}</b> could not be started: {error}"
 msgstr "<b>{program}</b> konnte nicht gestartet werden: {error}"
 
-#: app/src/terminal.rs:853 app/src/terminal.rs:872
+#: app/src/terminal.rs:863 app/src/terminal.rs:882
 msgid "<b>Process exited</b>"
 msgstr "<b>Prozess beendet</b>"
 
-#: app/src/terminal.rs:873
+#: app/src/terminal.rs:883
 msgid "<b>Process exited</b> · exit code {code}"
 msgstr "<b>Prozess beendet</b> · Exit-Code {code}"
 
-#: app/src/terminal.rs:874
+#: app/src/terminal.rs:884
 msgid "<b>Process exited</b> · signal {signal}"
 msgstr "<b>Prozess beendet</b> · Signal {signal}"
 
-#: app/src/terminal.rs:877
+#: app/src/terminal.rs:887
 msgid "{text} · no automatic restart, exited immediately"
 msgstr "{text} · kein automatischer Neustart, endete sofort"
 
 #
-#: app/src/terminal.rs:1223
+#: app/src/terminal.rs:1217
 msgid "Command failed: {error}"
 msgstr "Befehl fehlgeschlagen: {error}"
 
-#: app/src/terminal.rs:1248
+#: app/src/terminal.rs:1237
 msgid "The path is on the other computer"
 msgstr "Der Pfad liegt auf dem anderen Rechner"
 
-#: app/src/terminal.rs:1256
+#: app/src/terminal.rs:1245
 msgid "“{path}” does not exist"
 msgstr "„{path}“ gibt es nicht"
 
-#: app/src/terminal.rs:1295
+#: app/src/terminal.rs:1284
 msgid "Link not opened"
 msgstr "Link nicht geöffnet"
 
-#: app/src/terminal.rs:1296
+#: app/src/terminal.rs:1285
 msgid "The link points to a file on another computer."
 msgstr "Der Link zeigt auf eine Datei auf einem anderen Rechner."
 
-#: app/src/terminal.rs:1298 app/src/window.rs:181
+#: app/src/terminal.rs:1287 app/src/window.rs:181
 msgid "OK"
 msgstr "OK"
 
-#: app/src/terminal.rs:1313
+#: app/src/terminal.rs:1302
 msgid "Link not opened: {error}"
 msgstr "Link nicht geöffnet: {error}"
 
-#: app/src/terminal.rs:1548
+#: app/src/terminal.rs:1499
 msgid "Open link"
 msgstr "Link öffnen"
 
-#: app/src/terminal.rs:1548
+#: app/src/terminal.rs:1499
 msgid "Copy link"
 msgstr "Link kopieren"
 
-#: app/src/terminal.rs:1562
+#: app/src/terminal.rs:1513
 msgid "Zoom in"
 msgstr "Vergrößern"
 
-#: app/src/terminal.rs:1563
+#: app/src/terminal.rs:1514
 msgid "Zoom out"
 msgstr "Verkleinern"
 
-#: app/src/terminal.rs:1564
+#: app/src/terminal.rs:1515
 msgid "Normal size"
 msgstr "Normale Größe"
 
-#: app/src/terminal.rs:1569
+#: app/src/terminal.rs:1520
 msgid "Search…"
 msgstr "Suchen …"
 
-#: app/src/terminal.rs:1586
+#: app/src/terminal.rs:1537
 msgid "Monitor activity"
 msgstr "Aktivität überwachen"
 
-#: app/src/terminal.rs:1587
+#: app/src/terminal.rs:1538
 msgid "Monitor silence"
 msgstr "Stille überwachen"
 
-#: app/src/terminal.rs:1594
+#: app/src/terminal.rs:1545
 msgid "This pane receives shared input"
 msgstr "Dieser Bereich empfängt gemeinsame Eingabe"
 
-#: app/src/terminal.rs:1650
+#: app/src/terminal.rs:1594
 msgid "Save output"
 msgstr "Ausgabe speichern"
 
-#: app/src/terminal.rs:1651
+#: app/src/terminal.rs:1595
 msgid "terminal-output.txt"
 msgstr "terminal-ausgabe.txt"
 
-#: app/src/terminal.rs:1666
+#: app/src/terminal.rs:1610
 msgid "Output saved to “{path}”"
 msgstr "Ausgabe gespeichert unter „{path}“"
 
-#: app/src/terminal.rs:1670
+#: app/src/terminal.rs:1614
 msgid "Output not saved: {error}"
 msgstr "Ausgabe nicht gespeichert: {error}"
 
-#: app/src/terminal.rs:1690
+#: app/src/terminal.rs:1634
 msgid "… ({n} more line)"
 msgid_plural "… ({n} more lines)"
 msgstr[0] "… ({n} weitere Zeile)"
 msgstr[1] "… ({n} weitere Zeilen)"
 
-#: app/src/terminal.rs:1696
+#: app/src/terminal.rs:1640
 msgid "Paste text with line break?"
 msgstr "Text mit Zeilenumbruch einfügen?"
 
-#: app/src/terminal.rs:1697
+#: app/src/terminal.rs:1641
 msgid "The text ends with a line break. If the shell does not support “bracketed paste”, it runs immediately."
 msgstr "Der Text endet mit einem Zeilenumbruch. Unterstützt die Shell kein „Bracketed Paste“, wird er sofort ausgeführt."
 
-#: app/src/terminal.rs:1701
+#: app/src/terminal.rs:1645
 msgid "Paste multi-line text?"
 msgstr "Mehrzeiligen Text einfügen?"
 
-#: app/src/terminal.rs:1702
+#: app/src/terminal.rs:1646
 msgid "The text has {lines} lines. If the shell does not support “bracketed paste”, they run immediately."
 msgstr "Der Text hat {lines} Zeilen. Unterstützt die Shell kein „Bracketed Paste“, werden sie sofort ausgeführt."
 
-#: app/src/terminal.rs:1761
+#: app/src/terminal.rs:1705
 msgid "Convert tabs to spaces"
 msgstr "Tabulatoren in Leerzeichen umwandeln"
 
-#: app/src/terminal.rs:1764
+#: app/src/terminal.rs:1708
 msgid "Spaces per tab"
 msgstr "Leerzeichen je Tabulator"
 
-#: app/src/terminal.rs:1769
+#: app/src/terminal.rs:1713
 msgid "Convert Windows line endings (CRLF) to LF"
 msgstr "Windows-Zeilenenden (CRLF) in LF umwandeln"
 
-#: app/src/terminal.rs:1775
+#: app/src/terminal.rs:1719
 msgid "Paste special"
 msgstr "Erweitert einfügen"
 

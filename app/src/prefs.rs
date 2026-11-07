@@ -175,6 +175,23 @@ fn general_page() -> adw::PreferencesPage {
         sixel.set_sensitive(false);
     }
     behaviour.add(&sixel);
+    // Only builds with the `ghostty` feature can use the second engine
+    if cfg!(feature = "ghostty") {
+        let engine = adw::ComboRow::builder()
+            .title(gettext("Terminal engine"))
+            .subtitle(gettext("Experimental. Applies to terminals opened afterwards"))
+            .model(&gtk::StringList::new(&[gettext("VTE").as_str(), gettext("libghostty (experimental)").as_str()]))
+            .build();
+        engine.set_selected(u32::from(settings.string("terminal-backend") == "ghostty"));
+        engine.connect_selected_notify(glib::clone!(
+            #[strong]
+            settings,
+            move |row| {
+                let _ = settings.set_string("terminal-backend", if row.selected() == 1 { "ghostty" } else { "vte" });
+            }
+        ));
+        behaviour.add(&engine);
+    }
     behaviour.add(&scrollback);
     page.add(&behaviour);
     page

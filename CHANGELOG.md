@@ -7,7 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - Experimental libghostty terminal engine, off by default: build with `cargo build --features ghostty`
   (needs libghostty-vt 1.0), choose it with the environment variable `PARKETT_BACKEND=ghostty` or the
-  hidden setting `terminal-backend`: scrollbar, links, search, selection, OSC 7/133 shell marks through
+  setting `terminal-backend` (row *Terminal engine* in the preferences, shown in builds with the feature): scrollbar, links, search, selection, OSC 7/133 shell marks through
   `vte.sh`. Not complete yet, see `docs/LIBGHOSTTY.md`.
 
 ### Changed

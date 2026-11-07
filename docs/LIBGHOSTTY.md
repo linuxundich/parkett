@@ -314,5 +314,9 @@ Not done in 5c (next, 5d and later):
 
 Still open after 5d: blinking, bold-is-bright, letter spacing, Sixel/Kitty images; Flatpak spawn;
 HiDPI/fractional scaling; accessibility; real pointer and keyboard events; VM smoke test; preferences
-row and German text for `terminal-backend`; performance against VTE; soft-wrapped links/search;
+performance against VTE; soft-wrapped links/search;
 `Pty`: environment `COLORTERM`/`TERM` come from `Pty` (VTE sets the same).
+
+Preferences: *Behaviour › Terminal engine* (VTE / libghostty, experimental) appears only in builds with the
+`ghostty` feature; it writes `terminal-backend`, which `PARKETT_BACKEND` still overrides. German texts are in
+`po/de.po`.
