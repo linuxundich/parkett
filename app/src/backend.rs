@@ -345,6 +345,8 @@ impl Backend {
                     clean_env: spec.clean_env,
                     cols: 0,
                     rows: 0,
+                    // Inside Flatpak the shell has to run on the host (docs/LIBGHOSTTY.md)
+                    host: parkett_core::pty::in_flatpak(),
                 };
                 match g.start(opts) {
                     Ok(()) => done(Ok(glib::Pid(g.child_pid().unwrap_or(0) as i32))),

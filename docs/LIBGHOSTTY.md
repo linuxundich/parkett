@@ -312,8 +312,7 @@ Not done in 5c (next, 5d and later):
   stay without marks; Ghostty's own integration scripts would be the next step there.
 - `ghostty-vt::on_unknown_osc` (limit 2048 bytes), a test for it.
 
-Still open after 5d: letter spacing, Sixel/Kitty images; Flatpak spawn;
-HiDPI/fractional scaling; Ctrl/arrows/IME/dead keys and pointer events through GDK; preferences
+Still open after 5d: letter spacing, Sixel/Kitty images; HiDPI/fractional scaling; Ctrl/arrows/IME/dead keys and pointer events through GDK; preferences
 performance against VTE; soft-wrapped links/search;
 `Pty`: environment `COLORTERM`/`TERM` come from `Pty` (VTE sets the same).
 
@@ -350,3 +349,18 @@ off phase. Bold-is-bright: `Cell::fg_index` carries the palette index, bold cell
 (profile option `bold_is_bright`). Checked headless: blinking text visible/hidden/visible at 0.3/0.9/1.5 s,
 cursor with `ESC[1 q` likewise; Parkett with `bold_is_bright = true` draws (246,97,81) instead of (192,28,40) for
 bold red. Not checked: the system setting `gtk-cursor-blink = false` and the 10 s blink timeout of GTK.
+
+Flatpak start (done for the libghostty engine, checked in a real sandbox): inside a sandbox the shell must run on
+the host. `parkett_core::pty` detects `/.flatpak-info` (`in_flatpak()`) and, with `SpawnOptions::host`, starts
+`flatpak-spawn --host --watch-bus [--directory=…] [--clear-env] --env=TERM=… --env=… -- <program>`
+(`host_argv`, unit-tested) with our PTY slave as its stdio. The session helper on the host makes the program a
+session leader with that PTY as controlling terminal; do **not** wrap it in `setsid -c` (EPERM, the terminal
+already is one) and the sandbox-side `flatpak-spawn` must not take the PTY as controlling terminal either.
+Checked with `core/examples/pty_host.rs` run through `flatpak run --talk-name=org.freedesktop.Flatpak
+--command=… <any installed app>`: host process is session leader on the PTY, `stty size` 30×100, environment and
+directory arrive, exit status 3 comes back, an interactive host `bash` survives Ctrl+C sent through the PTY
+(`sleep` ends with 130). The sandbox's `/proc` shows the sandbox, so in a Flatpak the foreground-process
+detection (context colors, command label, *save tab as template*) and the `/proc/<pid>/cwd` fallback are
+switched off; the directory then comes from OSC 7 only (`vte.sh` on the host sets it). Needs the permission
+`--talk-name=org.freedesktop.Flatpak` in the manifest. The VTE engine still starts its shell inside the sandbox
+(no host path), and Parkett has no Flatpak manifest/build yet, so the full app in a Flatpak is untested.

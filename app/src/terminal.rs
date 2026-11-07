@@ -384,6 +384,9 @@ impl Terminal {
     pub fn working_directory(&self) -> Option<String> {
         self.cwd()
             .or_else(|| {
+                if parkett_core::pty::in_flatpak() {
+                    return None;
+                }
                 let pid = self.0.child_pid.get()?.0;
                 std::fs::read_link(format!("/proc/{pid}/cwd")).ok()?.to_str().map(String::from)
             })
@@ -611,7 +614,8 @@ impl Terminal {
     /// template (D2). Pattern like Ptyxis (`agent/ptyxis-process-impl.c`): tcgetpgrp on the
     /// PTY, details from /proc. Only meaningful without the Flatpak sandbox.
     fn read_foreground(&self) -> Option<Foreground> {
-        if self.0.exit.get().is_some() {
+        // In a Flatpak sandbox /proc shows the sandbox, not the host the shell runs on
+        if self.0.exit.get().is_some() || parkett_core::pty::in_flatpak() {
             return None;
         }
         let pgid = self.0.vte.foreground_pgid()?;

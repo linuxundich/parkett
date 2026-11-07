@@ -23,6 +23,44 @@ pub struct SpawnOptions {
     pub clean_env: bool,
     pub cols: u16,
     pub rows: u16,
+    /// Start the program on the host from inside a Flatpak sandbox (`flatpak-spawn --host`).
+    pub host: bool,
+}
+
+/// Are we inside a Flatpak sandbox?
+pub fn in_flatpak() -> bool {
+    std::path::Path::new("/.flatpak-info").exists()
+}
+
+/// `TERM` and `COLORTERM` like VTE sets them; the profile may override them.
+const DEFAULT_ENV: [(&str, &str); 2] = [("TERM", "xterm-256color"), ("COLORTERM", "truecolor")];
+
+/// The command line that runs `opts.argv` on the host from inside a Flatpak sandbox:
+/// `flatpak-spawn` hands its stdio (our PTY slave) to the host process through the session helper,
+/// which gives the program its own session with that PTY as controlling terminal (checked:
+/// session leader, `tty_nr` and foreground group of the PTY; a wrapper like `setsid -c` fails with
+/// EPERM because the terminal already is one). The exit status comes back through `flatpak-spawn`.
+/// `--watch-bus` ends the program when Parkett's connection to the bus goes away. The sandbox environment does not reach the
+/// host, so the variables are passed one by one; `clean_env` also drops the helper's own.
+pub fn host_argv(opts: &SpawnOptions) -> Vec<String> {
+    let mut v: Vec<String> = ["flatpak-spawn", "--host", "--watch-bus"].map(String::from).into();
+    if let Some(dir) = &opts.cwd {
+        v.push(format!("--directory={dir}"));
+    }
+    if opts.clean_env {
+        v.push("--clear-env".into());
+    }
+    for (k, val) in DEFAULT_ENV {
+        if !opts.env.iter().any(|e| e.split_once('=').is_some_and(|(n, _)| n == k)) {
+            v.push(format!("--env={k}={val}"));
+        }
+    }
+    for e in opts.env.iter().filter(|e| e.contains('=')) {
+        v.push(format!("--env={e}"));
+    }
+    v.push("--".into());
+    v.extend(opts.argv.iter().cloned());
+    v
 }
 
 /// Master side of a PTY plus the child on its slave side.
@@ -45,7 +83,12 @@ fn winsize(cols: u16, rows: u16, px_w: u16, px_h: u16) -> libc::winsize {
 
 impl Pty {
     pub fn spawn(opts: &SpawnOptions) -> io::Result<Pty> {
-        let (program, args) = opts.argv.split_first().ok_or_else(|| io::Error::other("empty command"))?;
+        if opts.argv.is_empty() {
+            return Err(io::Error::other("empty command"));
+        }
+        let host_cmd = opts.host.then(|| host_argv(opts));
+        let argv = host_cmd.as_ref().unwrap_or(&opts.argv);
+        let (program, args) = argv.split_first().ok_or_else(|| io::Error::other("empty command"))?;
         // SAFETY: plain libc calls; every descriptor is wrapped in OwnedFd right away.
         let (master, slave) = unsafe {
             let m = cvt(libc::posix_openpt(libc::O_RDWR | libc::O_NOCTTY | libc::O_CLOEXEC))?;
@@ -62,25 +105,34 @@ impl Pty {
 
         let mut cmd = Command::new(program);
         cmd.args(args);
-        if let Some(dir) = &opts.cwd {
-            cmd.current_dir(dir);
-        }
-        if opts.clean_env {
-            cmd.env_clear();
-        }
-        // Same defaults VTE sets; the profile may override them below.
-        cmd.env("TERM", "xterm-256color").env("COLORTERM", "truecolor");
-        for entry in &opts.env {
-            if let Some((k, v)) = entry.split_once('=') {
-                cmd.env(OsStr::new(k), OsStr::new(v));
+        if host_cmd.is_none() {
+            if let Some(dir) = &opts.cwd {
+                cmd.current_dir(dir);
+            }
+            if opts.clean_env {
+                cmd.env_clear();
+            }
+            // Same defaults VTE sets; the profile may override them below.
+            for (k, v) in DEFAULT_ENV {
+                cmd.env(k, v);
+            }
+            for entry in &opts.env {
+                if let Some((k, v)) = entry.split_once('=') {
+                    cmd.env(OsStr::new(k), OsStr::new(v));
+                }
             }
         }
         cmd.stdin(Stdio::from(slave.try_clone()?)).stdout(Stdio::from(slave.try_clone()?)).stderr(Stdio::from(slave));
         // SAFETY: only async-signal-safe calls (setsid, ioctl) between fork and exec.
+        // With `flatpak-spawn` the PTY must not become the controlling terminal of that helper's
+        // session: the session helper on the host takes the terminal over itself (see `host_argv`).
+        let take_tty = host_cmd.is_none();
         unsafe {
-            cmd.pre_exec(|| {
+            cmd.pre_exec(move || {
                 cvt(libc::setsid())?;
-                cvt(libc::ioctl(0, libc::TIOCSCTTY, 0))?;
+                if take_tty {
+                    cvt(libc::ioctl(0, libc::TIOCSCTTY, 0))?;
+                }
                 Ok(())
             });
         }
@@ -239,6 +291,33 @@ mod tests {
         assert!(m.canonical && m.echo);
         p.resize(120, 40, 0, 0).unwrap();
         drop(p); // SIGHUP ends cat
+    }
+
+    #[test]
+    fn host_command_line() {
+        let o = SpawnOptions {
+            argv: vec!["bash".into(), "-l".into()],
+            cwd: Some("/home/x".into()),
+            env: vec!["FOO=bar".into(), "TERM=vt100".into()],
+            clean_env: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            host_argv(&o),
+            [
+                "flatpak-spawn",
+                "--host",
+                "--watch-bus",
+                "--directory=/home/x",
+                "--clear-env",
+                "--env=COLORTERM=truecolor",
+                "--env=FOO=bar",
+                "--env=TERM=vt100",
+                "--",
+                "bash",
+                "-l"
+            ]
+        );
     }
 
     #[test]
