@@ -130,6 +130,17 @@ impl Backend {
         Backend::Vte(vte)
     }
 
+    /// The shell this engine starts: with the libghostty engine inside a Flatpak sandbox it runs on the
+    /// host, so it is the host user's login shell (asked once); otherwise what VTE reads from passwd.
+    pub fn user_shell(&self) -> Option<String> {
+        #[cfg(feature = "ghostty")]
+        if matches!(self, Backend::Ghostty(_)) && parkett_core::pty::in_flatpak() {
+            static HOST_SHELL: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+            return HOST_SHELL.get_or_init(parkett_core::pty::host_user_shell).clone();
+        }
+        user_shell()
+    }
+
     pub fn downgrade(&self) -> WeakBackend {
         match self {
             Backend::Vte(v) => WeakBackend::Vte(v.downgrade()),

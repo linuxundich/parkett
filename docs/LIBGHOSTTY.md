@@ -402,3 +402,8 @@ library but no `.pc`; 10.45 failed with `PCRE2_10.47` symbol versions of the run
 headless session (`flatpak run` with `FLATPAK_USER_DIR` because the script moves `XDG_DATA_HOME`): the shell ran
 on the host (`user=toff`, no `/.flatpak-info`), `TERM=xterm-256color`, `COLORTERM=truecolor`, `VTE_VERSION=8401`.
 Not checked: the window on a real desktop, the Nautilus extension and the notification portal from the sandbox.
+
+Login shell in the Flatpak: `Backend::user_shell()` asks the host once (`flatpak-spawn --host sh -c 'getent passwd "$(id -un)" | cut -d: -f7'`,
+`parkett_core::pty::host_user_shell`) because `vte_get_user_shell()` and `$SHELL` describe the sandbox there, which gave
+`/bin/sh` (prompt `sh-5.3$`). Now the host's shell (here `/usr/bin/bash`) starts, as seen in the process list of a
+private session. The VTE engine keeps the sandbox shell (it runs in the sandbox).

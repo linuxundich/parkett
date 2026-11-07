@@ -734,7 +734,7 @@ impl Terminal {
         let argv: Vec<String> = if let Some(cmd) = &self.0.command {
             cmd.clone()
         } else if profile.command.trim().is_empty() {
-            let mut a = vec![user_shell()];
+            let mut a = vec![user_shell(&self.0.vte)];
             if profile.login_shell {
                 a.push("-l".into());
             }
@@ -1758,8 +1758,9 @@ fn own_environment() -> Vec<String> {
     std::env::vars_os().map(|(k, v)| format!("{}={}", k.to_string_lossy(), v.to_string_lossy())).collect()
 }
 
-fn user_shell() -> String {
-    backend::user_shell()
+fn user_shell(backend: &Backend) -> String {
+    backend
+        .user_shell()
         .or_else(|| std::env::var("SHELL").ok())
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "/bin/sh".into())

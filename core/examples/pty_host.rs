@@ -6,6 +6,7 @@ use parkett_core::pty::{in_flatpak, Pty, SpawnOptions};
 use std::time::Duration;
 
 fn main() {
+    println!("host login shell: {:?}", parkett_core::pty::host_user_shell());
     let script = std::env::args().nth(1).unwrap_or_else(|| {
         "tty; ps -o pid=,pgid=,sid=,tty= -p $$; stty size; echo FOO=$FOO TERM=$TERM; pwd; sleep 1; exit 3".into()
     });

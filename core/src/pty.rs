@@ -32,6 +32,20 @@ pub fn in_flatpak() -> bool {
     std::path::Path::new("/.flatpak-info").exists()
 }
 
+/// The login shell of the user on the host, asked through `flatpak-spawn --host` (inside a Flatpak
+/// sandbox `/etc/passwd` and `$SHELL` describe the sandbox). `None` outside a sandbox or on failure.
+pub fn host_user_shell() -> Option<String> {
+    if !in_flatpak() {
+        return None;
+    }
+    let out = std::process::Command::new("flatpak-spawn")
+        .args(["--host", "sh", "-c", "getent passwd \"$(id -un)\" | cut -d: -f7"])
+        .output()
+        .ok()?;
+    let shell = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    (out.status.success() && shell.starts_with('/')).then_some(shell)
+}
+
 /// `TERM` and `COLORTERM` like VTE sets them; the profile may override them.
 const DEFAULT_ENV: [(&str, &str); 2] = [("TERM", "xterm-256color"), ("COLORTERM", "truecolor")];
 
