@@ -96,6 +96,11 @@ pub struct GhosttyView {
     scroll_on_output: Cell<bool>,
     scroll_on_keystroke: Cell<bool>,
     audible_bell: Cell<bool>,
+    bold_bright: Cell<bool>,
+    cursor_blink: Cell<CursorBlink>,
+    /// Phase of blinking text and cursor: shown (true) or hidden
+    blink_on: Cell<bool>,
+    blink_source: RefCell<Option<glib::SourceId>>,
     input_enabled: Cell<bool>,
     menu: RefCell<Option<gtk::PopoverMenu>>,
     /// Scroll position for a scrollbar next to the widget: value = first visible row.
@@ -146,6 +151,10 @@ impl Default for GhosttyView {
             scroll_on_output: Cell::new(false),
             scroll_on_keystroke: Cell::new(true),
             audible_bell: Cell::new(false),
+            bold_bright: Cell::new(false),
+            cursor_blink: Cell::new(CursorBlink::System),
+            blink_on: Cell::new(true),
+            blink_source: RefCell::new(None),
             input_enabled: Cell::new(true),
             menu: RefCell::new(None),
             vadj: RefCell::new(gtk::Adjustment::new(0.0, 0.0, 1.0, 1.0, 1.0, 1.0)),
@@ -415,6 +424,7 @@ impl WidgetImpl for GhosttyView {
         let frame = Rc::new(frame);
         *self.last_frame.borrow_mut() = Some(frame.clone());
         self.notify_a11y(&frame);
+        self.update_blink(&frame);
         let offset = self.with_state(|s| s.term.scrollbar().offset).unwrap_or(0);
         snapshot.append_color(&rgba(frame.bg, self.bg_alpha.get()), &graphene::Rect::new(0.0, 0.0, w, h));
         let (px, py) = self.pad.get();
@@ -505,6 +515,8 @@ impl GhosttyView {
         self.scroll_on_output.set(look.scroll_on_output);
         self.scroll_on_keystroke.set(look.scroll_on_keystroke);
         self.audible_bell.set(look.audible_bell);
+        self.bold_bright.set(look.bold_is_bright);
+        self.cursor_blink.set(look.cursor_blink);
         *self.look.borrow_mut() = Some(look);
         self.apply_look_to_terminal();
         self.update_metrics();
@@ -529,7 +541,11 @@ impl GhosttyView {
                     CursorKind::Ibeam => render::CursorShape::Bar,
                     CursorKind::Underline => render::CursorShape::Underline,
                 },
-                !matches!(l.cursor_blink, CursorBlink::Off),
+                match l.cursor_blink {
+                    CursorBlink::Off => false,
+                    CursorBlink::On => true,
+                    CursorBlink::System => gtk::Settings::default().is_some_and(|s| s.is_gtk_cursor_blink()),
+                },
             );
             s.term.set_scrollback_lines((l.scrollback >= 0).then_some(l.scrollback as usize));
         });
@@ -540,6 +556,48 @@ impl GhosttyView {
             l.scrollback = lines;
         }
         self.with_state_mut(|s| s.term.set_scrollback_lines((lines >= 0).then_some(lines as usize)));
+    }
+
+    /// Does the cursor blink right now? The profile can force it on or off; otherwise the program
+    /// (DECSCUSR) or the system setting decides.
+    fn cursor_blinks(&self, frame: &Frame) -> bool {
+        match self.cursor_blink.get() {
+            CursorBlink::Off => false,
+            CursorBlink::On => frame.cursor.is_some(),
+            CursorBlink::System => frame.cursor.is_some_and(|c| c.blinking),
+        }
+    }
+
+    /// Run the blink timer only while something blinks and the pane has the focus (like VTE's
+    /// `TextBlinkMode::Focused`: a timer in every idle pane cost CPU, QA-14).
+    fn update_blink(&self, frame: &Frame) {
+        let needed = self.focused.get()
+            && (self.cursor_blinks(frame) || frame.rows.iter().flatten().any(|c| c.flags & render::BLINK != 0));
+        let running = self.blink_source.borrow().is_some();
+        if needed && !running {
+            let half = gtk::Settings::default().map_or(600, |s| (s.gtk_cursor_blink_time() / 2).max(100) as u64);
+            let w = self.obj().downgrade();
+            let id = glib::timeout_add_local(std::time::Duration::from_millis(half), move || {
+                let Some(v) = w.upgrade() else { return glib::ControlFlow::Break };
+                let imp = v.imp();
+                imp.blink_on.set(!imp.blink_on.get());
+                v.queue_draw();
+                glib::ControlFlow::Continue
+            });
+            *self.blink_source.borrow_mut() = Some(id);
+        } else if !needed && running {
+            if let Some(id) = self.blink_source.borrow_mut().take() {
+                id.remove();
+            }
+            self.blink_on.set(true);
+        }
+    }
+
+    /// Show the cursor and blinking text at once (typing, new output), then continue blinking.
+    fn restart_blink(&self) {
+        if self.blink_source.borrow().is_some() {
+            self.blink_on.set(true);
+        }
     }
 
     /// The visible screen as a screen reader sees it (from the last drawn frame).
@@ -624,6 +682,7 @@ impl GhosttyView {
         if self.scroll_on_keystroke.get() {
             self.scroll_bottom();
         }
+        self.restart_blink();
         self.send(data);
         let text = String::from_utf8_lossy(data);
         for cb in self.commit_cbs.borrow().iter() {
@@ -873,6 +932,9 @@ impl GhosttyView {
         });
         let obj = self.obj();
         obj.queue_draw();
+        if cursor_moved {
+            self.restart_blink();
+        }
         if got_data {
             Self::emit(&self.contents_cbs);
         }
@@ -1359,8 +1421,13 @@ impl GhosttyView {
         let pad = self.text_pad.get() as f32;
         let highlight = self.highlight.get();
         let cursor = frame.cursor;
+        let blink_on = self.blink_on.get();
+        let cursor_visible = !focused || !self.cursor_blinks(frame) || blink_on;
+        let bold_bright = self.bold_bright.get();
         let block_at = |x: usize, y: usize| {
-            focused && cursor.is_some_and(|c| c.shape == CursorShape::Block && c.x as usize == x && c.y as usize == y)
+            focused
+                && cursor_visible
+                && cursor.is_some_and(|c| c.shape == CursorShape::Block && c.x as usize == x && c.y as usize == y)
         };
 
         for (y, row) in frame.rows.iter().enumerate() {
@@ -1422,6 +1489,12 @@ impl GhosttyView {
                     continue;
                 }
                 let mut fg = cell.fg.unwrap_or(frame.fg);
+                if bold_bright && cell.flags & render::BOLD != 0 {
+                    // bold text in the 8 dark ANSI colors uses the bright ones (profile option)
+                    if let Some(c) = cell.fg_index.filter(|i| *i < 8).and_then(|i| frame.palette.get(i as usize + 8)) {
+                        fg = *c;
+                    }
+                }
                 let mut bg = cell.bg;
                 let mut inverse = cell.flags & render::INVERSE != 0;
                 if (cell.selected && highlight.is_none()) || block_at(x, y) {
@@ -1446,7 +1519,7 @@ impl GhosttyView {
                     }
                     (None, _) => flush_bg(&mut bg_run),
                 }
-                if cell.flags & render::INVISIBLE != 0 {
+                if cell.flags & render::INVISIBLE != 0 || (cell.flags & render::BLINK != 0 && focused && !blink_on) {
                     flush(&mut run);
                     continue;
                 }
@@ -1504,7 +1577,7 @@ impl GhosttyView {
             }
         }
 
-        if let Some(c) = cursor {
+        if let Some(c) = cursor.filter(|_| cursor_visible) {
             let (x, y) = (c.x as f32 * cw, c.y as f32 * ch);
             let color = rgba(frame.cursor_color.unwrap_or(frame.fg), 1.0);
             let wcells = if c.wide_tail { 2.0 } else { 1.0 };

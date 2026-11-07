@@ -312,7 +312,7 @@ Not done in 5c (next, 5d and later):
   stay without marks; Ghostty's own integration scripts would be the next step there.
 - `ghostty-vt::on_unknown_osc` (limit 2048 bytes), a test for it.
 
-Still open after 5d: blinking, bold-is-bright, letter spacing, Sixel/Kitty images; Flatpak spawn;
+Still open after 5d: letter spacing, Sixel/Kitty images; Flatpak spawn;
 HiDPI/fractional scaling; Ctrl/arrows/IME/dead keys and pointer events through GDK; preferences
 performance against VTE; soft-wrapped links/search;
 `Pty`: environment `COLORTERM`/`TERM` come from `Pty` (VTE sets the same).
@@ -341,3 +341,12 @@ row, everything at once when more than 4 rows change, e.g. after scrolling) and 
 `update_contents`, `update_caret_position`, `update_selection_bound`. Text attributes (color, bold) and
 `set_caret_position`/`set_selection` (GTK 4.22+) are not provided. VM smoke test of the libghostty engine:
 15 of 17 (QA-09 now passes); `atspi.py texts` returns the pane text.
+
+Blinking and bold-is-bright (done): `GhosttyView` runs one blink timer (half of GTK's `gtk-cursor-blink-time`) only
+while the pane has the focus and the cursor blinks or a visible cell has SGR 5 – an idle or unfocused pane has
+no timer (QA-14). Cursor: the profile forces it on or off, *System* follows the program (DECSCUSR) and GTK's
+`gtk-cursor-blink`; the phase restarts at "shown" on typing and cursor movement. Blinking text is hidden in the
+off phase. Bold-is-bright: `Cell::fg_index` carries the palette index, bold cells with index 0–7 take 8–15
+(profile option `bold_is_bright`). Checked headless: blinking text visible/hidden/visible at 0.3/0.9/1.5 s,
+cursor with `ESC[1 q` likewise; Parkett with `bold_is_bright = true` draws (246,97,81) instead of (192,28,40) for
+bold red. Not checked: the system setting `gtk-cursor-blink = false` and the 10 s blink timeout of GTK.

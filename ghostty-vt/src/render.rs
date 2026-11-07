@@ -33,6 +33,8 @@ pub struct Cell {
     pub text: String,
     /// `None`: use the frame's default colors.
     pub fg: Option<Rgb>,
+    /// Palette index (0–255) when the foreground was chosen from the palette (SGR 30–37, 38;5;n, …)
+    pub fg_index: Option<u8>,
     pub bg: Option<Rgb>,
     /// `BOLD`, `ITALIC`, … (bits 0–7 of the library's style flags).
     pub flags: u16,
@@ -263,6 +265,9 @@ impl RenderState {
                 GhosttyRenderStateRowCellsData_GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_STYLE,
                 &mut st as *mut _ as *mut _,
             );
+            if st.fg_color.tag as u32 == GhosttyStyleColorTag_GHOSTTY_STYLE_COLOR_PALETTE {
+                cell.fg_index = Some(st.fg_color.value.palette);
+            }
             cell.flags = st.flags & 0xff;
             cell.underline = ((st.flags >> 8) & 0x7) as u8;
         }
@@ -312,6 +317,17 @@ mod tests {
         let c = f.cursor.unwrap();
         assert_eq!((c.x, c.y), (13, 0));
         assert_eq!(f.palette.len(), 256);
+    }
+
+    #[test]
+    fn palette_index_of_the_foreground() {
+        let mut t = Terminal::new(20, 2).unwrap();
+        t.write(b"\x1b[1;31mA\x1b[0m\x1b[38;5;200mB\x1b[0m\x1b[38;2;1;2;3mC\x1b[0mD");
+        let mut rs = RenderState::new().unwrap();
+        let f = rs.frame(&t).unwrap();
+        let idx: Vec<Option<u8>> = f.rows[0].iter().take(4).map(|c| c.fg_index).collect();
+        assert_eq!(idx, [Some(1), Some(200), None, None]);
+        assert!(f.rows[0][0].flags & BOLD != 0);
     }
 
     #[test]
