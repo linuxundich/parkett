@@ -391,3 +391,14 @@ So about 35–40 % less time and about 30 % less CPU for heavy output, memory an
 without a real GPU and without a visible window, so drawing is cheaper than on a desktop; the ratio is what
 counts. The widget redraws once per main-loop iteration at most (`queue_draw`) and copies the screen into a
 `Frame` per drawn frame (no per-row dirty tracking yet); that has not been a bottleneck here.
+
+Flatpak build (2026-11-07): `build-aux/flatpak/build.sh` builds and installs `de.linuxundich.Parkett` for the user
+(about 5 minutes; GNOME 51 runtime with GTK 4.24 / libadwaita 1.10). Modules: pcre2 10.47 (the runtime has the
+library but no `.pc`; 10.45 failed with `PCRE2_10.47` symbol versions of the runtime's glib), VTE 0.84.1
+(Meson fetches its small subprojects, so this module has `--share=network` at build time), libghostty-vt
+1.0.0 (Zig 0.17 tarball + the release source and deps tarballs, `zig build --system`), then Parkett with
+`PARKETT_FEATURES=ghostty` through `build-aux/cargo-build.sh`. Finish args: Wayland/X11, ipc, dri,
+`--filesystem=home`, `--talk-name=org.freedesktop.Flatpak`, `--env=PARKETT_BACKEND=ghostty`. Checked in a private
+headless session (`flatpak run` with `FLATPAK_USER_DIR` because the script moves `XDG_DATA_HOME`): the shell ran
+on the host (`user=toff`, no `/.flatpak-info`), `TERM=xterm-256color`, `COLORTERM=truecolor`, `VTE_VERSION=8401`.
+Not checked: the window on a real desktop, the Nautilus extension and the notification portal from the sandbox.

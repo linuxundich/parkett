@@ -5,6 +5,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Local Flatpak build (`build-aux/flatpak/build.sh`): GNOME 51 runtime, VTE and libghostty-vt built in, the
+  shell runs on the host through `flatpak-spawn --host`. Not published anywhere.
 - Experimental libghostty terminal engine, off by default: build with `cargo build --features ghostty`
   (needs libghostty-vt 1.0), choose it with the environment variable `PARKETT_BACKEND=ghostty` or the
   setting `terminal-backend` (row *Terminal engine* in the preferences, shown in builds with the feature): scrollbar, links, search, selection, OSC 7/133 shell marks through

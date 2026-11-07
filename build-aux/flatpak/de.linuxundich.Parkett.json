@@ -1,0 +1,142 @@
+{
+    "id": "de.linuxundich.Parkett",
+    "runtime": "org.gnome.Platform",
+    "runtime-version": "51",
+    "sdk": "org.gnome.Sdk",
+    "sdk-extensions": [
+        "org.freedesktop.Sdk.Extension.rust-stable"
+    ],
+    "command": "parkett",
+    "finish-args": [
+        "--socket=wayland",
+        "--socket=fallback-x11",
+        "--share=ipc",
+        "--device=dri",
+        "--filesystem=home",
+        "--talk-name=org.freedesktop.Flatpak",
+        "--env=PARKETT_BACKEND=ghostty"
+    ],
+    "build-options": {
+        "append-path": "/usr/lib/sdk/rust-stable/bin",
+        "env": {
+            "CARGO_HOME": "/run/build/parkett/cargo-home",
+            "CARGO_NET_OFFLINE": "true",
+            "PARKETT_FEATURES": "ghostty"
+        }
+    },
+    "cleanup": [
+        "/include",
+        "/lib/pkgconfig",
+        "/lib/cmake",
+        "/lib/*.a",
+        "/share/man",
+        "/share/doc"
+    ],
+    "modules": [
+        {
+            "name": "pcre2",
+            "buildsystem": "autotools",
+            "config-opts": [
+                "--disable-static"
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.47/pcre2-10.47.tar.bz2",
+                    "sha256": "47fe8c99461250d42f89e6e8fdaeba9da057855d06eb7fc08d9ca03fd08d7bc7"
+                }
+            ]
+        },
+        {
+            "name": "vte",
+            "buildsystem": "meson",
+            "config-opts": [
+                "-Dgtk3=false",
+                "-Dgtk4=true",
+                "-Dgir=false",
+                "-Dvapi=false",
+                "-Ddocs=false",
+                "-D_systemd=false"
+            ],
+            "build-options": {
+                "build-args": [
+                    "--share=network"
+                ]
+            },
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://download.gnome.org/sources/vte/0.84/vte-0.84.1.tar.xz",
+                    "sha256": "aca1caa8478aebcdbb1d67897fb3511eb7601debae6810e16a15b6fa25f31ac8"
+                }
+            ]
+        },
+        {
+            "name": "libghostty-vt",
+            "buildsystem": "simple",
+            "build-options": {
+                "env": {
+                    "ZIG_GLOBAL_CACHE_DIR": "/run/build/libghostty-vt/zig-cache"
+                }
+            },
+            "build-commands": [
+                "cd src && ../zig/zig build --prefix /app --system ../deps -Doptimize=ReleaseFast -Dcpu=baseline"
+            ],
+            "sources": [
+                {
+                    "type": "archive",
+                    "url": "https://ziglang.org/download/0.17.0/zig-x86_64-linux-0.17.0.tar.xz",
+                    "sha256": "1cbe9df9f27e6b78d14ccbca43b6703a404ef79ef1c463de901d7f088d4e2026",
+                    "dest": "zig"
+                },
+                {
+                    "type": "archive",
+                    "url": "https://release.files.ghostty.org/libghostty-vt/1.0.0/libghostty-vt-1.0.0.tar.gz",
+                    "sha256": "4a6ef758be721923e1969e7b81b443dcc92d8dd3fb5a39600c03a8817a753676",
+                    "dest": "src"
+                },
+                {
+                    "type": "archive",
+                    "url": "https://release.files.ghostty.org/libghostty-vt/1.0.0/libghostty-vt-1.0.0-deps.tar.gz",
+                    "sha256": "4d5ea5e448e4c7ea8fb55ccbaa8668f2a97d44f438cee831e2b7ecd162d85c29",
+                    "dest": "deps"
+                }
+            ]
+        },
+        {
+            "name": "parkett",
+            "buildsystem": "meson",
+            "config-opts": [
+                "--buildtype=release"
+            ],
+            "sources": [
+                {
+                    "type": "dir",
+                    "path": "../..",
+                    "skip": [
+                        "target",
+                        "_build",
+                        "_install",
+                        ".git",
+                        "build-aux/flatpak/.flatpak-builder",
+                        "build-aux/flatpak/build-dir",
+                        "build-aux/flatpak/repo",
+                        "build-aux/flatpak/.cache",
+                        ".claude"
+                    ]
+                },
+                {
+                    "type": "dir",
+                    "path": ".cache/vendor",
+                    "dest": "vendor"
+                },
+                {
+                    "type": "file",
+                    "path": ".cache/cargo-vendor-config.toml",
+                    "dest": "cargo-home",
+                    "dest-filename": "config.toml"
+                }
+            ]
+        }
+    ]
+}

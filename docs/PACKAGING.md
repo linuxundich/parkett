@@ -38,6 +38,17 @@ and reads `/proc` (foreground process for the confirmation on close, root/SSH co
 **Flathub:** By the author's own rule, AI-assisted apps are not submitted there; a separate
 Flatpak repo (as with other projects in `apps/*`) would remain possible.
 
+**Status (2026-11-07):** a local Flatpak exists: `build-aux/flatpak/build.sh` (manifest
+`build-aux/flatpak/de.linuxundich.Parkett.json`, GNOME 51 runtime, builds pcre2 10.47, VTE 0.84.1 and
+libghostty-vt 1.0 with Zig 0.17 from release tarballs, vendored crates, offline Rust build) builds it and
+installs it for the user; `--bundle` writes `parkett.flatpak`. It uses the libghostty engine
+(`PARKETT_BACKEND=ghostty` in the finish args) with the host start via `flatpak-spawn --host`
+(permission `--talk-name=org.freedesktop.Flatpak`, `--filesystem=home`), no host agent: foreground process
+detection (context colors, command label, confirmation on close, templates) is off in the sandbox and the
+directory comes from OSC 7 only (see `docs/LIBGHOSTTY.md`). Its settings and profiles live in
+`~/.var/app/de.linuxundich.Parkett/`, separate from a native install; both share the application id, so run only one at a time.
+The distribution itself (AUR/COPR/.deb/Flathub) stays on hold.
+
 **V** Only tackle Flatpak when there is a reason (other distributions without suitable
 packages); then as a separate step with a host agent.
 
