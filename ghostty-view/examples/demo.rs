@@ -95,11 +95,16 @@ fn main() -> glib::ExitCode {
                 paintable.snapshot(&snap, w.width() as f64, w.height() as f64);
                 if let (Some(node), Some(native)) = (snap.to_node(), w.native()) {
                     if let Some(r) = native.renderer() {
+                        // Render at the real device resolution of the surface (scale 1, 1.25, 1.5, 2 …)
+                        let scale = native.surface().map_or(1.0, |s| s.scale()) as f32;
+                        let node =
+                            gtk::gsk::TransformNode::new(&node, Some(&gtk::gsk::Transform::new().scale(scale, scale)));
                         let tex = r.render_texture(
                             &node,
-                            Some(&graphene::Rect::new(0.0, 0.0, w.width() as f32, w.height() as f32)),
+                            Some(&graphene::Rect::new(0.0, 0.0, w.width() as f32 * scale, w.height() as f32 * scale)),
                         );
                         let _ = tex.save_to_png(&path);
+                        eprintln!("surface scale {scale}, picture {}x{}", tex.width(), tex.height());
                     }
                 }
                 let adj = sc.vadjustment();

@@ -64,6 +64,10 @@ pub struct GhosttyView {
     cell: Cell<(f64, f64)>,
     /// Space around the text (the app's CSS gives VTE `padding: 6px 8px` too).
     pad: Cell<(f64, f64)>,
+    /// Device pixels per logical pixel of the surface (1, 1.25, 1.5, 2 …)
+    dev_scale: Cell<f64>,
+    /// Position of the widget in its window (logical px): the pixel grid is the window's, not ours
+    origin: Cell<(f32, f32)>,
     focused: Cell<bool>,
     im: gtk::IMMulticontext,
     /// Cell where the current drag selection started.
@@ -122,6 +126,8 @@ impl Default for GhosttyView {
             font: RefCell::new(pango::FontDescription::from_string("Monospace 11")),
             cell: Cell::new((9.0, 18.0)),
             pad: Cell::new((8.0, 6.0)),
+            dev_scale: Cell::new(1.0),
+            origin: Cell::new((0.0, 0.0)),
             focused: Cell::new(false),
             im: gtk::IMMulticontext::new(),
             anchor: Cell::new(None),
@@ -382,6 +388,26 @@ impl AccessibleTextImpl for GhosttyView {
 }
 
 impl WidgetImpl for GhosttyView {
+    fn realize(&self) {
+        self.parent_realize();
+        // The font metrics and the pixel grid depend on the scale (fractional scaling included);
+        // it can change when the window moves to another monitor.
+        let obj = self.obj();
+        if let Some(surface) = obj.native().and_then(|n| n.surface()) {
+            self.dev_scale.set(surface.scale());
+            let w = obj.downgrade();
+            surface.connect_scale_notify(move |s| {
+                if let Some(v) = w.upgrade() {
+                    v.imp().dev_scale.set(s.scale());
+                    v.imp().update_metrics();
+                    v.queue_resize();
+                    v.queue_draw();
+                }
+            });
+        }
+        self.update_metrics();
+    }
+
     fn measure(&self, orientation: gtk::Orientation, _for_size: i32) -> (i32, i32, i32, i32) {
         let (cw, ch) = self.cell.get();
         let (px, py) = self.pad.get();
@@ -429,7 +455,16 @@ impl WidgetImpl for GhosttyView {
         snapshot.append_color(&rgba(frame.bg, self.bg_alpha.get()), &graphene::Rect::new(0.0, 0.0, w, h));
         let (px, py) = self.pad.get();
         snapshot.save();
-        snapshot.translate(&graphene::Point::new(px as f32, py as f32));
+        let sc = self.dev_scale.get() as f32;
+        let origin = obj
+            .native()
+            .and_then(|n| obj.compute_point(n.upcast_ref::<gtk::Widget>(), &graphene::Point::zero()))
+            .map_or((0.0, 0.0), |p| (p.x(), p.y()));
+        let snap = |v: f64, o: f32| ((v as f32 + o) * sc).round() / sc - o;
+        let (tx, ty) = (snap(px, origin.0), snap(py, origin.1));
+        snapshot.translate(&graphene::Point::new(tx, ty));
+        // where our drawing starts in the window, for snapping the rectangles to device pixels
+        self.origin.set((origin.0 + tx, origin.1 + ty));
         self.draw_frame(snapshot, &frame, offset);
         snapshot.restore();
     }
@@ -1416,6 +1451,15 @@ impl GhosttyView {
         let obj = self.obj();
         let (cw, ch) = self.cell.get();
         let (cw, ch) = (cw as f32, ch as f32);
+        // Rectangles on whole device pixels: neighbouring cells and rows then meet without hairlines
+        // at fractional scales (1.25, 1.5), where cell edges fall between device pixels.
+        let sc = self.dev_scale.get() as f32;
+        // the window's pixel grid is what counts, not ours
+        let (ox, oy) = self.origin.get();
+        let snap = move |v: f32, o: f32| ((v + o) * sc).round() / sc - o;
+        let rect = move |x0: f32, y0: f32, x1: f32, y1: f32| {
+            graphene::Rect::new(snap(x0, ox), snap(y0, oy), snap(x1, ox) - snap(x0, ox), snap(y1, oy) - snap(y0, oy))
+        };
         let focused = self.focused.get();
         let font = self.scaled_font();
         let pad = self.text_pad.get() as f32;
@@ -1546,7 +1590,7 @@ impl GhosttyView {
             flush_bg(&mut bg_run);
             flush(&mut run);
             for (x0, n, c) in bgs.take() {
-                snapshot.append_color(&rgba(c, 1.0), &graphene::Rect::new(x0 as f32 * cw, fy, n as f32 * cw, ch));
+                snapshot.append_color(&rgba(c, 1.0), &rect(x0 as f32 * cw, fy, (x0 + n) as f32 * cw, fy + ch));
             }
             // Search hits sit between the cell backgrounds and the text.
             {
@@ -1559,10 +1603,7 @@ impl GhosttyView {
                     } else {
                         gdk::RGBA::new(1.0, 0.85, 0.0, 0.4)
                     };
-                    snapshot.append_color(
-                        &color,
-                        &graphene::Rect::new(m.x0 as f32 * cw, fy, (m.x1 - m.x0) as f32 * cw, ch),
-                    );
+                    snapshot.append_color(&color, &rect(m.x0 as f32 * cw, fy, m.x1 as f32 * cw, fy + ch));
                 }
             }
             for t in texts.take() {
@@ -1572,7 +1613,7 @@ impl GhosttyView {
                 let line = 1.0_f32.max((ch / 14.0).round());
                 snapshot.append_color(
                     &rgba(frame.fg, 1.0),
-                    &graphene::Rect::new(h.x0 as f32 * cw, fy + ch - line, (h.x1 - h.x0) as f32 * cw, line),
+                    &rect(h.x0 as f32 * cw, fy + ch - line, h.x1 as f32 * cw, fy + ch),
                 );
             }
         }
@@ -1584,9 +1625,9 @@ impl GhosttyView {
             let line = 2.0_f32.max((ch / 12.0).round());
             match (c.shape, focused) {
                 (CursorShape::Block, true) => {}
-                (CursorShape::Bar, true) => snapshot.append_color(&color, &graphene::Rect::new(x, y, line, ch)),
+                (CursorShape::Bar, true) => snapshot.append_color(&color, &rect(x, y, x + line, y + ch)),
                 (CursorShape::Underline, true) => {
-                    snapshot.append_color(&color, &graphene::Rect::new(x, y + ch - line, cw * wcells, line))
+                    snapshot.append_color(&color, &rect(x, y + ch - line, x + cw * wcells, y + ch))
                 }
                 _ => {
                     // hollow block, also for every shape while the widget has no focus

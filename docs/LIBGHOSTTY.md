@@ -312,7 +312,7 @@ Not done in 5c (next, 5d and later):
   stay without marks; Ghostty's own integration scripts would be the next step there.
 - `ghostty-vt::on_unknown_osc` (limit 2048 bytes), a test for it.
 
-Still open after 5d: letter spacing, Sixel/Kitty images; HiDPI/fractional scaling; Ctrl/arrows/IME/dead keys and pointer events through GDK; preferences
+Still open after 5d: letter spacing, Sixel/Kitty images;  Ctrl/arrows/IME/dead keys and pointer events through GDK; preferences
 performance against VTE; soft-wrapped links/search;
 `Pty`: environment `COLORTERM`/`TERM` come from `Pty` (VTE sets the same).
 
@@ -364,3 +364,30 @@ detection (context colors, command label, *save tab as template*) and the `/proc
 switched off; the directory then comes from OSC 7 only (`vte.sh` on the host sets it). Needs the permission
 `--talk-name=org.freedesktop.Flatpak` in the manifest. The VTE engine still starts its shell inside the sandbox
 (no host path), and Parkett has no Flatpak manifest/build yet, so the full app in a Flatpak is untested.
+
+HiDPI and fractional scaling (done, tested at 1.25, 1.5 and 2 in private mutter sessions with a scaled virtual
+monitor: `monitors.xml` with `<scale>`, `GSETTINGS_BACKEND=keyfile` + `experimental-features=['scale-monitor-framebuffer']`,
+script idea in `build-aux/ghostty-demo-headless.sh`; the demo renders its picture at the surface's real scale):
+the widget reads the surface scale on `realize` and on `notify::scale` (metrics are measured again; the window
+can move to another monitor), and draws every filled rectangle (cell backgrounds, search hits, underlines, bar
+and underline cursors) with edges on whole **device** pixels relative to the *window's* grid
+(`compute_point` of the widget to the native plus the snapped padding), because rows of 20 logical pixels land
+on half pixels at 1.5 when the headerbar is 39 px tall. First attempt snapped relative to the widget and
+counted the padding twice: hairlines between selected rows at 1.25/1.5, none at 2. Now none at all.
+Text is positioned by Pango/GSK as before. Not tried: real Wayland fractional-scale clients on hardware.
+
+Performance, VTE vs libghostty, same release binary (`cargo build --release -p parkett --features ghostty`),
+headless mutter, Cairo renderer, 10,000 lines of scrollback, script `build-aux/bench/engines.sh`, three runs each
+(time the shell needed to push the output into the terminal; CPU = user+system ticks of Parkett):
+
+| workload | VTE 0.84.1 | libghostty-vt 1.0.0 |
+|---|---|---|
+| `seq 1 3000000` (22 MB plain) | 1.18–1.21 s, 114–119 ticks | 0.70–0.83 s, 72–81 ticks |
+| 800,000 lines with colors, underline, CJK | 2.66–2.85 s, 219–236 ticks | 1.77–1.82 s, 154–160 ticks |
+| idle, one pane, 15 s | 1 tick | 2 ticks |
+| resident memory after the runs | 64–69 MB | 63–68 MB |
+
+So about 35–40 % less time and about 30 % less CPU for heavy output, memory and idle on par. The measurement runs
+without a real GPU and without a visible window, so drawing is cheaper than on a desktop; the ratio is what
+counts. The widget redraws once per main-loop iteration at most (`queue_draw`) and copies the screen into a
+`Frame` per drawn frame (no per-row dirty tracking yet); that has not been a bottleneck here.
