@@ -134,6 +134,15 @@
       <summary>Show Sixel graphics</summary>
       <description>Display images in Sixel format in the terminal. Only works if the installed VTE library is built with Sixel support.</description>
     </key>
+    <key name="terminal-backend" type="s">
+      <choices>
+        <choice value="vte"/>
+        <choice value="ghostty"/>
+      </choices>
+      <default>"vte"</default>
+      <summary>Terminal engine</summary>
+      <description>Experimental. “vte” is the default engine. “ghostty” uses libghostty and only works in builds made with the ghostty feature; the environment variable PARKETT_BACKEND overrides this setting. Applies to terminals opened afterwards.</description>
+    </key>
     <key name="scrollback-lines" type="i">
       <range min="-1" max="1000000"/>
       <default>10000</default>

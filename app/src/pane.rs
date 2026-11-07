@@ -4,7 +4,6 @@
 use adw::prelude::*;
 use adw::subclass::prelude::*;
 use gtk::glib;
-use vte::prelude::*;
 
 use crate::i18n::{gettext, ntrf, trf, N_};
 use crate::shortcuts::live_tooltip;
@@ -190,7 +189,7 @@ impl Pane {
         overlay.add_overlay(&context_badge);
         // the badge gives way when the cursor gets to the top line
         let weak = pane.downgrade();
-        terminal.vte().connect_cursor_moved(move |_| {
+        terminal.connect_cursor_moved(move || {
             if let Some(p) = weak.upgrade() {
                 p.place_badge();
             }
@@ -420,17 +419,25 @@ impl Pane {
         // Minimum size 20×5 cells: dividers cannot be pushed further
         let set_min = {
             let weak = pane.downgrade();
-            move |v: &vte::Terminal| {
+            move |t: &Terminal| {
                 if let Some(p) = weak.upgrade() {
+                    let (w, h) = t.char_size();
                     p.set_size_request(
-                        (v.char_width() * crate::terminal::MIN_COLUMNS) as i32,
-                        (v.char_height() * crate::terminal::MIN_ROWS) as i32,
+                        (w * crate::terminal::MIN_COLUMNS) as i32,
+                        (h * crate::terminal::MIN_ROWS) as i32,
                     );
                 }
             }
         };
-        set_min(terminal.vte());
-        terminal.vte().connect_char_size_changed(move |v, _, _| set_min(v));
+        set_min(&terminal);
+        {
+            let t = terminal.downgrade();
+            terminal.connect_char_size_changed(move || {
+                if let Some(t) = t.upgrade() {
+                    set_min(&t);
+                }
+            });
+        }
 
         imp.terminal.set(terminal).ok();
         imp.pill.set(pill).ok();
@@ -608,7 +615,7 @@ impl Pane {
     }
 
     pub fn focus_terminal(&self) {
-        self.terminal().vte().grab_focus();
+        self.terminal().grab_focus();
     }
 
     /// Title in the floating field, with a colored chip in front for a context; marking
@@ -669,9 +676,7 @@ impl Pane {
     fn place_badge(&self) {
         let imp = self.imp();
         let badge = imp.context_badge.get().unwrap();
-        let vte = self.terminal().vte();
-        let top = vte.vadjustment().map_or(0.0, |a| a.value());
-        let cursor_on_top = (vte.cursor_position().1 as f64 - top) < 1.0;
+        let cursor_on_top = self.terminal().cursor_on_top_row();
         let offset = if imp.frame.get().unwrap().is_visible() { FRAME as i32 } else { CONTEXT_LINE };
         if cursor_on_top {
             badge.set_valign(gtk::Align::End);
@@ -744,7 +749,7 @@ impl Pane {
     pub fn show_search(&self) {
         let imp = self.imp();
         let entry = imp.search_entry.get().unwrap();
-        if let Some(sel) = self.terminal().vte().text_selected(vte::Format::Text) {
+        if let Some(sel) = self.terminal().selected_text() {
             let sel = sel.trim();
             if !sel.is_empty() && !sel.contains('\n') {
                 entry.set_text(sel);
@@ -841,9 +846,7 @@ impl Pane {
     /// Show the title briefly after a focus change – not when the cursor is in the top
     /// row: that is where one is typing, and exactly that row would be covered.
     fn flash_title(&self) {
-        let vte = self.terminal().vte();
-        let top = vte.vadjustment().map_or(0.0, |a| a.value());
-        if (vte.cursor_position().1 as f64 - top) < 1.0 {
+        if self.terminal().cursor_on_top_row() {
             return;
         }
         let weak = self.downgrade();

@@ -11,7 +11,6 @@ use adw::subclass::prelude::*;
 use gtk::glib;
 use gtk::glib::subclass::Signal;
 use parkett_core::layout::{Direction, Layout, Node, Orientation, PaneId, Side};
-use vte::prelude::*;
 
 use crate::i18n::{gettext, ntrf, N_};
 use crate::pane::Pane;
@@ -307,10 +306,7 @@ impl Tab {
         });
         // Take focus by click or Tab key into the model
         let weak_pane = pane.downgrade();
-        pane.terminal().vte().connect_has_focus_notify(move |vte| {
-            if !vte.has_focus() {
-                return;
-            }
+        pane.terminal().connect_focus_gained(move || {
             let Some(pane) = weak_pane.upgrade() else { return };
             let Some(tab) = pane.tab() else { return };
             let id = pane.id();
@@ -473,8 +469,8 @@ impl Tab {
     }
 
     fn min_pane_size(&self) -> (f32, f32) {
-        let vte = self.focused_pane().terminal().vte().clone();
-        ((vte.char_width() * MIN_COLUMNS) as f32, (vte.char_height() * MIN_ROWS) as f32)
+        let (w, h) = self.focused_pane().terminal().char_size();
+        ((w * MIN_COLUMNS) as f32, (h * MIN_ROWS) as f32)
     }
 
     /// Drag & drop of a pane (see `Layout::move_pane`); `false` if nothing happens.
@@ -866,7 +862,7 @@ impl Tab {
             .borrow()
             .values()
             .map(|p| p.terminal().clone())
-            .filter(|t| !t.sync_excluded() && t.vte() != source.vte())
+            .filter(|t| !t.sync_excluded() && t.uid() != source.uid())
             .collect();
         FORWARDING.with(|f| f.set(true));
         for t in targets {

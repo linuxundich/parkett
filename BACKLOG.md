@@ -20,6 +20,34 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 - [x] File paths in the output as links, Ctrl+click opens them in the file manager (audit T-53)
 - [x] Sixel: wait for the distributions to build VTE with Sixel (decided 2026-10-23); no own
       VTE build
+- [ ] libghostty-vt as second backend behind a switch (decided 2026-11-07, phases in
+      `docs/LIBGHOSTTY.md`); phase 1 started: `ghostty-vt-sys` (raw bindings, hello test passes against 1.0.0);
+      safe wrapper `ghostty-vt` done (text, title, cwd, cursor, resize/reflow, scrollback);
+      phase 2 done: `parkett_core::pty` (spawn via Command + pre_exec, resize, foreground pgid,
+      termios, hangup) and a headless PTY→terminal test; phase 3a done: `ghostty_vt::render` (owned `Frame` with cells, resolved colors, styles, wide
+      characters, cursor, palette); phase 3b done: `ghostty-view` (`GhosttyView` widget: Pango/GSK drawing, library key encoder, IME,
+      wheel scrolling, resize, PTY watch; `examples/demo.rs`, headless screenshot via
+      `build-aux/ghostty-demo-headless.sh`); phase 4a done: selection (drag, word, line, rectangle with Alt, select all), copy text/HTML,
+      primary selection, paste with bracketed mode and unsafe-text callback, mouse reporting, wheel;
+      phase 4b done: links (OSC 8, URLs, mail, paths with :line:col, profile custom links; hover underline,
+      Ctrl+click callback) and search (PCRE2 over the whole scrollback, count, step, highlights);
+      phase 5a done: pane, tab and window reach the widget only through `Terminal` methods
+      (`grab_focus`, `connect_focus_gained`, `char_size`, `cursor_on_top_row`, `selected_text`, …,
+      `Terminal::vte()` is gone; `ci.sh` green), phase 5b done: all VTE calls live in
+      `app/src/backend.rs` (`Backend`, `Look`, `SpawnSpec`, `ShellEvent`); `terminal.rs`, panes, tabs and
+      window have no `vte::` left; `ci.sh` green, headless spawn check ok; 5c done: `Backend` is an enum (`Vte`, and `Ghostty` behind Cargo feature `ghostty`), switch =
+      `PARKETT_BACKEND=ghostty` or setting `terminal-backend` (no preferences row yet), Parkett runs
+      with libghostty (screenshot headless, colors/title/spawn ok); 5d done: scrollbar (widget is `GtkScrollable`, in the same `GtkScrolledWindow` as VTE),
+      shell integration through `VTE_VERSION` + `vte.sh` (OSC 7/133/666 marks); remaining list in
+      `docs/LIBGHOSTTY.md` ('Still open after 5d'); old text: (second
+      `Backend` arm with `GhosttyView` + switch: Cargo feature `ghostty`
+      + setting/`PARKETT_BACKEND`), 5d (context menu, exit bar, search bar, flatpak spawn, shell
+      integration) and the leftovers of 3/4: blink, scrollbar,
+      per-row dirty drawing, soft-wrapped links/search across rows, real GDK input events test; VTE comparison moves to the widget phase
+      (VTE needs a display)
+- [x] libghostty instead of VTE: not now (superseded 2026-11-07 by the item above) (analysis 2026-10-29, `docs/LIBGHOSTTY.md`) –
+      libghostty-vt has no renderer, PTY or accessibility, API unversioned; check again when a
+      stable libghostty or a GTK4 widget on it exists
 
 ## Roadmap
 

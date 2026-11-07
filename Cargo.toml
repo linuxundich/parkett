@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
-members = ["core", "app"]
+members = ["core", "app", "ghostty-vt-sys", "ghostty-vt", "ghostty-view"]
+default-members = ["core", "app"]
 
 [workspace.package]
 version = "0.5.0"

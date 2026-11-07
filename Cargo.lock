@@ -234,6 +234,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "ghostty-view"
+version = "0.5.0"
+dependencies = [
+ "ghostty-vt",
+ "glib",
+ "glib-unix",
+ "gtk4",
+ "parkett-core",
+]
+
+[[package]]
+name = "ghostty-vt"
+version = "0.5.0"
+dependencies = [
+ "ghostty-vt-sys",
+ "parkett-core",
+]
+
+[[package]]
+name = "ghostty-vt-sys"
+version = "0.5.0"
+dependencies = [
+ "pkg-config",
+]
+
+[[package]]
 name = "gio"
 version = "0.22.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -302,6 +328,28 @@ version = "0.22.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "99b38907e67e40dec9b60f858bcada952598719cb512a13eb13d6cdcd16f8295"
 dependencies = [
+ "libc",
+ "system-deps 9.0.0",
+]
+
+[[package]]
+name = "glib-unix"
+version = "0.22.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc698e05c8483a899312f76b30b8d6d59e44f9e6ddf93a7487a6de34019b543d"
+dependencies = [
+ "futures-core",
+ "glib",
+ "glib-unix-sys",
+]
+
+[[package]]
+name = "glib-unix-sys"
+version = "0.22.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8644d8d71c4f25b27f775dc9bb4dcd69ff81de8614b23f16c2d7944c915e96ab"
+dependencies = [
+ "glib-sys",
  "libc",
  "system-deps 9.0.0",
 ]
@@ -591,6 +639,7 @@ name = "parkett"
 version = "0.5.0"
 dependencies = [
  "gettext-rs",
+ "ghostty-view",
  "gio",
  "glib",
  "gtk4",
@@ -605,6 +654,7 @@ name = "parkett-core"
 version = "0.5.0"
 dependencies = [
  "gettext-rs",
+ "libc",
  "serde",
  "serde_json",
  "toml 0.9.12+spec-1.1.0",

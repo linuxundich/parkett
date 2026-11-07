@@ -5,20 +5,18 @@
 //! not from the signals deprecated since VTE 0.78.
 
 use std::cell::{Cell, RefCell};
-use std::os::fd::AsRawFd;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use adw::prelude::*;
-use gtk::glib::translate::{from_glib_full, ToGlibPtr};
 use gtk::{gio, glib, pango};
-use vte::prelude::*;
 
 use parkett_core::context::{self, Context, Kind};
 use parkett_core::link::{Action as LinkAction, CustomLink};
 use parkett_core::palette::Rgb;
-use parkett_core::profile::{Bell, CursorBlink, CursorShape, ExitAction, Profile};
+use parkett_core::profile::{Bell, ExitAction, Profile};
 
+use crate::backend::{self, Backend, Look, ShellEvent, SpawnSpec};
 use crate::i18n::{gettext, ntrf, trf, N_};
 use crate::profiles::ProfileManager;
 
@@ -32,7 +30,7 @@ type InputCallback = Box<dyn Fn(&str)>;
 struct Inner {
     root: gtk::Box,
     scroller: gtk::ScrolledWindow,
-    vte: vte::Terminal,
+    vte: Backend,
     exit_bar: gtk::Revealer,
     exit_icon: gtk::Image,
     exit_label: gtk::Label,
@@ -156,17 +154,7 @@ pub struct Launch {
 
 impl Terminal {
     pub fn new(cwd: Option<String>, profile_id: &str, launch: Launch) -> Self {
-        let vte = vte::Terminal::builder()
-            .hexpand(true)
-            .vexpand(true)
-            .allow_hyperlink(true)
-            .pointer_autohide(true)
-            .bold_is_bright(false)
-            .enable_a11y(true)
-            .build();
-        vte.set_size(100, 30);
-        // Setter instead of builder: only it accepts -1 (unlimited)
-        vte.set_scrollback_lines(crate::settings::scrollback_lines());
+        let vte = Backend::new(crate::settings::scrollback_lines());
 
         let exit_label = gtk::Label::builder().xalign(0.0).hexpand(true).ellipsize(pango::EllipsizeMode::End).build();
         let restart = gtk::Button::with_label(&gettext("Restart"));
@@ -186,9 +174,9 @@ impl Terminal {
             .build();
 
         // Scrollbar like Ptyxis: VTE in a ScrolledWindow, overlay and narrow
-        let scroller =
-            gtk::ScrolledWindow::builder().child(&vte).hscrollbar_policy(gtk::PolicyType::Never).vexpand(true).build();
+        let scroller = gtk::ScrolledWindow::builder().hscrollbar_policy(gtk::PolicyType::Never).vexpand(true).build();
         let root = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        scroller.set_child(Some(&*vte));
         root.append(&scroller);
         root.append(&exit_bar);
 
@@ -266,8 +254,55 @@ impl Terminal {
         &self.0.root
     }
 
-    pub fn vte(&self) -> &vte::Terminal {
+    /// The widget that takes the keyboard focus (for comparisons and `GtkRoot::focus`).
+    pub fn focus_widget(&self) -> &gtk::Widget {
         &self.0.vte
+    }
+
+    /// Is `w` inside the terminal's focusable widget (or that widget itself)?
+    pub fn owns_focus_widget(w: &gtk::Widget) -> bool {
+        Backend::is_terminal_widget(w)
+    }
+
+    pub fn grab_focus(&self) {
+        self.0.vte.grab_focus();
+    }
+
+    /// The terminal got the keyboard focus.
+    pub fn connect_focus_gained(&self, f: impl Fn() + 'static) {
+        self.0.vte.connect_has_focus_notify(move |v| {
+            if v.has_focus() {
+                f();
+            }
+        });
+    }
+
+    pub fn connect_cursor_moved(&self, f: impl Fn() + 'static) {
+        self.0.vte.connect_cursor_moved(f);
+    }
+
+    /// Size of one character cell in pixels.
+    pub fn char_size(&self) -> (i64, i64) {
+        self.0.vte.char_size()
+    }
+
+    pub fn connect_char_size_changed(&self, f: impl Fn() + 'static) {
+        self.0.vte.connect_char_size_changed(f);
+    }
+
+    /// Is the cursor in the top visible row (where the floating title would cover it)?
+    pub fn cursor_on_top_row(&self) -> bool {
+        self.0.vte.cursor_on_top_row()
+    }
+
+    /// The selected text, if any.
+    pub fn selected_text(&self) -> Option<String> {
+        self.0.vte.selected_text()
+    }
+
+    /// Run a `term.*` action of this terminal.
+    pub fn activate_action(&self, action: &str) {
+        let _ = self.0.vte.activate_action(action, None);
     }
 
     pub fn connect_state_changed(&self, f: impl Fn() + 'static) {
@@ -282,7 +317,7 @@ impl Terminal {
     /// Send text to the process as if the user had typed it here.
     pub fn feed(&self, text: &str) {
         if self.0.exit.get().is_none() {
-            self.0.vte.feed_child(text.as_bytes());
+            self.0.vte.feed(text.as_bytes());
         }
     }
 
@@ -334,7 +369,7 @@ impl Terminal {
 
     /// Window title the shell set via OSC 0/2; otherwise the profile's command.
     pub fn title(&self) -> Option<String> {
-        self.0.vte.termprop_string("xterm.title").0.map(String::from).filter(|s| !s.is_empty()).or_else(|| {
+        self.0.vte.title().filter(|s| !s.is_empty()).or_else(|| {
             // Command from the command line, otherwise the profile's
             let command = match &self.0.command {
                 Some(c) => c.join(" "),
@@ -356,13 +391,10 @@ impl Terminal {
     }
 
     /// Working directory from `vte.cwd` (OSC 7, requires vte.sh in the shell).
-    /// vte4-rs does not bind `ref_termprop_uri`; hence the one FFI call.
     /// Only paths on this host, decoded: an OSC 7 from an SSH session names the path
     /// on the server and must not set a local start directory (QA-05, QA-06).
     pub fn cwd(&self) -> Option<String> {
-        let uri: Option<glib::Uri> = unsafe {
-            from_glib_full(vte::ffi::vte_terminal_ref_termprop_uri(self.0.vte.to_glib_none().0, c"vte.cwd".as_ptr()))
-        };
+        let uri = self.0.vte.cwd_uri();
         uri.and_then(|u| parkett_core::uri::local_path(u.to_str().as_str(), glib::host_name().as_str()))
     }
 
@@ -569,7 +601,7 @@ impl Terminal {
     pub fn type_command(&self, command: &str) {
         let text = format!("{}\n", command.trim_end());
         if self.0.child_pid.get().is_some() && self.0.exit.get().is_none() {
-            self.0.vte.feed_child(text.as_bytes());
+            self.0.vte.feed(text.as_bytes());
         } else {
             *self.0.pending_input.borrow_mut() = Some(text);
         }
@@ -582,11 +614,7 @@ impl Terminal {
         if self.0.exit.get().is_some() {
             return None;
         }
-        let pty = self.0.vte.pty()?;
-        let pgid = unsafe { libc::tcgetpgrp(pty.fd().as_raw_fd()) };
-        if pgid <= 0 {
-            return None;
-        }
+        let pgid = self.0.vte.foreground_pgid()?;
         let comm = std::fs::read_to_string(format!("/proc/{pgid}/comm")).unwrap_or_default().trim().to_string();
         let args: Vec<String> = std::fs::read(format!("/proc/{pgid}/cmdline"))
             .unwrap_or_default()
@@ -613,7 +641,7 @@ impl Terminal {
         match fg {
             Some(f) => {
                 let own_uid = unsafe { libc::getuid() };
-                let title = self.0.vte.termprop_string("xterm.title").0.map(String::from);
+                let title = self.0.vte.title();
                 context::classify(&context::Process {
                     comm: &f.comm,
                     args: &f.args,
@@ -720,27 +748,18 @@ impl Terminal {
             .or_else(|| self.0.cwd_at_start.clone())
             .or_else(|| glib::home_dir().to_str().map(String::from));
         // Call to a running instance: its environment instead of Parkett's (QA-08)
-        let (env, flags) = match &self.0.environment {
-            Some(caller) => (
-                parkett_core::environment::for_caller(caller, &own_environment(), &profile.valid_environment()),
-                glib::SpawnFlags::SEARCH_PATH
-                    | glib::SpawnFlags::from_bits_retain(vte::ffi::VTE_SPAWN_NO_PARENT_ENVV as u32),
-            ),
-            None => (profile.valid_environment(), glib::SpawnFlags::SEARCH_PATH),
+        let (env, clean_env) = match &self.0.environment {
+            Some(caller) => {
+                (parkett_core::environment::for_caller(caller, &own_environment(), &profile.valid_environment()), true)
+            }
+            None => (profile.valid_environment(), false),
         };
         let argv_ref: Vec<&str> = argv.iter().map(String::as_str).collect();
         let env_ref: Vec<&str> = env.iter().map(String::as_str).collect();
         let weak = Rc::downgrade(&self.0);
         let program = argv[0].clone();
-        self.0.vte.spawn_async(
-            vte::PtyFlags::DEFAULT,
-            dir.as_deref(),
-            &argv_ref,
-            &env_ref,
-            flags,
-            || {},
-            -1,
-            gio::Cancellable::NONE,
+        self.0.vte.spawn(
+            &SpawnSpec { argv: &argv_ref, dir: dir.as_deref(), env: &env_ref, clean_env },
             move |result| {
                 let Some(inner) = weak.upgrade() else { return };
                 match result {
@@ -786,22 +805,13 @@ impl Terminal {
 
     fn feed_pending(&self) {
         if let Some(text) = self.0.pending_input.borrow_mut().take() {
-            self.0.vte.feed_child(text.as_bytes());
+            self.0.vte.feed(text.as_bytes());
         }
     }
 
     /// termios of the PTY: line-wise input and echo (detects a password prompt).
     fn tty_mode(&self) -> Option<parkett_core::startup::TtyMode> {
-        let pty = self.0.vte.pty()?;
-        let mut t: libc::termios = unsafe { std::mem::zeroed() };
-        // SAFETY: valid descriptor of the PTY, `t` is a complete termios
-        if unsafe { libc::tcgetattr(pty.fd().as_raw_fd(), &mut t) } != 0 {
-            return None;
-        }
-        Some(parkett_core::startup::TtyMode {
-            canonical: t.c_lflag & libc::ICANON != 0,
-            echo: t.c_lflag & libc::ECHO != 0,
-        })
+        self.0.vte.tty_mode()
     }
 
     fn fail(&self, program: &str, message: &str) {
@@ -834,7 +844,7 @@ impl Terminal {
 
     fn setup_signals(&self) {
         let weak = Rc::downgrade(&self.0);
-        self.0.vte.connect_child_exited(move |_, status| {
+        self.0.vte.connect_child_exited(move |status| {
             let Some(inner) = weak.upgrade() else { return };
             let t = Terminal(inner);
             let exit = decode_wait_status(status);
@@ -885,7 +895,7 @@ impl Terminal {
 
         // Bell: mark the tab (VTE makes the sound itself, see set_audible_bell)
         let weak = Rc::downgrade(&self.0);
-        self.0.vte.connect_bell(move |_| {
+        self.0.vte.connect_bell(move || {
             let Some(inner) = weak.upgrade() else { return };
             let t = Terminal(inner);
             if ProfileManager::get().profile(&t.profile_id()).bell != Bell::None {
@@ -896,7 +906,7 @@ impl Terminal {
 
         // Pass input on for the shared input in the tab
         let weak = Rc::downgrade(&self.0);
-        self.0.vte.connect_commit(move |_, text, _| {
+        self.0.vte.connect_commit(move |text| {
             if let Some(inner) = weak.upgrade() {
                 for f in inner.on_input.borrow().iter() {
                     f(text);
@@ -905,15 +915,17 @@ impl Terminal {
         });
 
         // Copy on select (setting, like Tilix)
-        self.0.vte.connect_selection_changed(|v| {
-            if v.has_selection() && crate::settings::settings().boolean("copy-on-select") {
-                v.copy_clipboard_format(vte::Format::Text);
+        let backend = self.0.vte.downgrade();
+        self.0.vte.connect_selection_changed(move || {
+            let Some(b) = backend.upgrade() else { return };
+            if b.has_selection() && crate::settings::settings().boolean("copy-on-select") {
+                b.copy(false);
             }
         });
 
         // Time of the last output for the startup command (R-09)
         let weak = Rc::downgrade(&self.0);
-        self.0.vte.connect_contents_changed(move |_| {
+        self.0.vte.connect_contents_changed(move || {
             if let Some(inner) = weak.upgrade() {
                 inner.last_output.set(Instant::now());
                 let t = Terminal(inner);
@@ -923,27 +935,26 @@ impl Terminal {
         });
 
         let weak = Rc::downgrade(&self.0);
-        self.0.vte.connect_termprop_changed(None, move |_, name| {
+        self.0.vte.connect_shell_event(move |event| {
             let Some(inner) = weak.upgrade() else { return };
-            match name {
-                "xterm.title" => {
+            match event {
+                ShellEvent::Title => {
                     let t = Terminal(inner);
                     t.emit_state_changed();
                     // `root@host` in the title of a remote shell: root on the other host
                     t.poll_soon();
                 }
-                "vte.cwd" => {
+                ShellEvent::Cwd => {
                     let t = Terminal(inner);
                     t.check_appearance();
                     t.emit_state_changed();
                 }
-                // Shell integration (vte.sh): command starts or prompt returns
-                "vte.shell.preexec" => {
+                ShellEvent::Preexec => {
                     inner.command_started.set(Some(Instant::now()));
                     inner.command_name.borrow_mut().take();
                     Terminal(inner).poll_soon();
                 }
-                "vte.shell.precmd" => {
+                ShellEvent::Precmd => {
                     // first prompt: a waiting startup command can come now (R-09)
                     Terminal(inner.clone()).feed_pending();
                     if let Some(start) = inner.command_started.take() {
@@ -952,7 +963,6 @@ impl Terminal {
                     // back at the prompt: release the context color immediately
                     Terminal(inner).poll_soon();
                 }
-                _ => {}
             }
         });
     }
@@ -997,7 +1007,6 @@ impl Terminal {
         let palette = manager.palette(parkett_core::palette::effective_id(&chosen, high_contrast));
         let face = palette.face(sm.is_dark());
         let colors: Vec<gtk::gdk::RGBA> = face.colors.iter().map(rgba).collect();
-        let refs: Vec<&gtk::gdk::RGBA> = colors.iter().collect();
         // Context color: fixed meaning, shade from the scheme; only root and SSH tint the
         // background, with contrast protection (`Face::context_background`)
         let mark = if crate::settings::context_colors() {
@@ -1014,7 +1023,6 @@ impl Terminal {
         self.0.dim_alpha.set(face.dim_alpha(&background));
         let marked = mark.is_some();
         *self.0.mark.borrow_mut() = mark;
-        let vte = &self.0.vte;
         // Transparency: only the background gets alpha; the window behind it is switched
         // to translucent for that (Window::update_translucency)
         // a context draws opaque: the marking must not depend on what is behind the window,
@@ -1022,43 +1030,36 @@ impl Terminal {
         let opacity = if marked && crate::settings::context_opaque() { 1.0 } else { look.opacity() };
         let mut bg = rgba(&background);
         bg.set_alpha(opacity as f32);
-        vte.set_colors(Some(&rgba(&face.foreground)), Some(&bg), &refs);
         self.0.opacity.set(opacity);
-        vte.set_color_cursor(face.cursor.as_ref().map(rgba).as_ref());
-        vte.set_color_cursor_foreground(face.cursor_foreground.as_ref().map(rgba).as_ref());
-        // Selection in the accent color instead of inverted
-        vte.set_color_highlight(Some(&rgba(&face.selection(&from_rgba(&sm.accent_color_rgba())))));
         // Font and cursor from the appearance profile, bell from its own
         let font = if look.font.trim().is_empty() { sm.monospace_font_name() } else { look.font.trim().into() };
-        vte.set_font(Some(&pango::FontDescription::from_string(&font)));
-        vte.set_bold_is_bright(look.bold_is_bright);
-        vte.set_cell_height_scale(Profile::spacing(look.line_spacing));
-        vte.set_cell_width_scale(Profile::spacing(look.letter_spacing));
         let own = manager.profile(&self.profile_id());
-        vte.set_scroll_on_output(own.scroll_on_output);
-        vte.set_scroll_on_keystroke(own.scroll_on_keystroke);
         self.apply_links(&own.links);
-        vte.set_cursor_shape(match look.cursor_shape {
-            CursorShape::Block => vte::CursorShape::Block,
-            CursorShape::Ibeam => vte::CursorShape::Ibeam,
-            CursorShape::Underline => vte::CursorShape::Underline,
+        self.0.vte.apply(&Look {
+            foreground: rgba(&face.foreground),
+            background: bg,
+            palette: &colors,
+            cursor: face.cursor.as_ref().map(rgba),
+            cursor_foreground: face.cursor_foreground.as_ref().map(rgba),
+            // Selection in the accent color instead of inverted
+            highlight: rgba(&face.selection(&from_rgba(&sm.accent_color_rgba()))),
+            font: font.to_string(),
+            bold_is_bright: look.bold_is_bright,
+            line_spacing: Profile::spacing(look.line_spacing),
+            letter_spacing: Profile::spacing(look.letter_spacing),
+            scroll_on_output: own.scroll_on_output,
+            scroll_on_keystroke: own.scroll_on_keystroke,
+            cursor_shape: look.cursor_shape,
+            cursor_blink: look.cursor_blink,
+            audible_bell: own.bell == Bell::Sound,
+            sixel: backend::sixel_supported() && crate::settings::settings().boolean("enable-sixel"),
         });
-        // blinking text (SGR 5) only in the focused pane, like gnome-terminal: in all
-        // panes it cost 7.8 % CPU while idle in the VM (QA-14)
-        vte.set_text_blink_mode(vte::TextBlinkMode::Focused);
-        vte.set_cursor_blink_mode(match look.cursor_blink {
-            CursorBlink::System => vte::CursorBlinkMode::System,
-            CursorBlink::On => vte::CursorBlinkMode::On,
-            CursorBlink::Off => vte::CursorBlinkMode::Off,
-        });
-        vte.set_audible_bell(manager.profile(&self.profile_id()).bell == Bell::Sound);
         // without a bar the mouse wheel keeps working (External = area scrolls, no bar)
         self.0.scroller.set_vscrollbar_policy(if look.scrollbar {
             gtk::PolicyType::Automatic
         } else {
             gtk::PolicyType::External
         });
-        vte.set_enable_sixel(sixel_supported() && crate::settings::settings().boolean("enable-sixel"));
         self.0.background.set(background);
         for f in self.0.on_colors_changed.borrow().iter() {
             f();
@@ -1083,7 +1084,7 @@ impl Terminal {
             if paths.is_empty() {
                 return false;
             }
-            vte.paste_text(&format!("{} ", paths.join(" ")));
+            vte.paste(&format!("{} ", paths.join(" ")));
             vte.grab_focus();
             true
         });
@@ -1093,12 +1094,8 @@ impl Terminal {
     fn setup_links(&self) {
         let vte = &self.0.vte;
         for pattern in URL_PATTERNS {
-            match vte::Regex::for_match(pattern, PCRE2_FLAGS) {
-                Ok(re) => {
-                    let tag = vte.match_add_regex(&re, 0);
-                    vte.match_set_cursor_name(tag, "pointer");
-                }
-                Err(e) => glib::g_warning!("parkett", "URL pattern: {e}"),
+            if let Err(e) = vte.add_match(pattern) {
+                glib::g_warning!("parkett", "URL pattern: {e}");
             }
         }
         // Ctrl+click opens the link; without Ctrl, clicking stays selecting
@@ -1162,7 +1159,7 @@ impl Terminal {
             self.0.actions.add_action(&a);
         }
         // OSC 8 links show their real target as a tooltip – the visible text can deceive.
-        vte.connect_hyperlink_hover_uri_notify(|vte| vte.set_tooltip_text(vte.hyperlink_hover_uri().as_deref()));
+        vte.show_hyperlink_tooltips();
     }
 
     /// Register the profile's custom links again when they have changed.
@@ -1173,15 +1170,11 @@ impl Terminal {
             return;
         }
         for (tag, _) in current.drain(..) {
-            self.0.vte.match_remove(tag);
+            self.0.vte.remove_match(tag);
         }
         for link in wanted {
-            match vte::Regex::for_match(&link.pattern, PCRE2_FLAGS) {
-                Ok(re) => {
-                    let tag = self.0.vte.match_add_regex(&re, 0);
-                    self.0.vte.match_set_cursor_name(tag, "pointer");
-                    current.push((tag, link.clone()));
-                }
+            match self.0.vte.add_match(&link.pattern) {
+                Ok(tag) => current.push((tag, link.clone())),
                 Err(e) => glib::g_warning!("parkett", "Custom link “{}”: {e}", link.pattern),
             }
         }
@@ -1189,7 +1182,7 @@ impl Terminal {
 
     /// Custom link of the profile at the position, with groups substituted.
     fn custom_link_at(&self, x: f64, y: f64) -> Option<LinkAction> {
-        let (text, tag) = self.0.vte.check_match_at(x, y);
+        let (text, tag) = self.0.vte.match_at(x, y);
         let text = text?;
         let links = self.0.custom_links.borrow();
         let link = links.iter().find(|(t, _)| *t == tag).map(|(_, l)| l)?;
@@ -1197,6 +1190,7 @@ impl Terminal {
         let re = glib::Regex::new(&link.pattern, glib::RegexCompileFlags::empty(), glib::RegexMatchFlags::empty())
             .ok()
             .flatten()?;
+        let text = glib::GString::from(text);
         let info = re.match_(text.as_gstr(), glib::RegexMatchFlags::empty()).ok().filter(|i| i.matches())?;
         let groups: Vec<Option<glib::GString>> = (0..10).map(|i| info.fetch(i)).collect();
         let groups: Vec<Option<&str>> = groups.iter().map(|g| g.as_deref()).collect();
@@ -1227,12 +1221,7 @@ impl Terminal {
 
     /// OSC 8 link or detected address at the position (widget coordinates).
     pub fn link_at(&self, x: f64, y: f64) -> Option<String> {
-        self.0
-            .vte
-            .check_hyperlink_at(x, y)
-            .map(String::from)
-            .or_else(|| self.0.vte.check_match_at(x, y).0.map(String::from))
-            .filter(|u| !u.is_empty())
+        self.0.vte.hyperlink_at(x, y).or_else(|| self.0.vte.match_at(x, y).0).filter(|u| !u.is_empty())
     }
 
     /// File path from the output in the file manager: open the folder, for files the folder with
@@ -1317,18 +1306,8 @@ impl Terminal {
 
     /// Sets the search pattern; `None` clears the search. Returns an error for an invalid regex.
     pub fn set_search(&self, text: Option<&str>, query: SearchQuery) -> Result<(), String> {
-        let vte = &self.0.vte;
-        let Some(text) = text.filter(|t| !t.is_empty()) else {
-            vte.search_set_regex(None, 0);
-            vte.unselect_all();
-            return Ok(());
-        };
-        let pattern = query.pattern(text);
-        let flags = PCRE2_FLAGS | if query.case_sensitive { 0 } else { PCRE2_CASELESS };
-        let re = vte::Regex::for_search(&pattern, flags).map_err(|e| e.message().to_string())?;
-        vte.search_set_regex(Some(&re), 0);
-        vte.search_set_wrap_around(true);
-        Ok(())
+        let pattern = text.filter(|t| !t.is_empty()).map(|t| query.pattern(t));
+        self.0.vte.set_search(pattern.as_deref(), query.case_sensitive)
     }
 
     /// Matches in the whole scrollback (QA-19), at most `SEARCH_COUNT_MAX`. VTE does not count
@@ -1344,40 +1323,12 @@ impl Terminal {
             flags |= glib::RegexCompileFlags::CASELESS;
         }
         let re = glib::Regex::new(&pattern, flags, glib::RegexMatchFlags::empty()).ok()??;
-        let vte = &self.0.vte;
-        let adj = vte.vadjustment()?;
-        let (first, last) = (adj.lower() as libc::c_long, adj.upper() as libc::c_long);
-        // Read from the bottom in blocks and stop at SEARCH_COUNT_MAX: fetching the whole scrollback
-        // as text cost about 0.27 s per key with 300,000 lines (VM). A match across a block
-        // boundary (wrapped line exactly there) can be missed – the number is an overview.
-        let mut n = 0;
-        let mut end = last;
-        while end > first && n < SEARCH_COUNT_MAX {
-            // rows start..end, without end (it belongs to the block below)
-            let start = (end - SEARCH_COUNT_ROWS).max(first);
-            let (content, _) = vte.text_range_format(vte::Format::Text, start, 0, end - 1, vte.column_count());
-            if let Some(content) = content {
-                if let Ok(info) = re.match_(content.as_gstr(), glib::RegexMatchFlags::empty()) {
-                    while info.matches() && n < SEARCH_COUNT_MAX {
-                        n += 1;
-                        if !info.next().unwrap_or(false) {
-                            break;
-                        }
-                    }
-                }
-            }
-            end = start;
-        }
-        Some(n)
+        self.0.vte.count_matches(&re, SEARCH_COUNT_MAX)
     }
 
     /// Next match upward (older output) or downward. `false` = nothing found.
     pub fn search_step(&self, up: bool) -> bool {
-        if up {
-            self.0.vte.search_find_previous()
-        } else {
-            self.0.vte.search_find_next()
-        }
+        self.0.vte.search_step(up)
     }
 
     fn setup_style(&self) {
@@ -1442,7 +1393,7 @@ impl Terminal {
 
     fn setup_actions(&self) {
         let group = self.0.actions.clone();
-        let add = |name: &str, f: Box<dyn Fn(&vte::Terminal)>| {
+        let add = |name: &str, f: Box<dyn Fn(&Backend)>| {
             let a = gio::SimpleAction::new(name, None);
             let vte = self.0.vte.downgrade();
             a.connect_activate(move |_, _| {
@@ -1452,7 +1403,7 @@ impl Terminal {
             });
             group.add_action(&a);
         };
-        add("copy", Box::new(|v| v.copy_clipboard_format(vte::Format::Text)));
+        add("copy", Box::new(|v| v.copy(false)));
         // Paste through Parkett: multi-line text is shown first (feature matrix P0) –
         // without the shell's bracketed paste the lines would otherwise run immediately
         add("paste", Box::new(paste_with_check));
@@ -1463,9 +1414,9 @@ impl Terminal {
         add("zoom-reset", Box::new(|v| v.set_font_scale(1.0)));
         // Reset like in Tilix: after broken control sequences (e.g. `cat` of a
         // binary file); "clear" also discards the scrollback
-        add("copy-html", Box::new(|v| v.copy_clipboard_format(vte::Format::Html)));
-        add("reset", Box::new(|v| v.reset(true, false)));
-        add("reset-clear", Box::new(|v| v.reset(true, true)));
+        add("copy-html", Box::new(|v| v.copy(true)));
+        add("reset", Box::new(|v| v.reset(false)));
+        add("reset-clear", Box::new(|v| v.reset(true)));
         add("save-output", Box::new(save_output));
         // Read only (Tilix "Read-Only"): keys and paste do not reach the process
         let a = gio::SimpleAction::new_stateful("read-only", None, &false.to_variant());
@@ -1598,7 +1549,7 @@ impl Terminal {
         let close = gio::Menu::new();
         item(&close, &gettext("Close pane"), "win.close-pane");
         menu.append_section(None, &close);
-        self.0.vte.set_context_menu_model(Some(&menu));
+        self.0.vte.set_context_menu(&menu);
     }
 }
 
@@ -1637,15 +1588,8 @@ impl SearchQuery {
 
 /// Above this the search shows "999+": otherwise counting takes noticeable time with a long scrollback.
 pub const SEARCH_COUNT_MAX: usize = 999;
-/// Rows per block when counting (bottom to top)
-const SEARCH_COUNT_ROWS: libc::c_long = 20_000;
-
-/// PCRE2 flags like Ptyxis: UTF, NO_UTF_CHECK, UCP and MULTILINE (required by VTE).
-pub const PCRE2_FLAGS: u32 = 0x0008_0000 | 0x4000_0000 | 0x0002_0000 | 0x0000_0400;
-pub const PCRE2_CASELESS: u32 = 0x0000_0008;
-
 /// Save scrollback and visible text as a file (Tilix "Save…").
-fn save_output(vte: &vte::Terminal) {
+fn save_output(vte: &Backend) {
     let dialog = gtk::FileDialog::builder()
         .title(gettext("Save output"))
         .initial_name(gettext("terminal-output.txt"))
@@ -1658,7 +1602,7 @@ fn save_output(vte: &vte::Terminal) {
         let written = file
             .replace(None, false, gio::FileCreateFlags::REPLACE_DESTINATION, gio::Cancellable::NONE)
             .and_then(|stream| {
-                vte.write_contents_sync(&stream, vte::WriteFlags::Default, gio::Cancellable::NONE)?;
+                vte.write_contents(stream.upcast_ref())?;
                 stream.close(gio::Cancellable::NONE)
             });
         if let Some(w) = vte.root().and_downcast::<crate::window::Window>() {
@@ -1673,7 +1617,7 @@ fn save_output(vte: &vte::Terminal) {
     });
 }
 
-fn paste_with_check(vte: &vte::Terminal) {
+fn paste_with_check(vte: &Backend) {
     let vte = vte.clone();
     vte.clipboard().read_text_async(gio::Cancellable::NONE, move |res| {
         let Ok(Some(text)) = res else { return };
@@ -1681,7 +1625,7 @@ fn paste_with_check(vte: &vte::Terminal) {
         // Every line break counts, including one at the end of a single line (QA-04)
         let check = parkett_core::paste::check(&text);
         if !check.executes || !crate::settings::settings().boolean("warn-multiline-paste") {
-            vte.paste_text(&text);
+            vte.paste(&text);
             return;
         }
         let lines = check.lines.len();
@@ -1724,15 +1668,15 @@ fn paste_with_check(vte: &vte::Terminal) {
         dialog.set_default_response(Some("cancel"));
         dialog.set_close_response("cancel");
         let v2 = vte.clone();
-        dialog.connect_response(Some("paste"), move |_, _| v2.paste_text(&text));
-        dialog.present(Some(&vte));
+        dialog.connect_response(Some("paste"), move |_, _| v2.paste(&text));
+        dialog.present(Some(&*vte));
     });
 }
 
 /// Paste special: edit clipboard text first, convert tabs and
 /// line endings (Tilix "Advanced Paste"). Replaces the confirmation for line breaks –
 /// the text is already fully shown in the dialog.
-fn paste_advanced(vte: &vte::Terminal) {
+fn paste_advanced(vte: &Backend) {
     let vte = vte.clone();
     vte.clipboard().read_text_async(gio::Cancellable::NONE, move |res| {
         let text = match res {
@@ -1783,18 +1727,11 @@ fn paste_advanced(vte: &vte::Terminal) {
             let (start, end) = buffer.bounds();
             let raw = buffer.text(&start, &end, false);
             let width = tabs.is_active().then(|| width.value_as_int().max(1) as usize);
-            v2.paste_text(&parkett_core::paste::transform(&raw, width, crlf.is_active()));
+            v2.paste(&parkett_core::paste::transform(&raw, width, crlf.is_active()));
         });
-        dialog.present(Some(&vte));
+        dialog.present(Some(&*vte));
         view.grab_focus();
     });
-}
-
-/// Is the installed VTE built with Sixel? (Arch and Fedora 44 are not.)
-pub fn sixel_supported() -> bool {
-    // vte4-rs does not bind vte_get_feature_flags; plain query without arguments
-    let flags = vte::FeatureFlags::from_bits_truncate(unsafe { vte::ffi::vte_get_feature_flags() });
-    flags.contains(vte::FeatureFlags::FLAG_SIXEL)
 }
 
 fn rgba(c: &Rgb) -> gtk::gdk::RGBA {
@@ -1818,9 +1755,10 @@ fn own_environment() -> Vec<String> {
 }
 
 fn user_shell() -> String {
-    let from_vte: Option<String> =
-        unsafe { from_glib_full::<_, Option<glib::GString>>(vte::ffi::vte_get_user_shell()) }.map(String::from);
-    from_vte.or_else(|| std::env::var("SHELL").ok()).filter(|s| !s.is_empty()).unwrap_or_else(|| "/bin/sh".into())
+    backend::user_shell()
+        .or_else(|| std::env::var("SHELL").ok())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "/bin/sh".into())
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

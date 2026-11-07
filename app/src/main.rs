@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //! Parkett – terminal emulator for GNOME with splits.
 
+mod backend;
 mod bookmarks;
 mod commands;
 mod i18n;
@@ -269,7 +270,32 @@ fn open(app: &adw::Application, cmdline: &gio::ApplicationCommandLine, cli: park
         win.select(&tab);
     }
     win.present();
+    #[cfg(debug_assertions)]
+    debug_screenshot(&win, app);
     glib::ExitCode::SUCCESS
+}
+
+/// Test hook of debug builds only: `PARKETT_DEBUG_SHOT=file.png:milliseconds` saves a picture of
+/// the window and quits (headless sessions have no screenshot protocol).
+#[cfg(debug_assertions)]
+fn debug_screenshot(win: &window::Window, app: &adw::Application) {
+    let Some((path, ms)) = std::env::var("PARKETT_DEBUG_SHOT").ok().and_then(|v| {
+        let (p, m) = v.rsplit_once(':')?;
+        Some((p.to_string(), m.parse::<u64>().ok()?))
+    }) else {
+        return;
+    };
+    let (win, app) = (win.clone(), app.clone());
+    glib::timeout_add_local_once(std::time::Duration::from_millis(ms), move || {
+        let paintable = gtk::WidgetPaintable::new(Some(&win));
+        let snap = gtk::Snapshot::new();
+        paintable.snapshot(&snap, win.width() as f64, win.height() as f64);
+        if let (Some(node), Some(renderer)) = (snap.to_node(), gtk::prelude::NativeExt::renderer(&win)) {
+            let rect = gtk::graphene::Rect::new(0.0, 0.0, win.width() as f32, win.height() as f32);
+            let _ = renderer.render_texture(&node, Some(&rect)).save_to_png(&path);
+        }
+        app.quit();
+    });
 }
 
 fn setup_actions(app: &adw::Application) {

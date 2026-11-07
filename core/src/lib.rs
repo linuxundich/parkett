@@ -15,6 +15,7 @@ pub mod palette;
 pub mod paste;
 pub mod paths;
 pub mod profile;
+pub mod pty;
 pub mod session;
 pub mod startup;
 pub mod template;

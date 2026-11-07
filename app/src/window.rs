@@ -1201,7 +1201,7 @@ impl Window {
     pub fn run_action(&self, action: &str) {
         if action.starts_with("term.") {
             if let Some(tab) = self.current_tab() {
-                let _ = tab.focused_pane().terminal().vte().activate_action(action, None);
+                tab.focused_pane().terminal().activate_action(action);
             }
         } else {
             let _ = WidgetExt::activate_action(self, action, None);
@@ -1229,7 +1229,7 @@ impl Window {
     }
 
     fn terminal_has_focus(&self) -> bool {
-        GtkWindowExt::focus(self).is_some_and(|f| f.ancestor(vte::Terminal::static_type()).is_some())
+        GtkWindowExt::focus(self).is_some_and(|f| crate::terminal::Terminal::owns_focus_widget(&f))
     }
 
     /// Keys in layout mode. Everything else is swallowed so that nothing ends up in the shell.

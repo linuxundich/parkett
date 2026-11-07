@@ -4,6 +4,26 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Experimental libghostty terminal engine, off by default: build with `cargo build --features ghostty`
+  (needs libghostty-vt 1.0), choose it with the environment variable `PARKETT_BACKEND=ghostty` or the
+  hidden setting `terminal-backend`: scrollbar, links, search, selection, OSC 7/133 shell marks through
+  `vte.sh`. Not complete yet, see `docs/LIBGHOSTTY.md`.
+
+### Changed
+- Internal: panes, tabs and the window no longer touch the VTE widget directly; they use new
+  `Terminal` methods (focus, cursor, character size, selection), and every VTE call now lives in
+  `app/src/backend.rs`. No visible change.
+
+### Added
+- Experimental, not wired in: `ghostty-vt-sys` crate with raw bindings to libghostty-vt 1.0.0
+  (groundwork for an optional second terminal backend; not a default workspace member), plus
+  the safe wrapper crate `ghostty-vt` (text, title, working directory, cursor, resize) and
+  `parkett_core::pty` (PTY and child process without VTE; not used by the app yet) and
+  `ghostty_vt::render` (screen snapshot for drawing: cells, colors, styles, cursor), a key
+  encoder and terminal replies, and the experimental `ghostty-view` crate with a GTK4 terminal
+  widget (`GhosttyView`) and a demo window (`cargo run -p ghostty-view --example demo`).
+
 ## [0.5.0] - 2026-10-25
 
 English interface with German translation, the remaining Tilix features (tab into a new window,

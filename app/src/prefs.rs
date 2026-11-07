@@ -167,7 +167,7 @@ fn general_page() -> adw::PreferencesPage {
     settings.bind("notify-command-finished", &notify, "active").build();
     behaviour.add(&notify);
     let sixel = adw::SwitchRow::builder().title(gettext("Show Sixel graphics")).build();
-    if crate::terminal::sixel_supported() {
+    if crate::backend::sixel_supported() {
         sixel.set_subtitle(&gettext("Images in the terminal, e.g. from img2sixel or chafa"));
         settings.bind("enable-sixel", &sixel, "active").build();
     } else {
