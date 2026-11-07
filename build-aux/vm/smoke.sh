@@ -62,7 +62,8 @@ remote 'kill -TERM $(pidof parkett)'
 sleep 2
 check "Parkett stopped" "$(remote 'pidof parkett >/dev/null && echo running || echo stopped')" stopped
 check "no orphaned shells" "$(remote "n=0; for p in $pids; do kill -0 \$p 2>/dev/null && n=\$((n+1)); done; echo \$n")" 0
-remote 'systemd-run --user -q --collect -u app-gnome-de.linuxundich.Parkett-smoke ~/.local/bin/parkett'
+# PARKETT_ENV (e.g. PARKETT_BACKEND=ghostty) applies to the restarted instance too
+remote "systemd-run --user -q --collect -u app-gnome-de.linuxundich.Parkett-smoke ${PARKETT_ENV:+--setenv=$PARKETT_ENV} ~/.local/bin/parkett"
 sleep 2
 check "Session restored" "$(shells)" 3
 # QA-07: markup in titles stays text (AT-SPI name of the tab)

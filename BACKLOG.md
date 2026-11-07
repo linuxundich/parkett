@@ -100,6 +100,15 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
 
 - [ ] Still open from the VM run (2026-10-22/23): context color right after switching tabs;
       renaming a tab through the dialog (custom title via `-t` passed); Orca with speech output
+- [x] VM smoke test of the libghostty engine 2026-11-07 (same VM, build with `PARKETT_FEATURES=ghostty`,
+      started with `PARKETT_ENV=PARKETT_BACKEND=ghostty`, libghostty-vt 1.0 copied to `~/.local/ghostty-vt`):
+      14 of 17 checks pass. Same two failures as the VTE engine and 0.5.0 (F10/htop, QA-02), plus
+      QA-09 (*focus in the terminal after the main menu*): the focused AT-SPI object is a plain panel, the
+      widget has no accessible role/text yet – the known accessibility gap. Splits, tabs, closing,
+      restart profile, orphaned shells, session restore and tab titles pass; typing `htop` + Enter through
+      real key events (virsh send-key) works, which covers the GDK → key encoder path for plain keys.
+      Fixed along the way: `smoke.sh` started the restored instance without `PARKETT_ENV`
+- [ ] Accessibility for the libghostty widget (role terminal, `GtkAccessibleText`; QA-09)
 - [x] VM smoke test 2026-11-07 (Fedora 44, GNOME 50, VTE 0.84.1) after the Backend refactor and the
       libghostty work (default VTE engine): 15 of 17 checks pass. The two failures (*F10 quits htop*
       QA-01, *Pane title hides nothing* QA-02) fail the same way on the 0.5.0 release (`2b224da`) in the

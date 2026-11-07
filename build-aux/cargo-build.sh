@@ -15,5 +15,8 @@ if [[ "$buildtype" == "debug" ]]; then
 else
   profile=release; flags=(--release)
 fi
-cargo build "${flags[@]}" --manifest-path "$source_root/Cargo.toml" -p parkett
+# PARKETT_FEATURES=ghostty builds the experimental libghostty engine (docs/LIBGHOSTTY.md)
+features=()
+[[ -n "${PARKETT_FEATURES:-}" ]] && features=(--features "$PARKETT_FEATURES")
+cargo build "${flags[@]}" "${features[@]}" --manifest-path "$source_root/Cargo.toml" -p parkett
 cp "$CARGO_TARGET_DIR/$profile/parkett" "$output"

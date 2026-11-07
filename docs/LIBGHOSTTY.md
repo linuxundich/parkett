@@ -313,7 +313,7 @@ Not done in 5c (next, 5d and later):
 - `ghostty-vt::on_unknown_osc` (limit 2048 bytes), a test for it.
 
 Still open after 5d: blinking, bold-is-bright, letter spacing, Sixel/Kitty images; Flatpak spawn;
-HiDPI/fractional scaling; accessibility; real pointer and keyboard events; VM smoke test of the libghostty engine (the default engine passed 15/17, same as 0.5.0); preferences
+HiDPI/fractional scaling; accessibility; Ctrl/arrows/IME/dead keys and pointer events through GDK; preferences
 performance against VTE; soft-wrapped links/search;
 `Pty`: environment `COLORTERM`/`TERM` come from `Pty` (VTE sets the same).
 
@@ -323,3 +323,10 @@ Preferences: *Behaviour › Terminal engine* (VTE / libghostty, experimental) ap
 
 VM smoke test (2026-11-07, Fedora 44): default VTE engine 15 of 17 checks pass, the 2 failures (F10/htop,
 QA-02 screenshot) are identical on the 0.5.0 release. Not run for the libghostty engine.
+
+VM smoke test of the libghostty engine (2026-11-07, Fedora 44): `PARKETT_FEATURES=ghostty
+PARKETT_ENV=PARKETT_BACKEND=ghostty build-aux/vm/smoke.sh` after copying `~/.local/ghostty-vt` to the VM
+(deploy.sh fixes the `.pc` prefix there and links with an rpath). Result 14/17: the two failures of the
+VTE engine and of 0.5.0 plus QA-09, the accessibility gap (focused object is a panel, not a terminal).
+The libghostty-vt build from Arch's glibc runs on Fedora 44 (glibc 2.43). Plain keys through real GDK events
+work (`htop` typed by `virsh send-key`); Ctrl/arrows/IME/dead keys and pointer events are still untested.
