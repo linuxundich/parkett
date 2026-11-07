@@ -1,3 +1,4 @@
+use crate::a11y::{self, Granularity};
 use crate::links::{Detector, Link, RowText, Span};
 use crate::search::{self, Match};
 use ghostty_vt::edit::PasteResult;
@@ -9,6 +10,7 @@ use gtk::glib;
 use gtk::graphene;
 use gtk::pango;
 use gtk::prelude::*;
+use gtk::subclass::accessible_text::AccessibleTextImpl;
 use gtk::subclass::prelude::*;
 use parkett_core::profile::{CursorBlink, CursorShape as CursorKind};
 use parkett_core::pty::{Pty, SpawnOptions};
@@ -104,6 +106,8 @@ pub struct GhosttyView {
     hpolicy: Cell<gtk::ScrollablePolicy>,
     vpolicy: Cell<gtk::ScrollablePolicy>,
     adj_updating: Cell<bool>,
+    /// What the screen reader was last told (to send only the difference)
+    a11y_prev: RefCell<a11y::Snapshot>,
 }
 
 impl Default for GhosttyView {
@@ -150,6 +154,7 @@ impl Default for GhosttyView {
             hpolicy: Cell::new(gtk::ScrollablePolicy::Minimum),
             vpolicy: Cell::new(gtk::ScrollablePolicy::Minimum),
             adj_updating: Cell::new(false),
+            a11y_prev: RefCell::new(a11y::Snapshot::default()),
         }
     }
 }
@@ -159,10 +164,11 @@ impl ObjectSubclass for GhosttyView {
     const NAME: &'static str = "ParkettGhosttyView";
     type Type = super::GhosttyView;
     type ParentType = gtk::Widget;
-    type Interfaces = (gtk::Scrollable,);
+    type Interfaces = (gtk::Scrollable, gtk::AccessibleText);
 
     fn class_init(klass: &mut Self::Class) {
         klass.set_css_name("parkett-terminal");
+        klass.set_accessible_role(gtk::AccessibleRole::Terminal);
     }
 }
 
@@ -208,6 +214,7 @@ impl ObjectImpl for GhosttyView {
         obj.set_hexpand(true);
         obj.set_vexpand(true);
         obj.set_cursor_from_name(Some("text"));
+        obj.update_property(&[gtk::accessible::Property::Label("Terminal")]);
         self.im.set_client_widget(Some(&*obj));
         self.connect_vadjustment();
         self.update_metrics();
@@ -306,6 +313,65 @@ impl ObjectImpl for GhosttyView {
 
 impl ScrollableImpl for GhosttyView {}
 
+impl AccessibleTextImpl for GhosttyView {
+    fn contents(&self, start: u32, end: u32) -> Option<glib::Bytes> {
+        Some(glib::Bytes::from_owned(self.a11y_snapshot().contents(start, end).into_bytes()))
+    }
+
+    fn contents_at(&self, offset: u32, g: gtk::AccessibleTextGranularity) -> Option<(u32, u32, glib::Bytes)> {
+        let g = match g {
+            gtk::AccessibleTextGranularity::Character => Granularity::Character,
+            gtk::AccessibleTextGranularity::Word => Granularity::Word,
+            _ => Granularity::Line,
+        };
+        let (a, b, text) = self.a11y_snapshot().contents_at(offset, g);
+        Some((a, b, glib::Bytes::from_owned(text.into_bytes())))
+    }
+
+    fn caret_position(&self) -> u32 {
+        self.a11y_snapshot().caret()
+    }
+
+    fn selection(&self) -> Vec<gtk::AccessibleTextRange> {
+        self.a11y_snapshot()
+            .selection()
+            .map(|(a, b)| vec![gtk::AccessibleTextRange::new(a as usize, (b - a) as usize)])
+            .unwrap_or_default()
+    }
+
+    fn attributes(&self, _offset: u32) -> Vec<(gtk::AccessibleTextRange, glib::GString, glib::GString)> {
+        Vec::new()
+    }
+
+    fn default_attributes(&self) -> Vec<(glib::GString, glib::GString)> {
+        Vec::new()
+    }
+
+    fn extents(&self, start: u32, end: u32) -> Option<graphene::Rect> {
+        let snap = self.a11y_snapshot();
+        let (cw, ch) = self.cell.get();
+        let (px, py) = self.pad.get();
+        let (r0, c0) = snap.locate(start);
+        let (r1, c1) = snap.locate(end.max(start + 1) - 1);
+        let (x0, x1) = if r0 == r1 {
+            (c0 as f64, c1 as f64 + 1.0)
+        } else {
+            (0.0, self.with_state(|s| s.cols).unwrap_or(1) as f64)
+        };
+        Some(graphene::Rect::new(
+            (px + x0 * cw) as f32,
+            (py + r0 as f64 * ch) as f32,
+            ((x1 - x0) * cw) as f32,
+            ((r1 - r0 + 1) as f64 * ch) as f32,
+        ))
+    }
+
+    fn offset(&self, point: &graphene::Point) -> Option<u32> {
+        let (x, y) = self.cell_at(point.x() as f64, point.y() as f64);
+        Some(self.a11y_snapshot().offset_at(y as usize, x))
+    }
+}
+
 impl WidgetImpl for GhosttyView {
     fn measure(&self, orientation: gtk::Orientation, _for_size: i32) -> (i32, i32, i32, i32) {
         let (cw, ch) = self.cell.get();
@@ -348,6 +414,7 @@ impl WidgetImpl for GhosttyView {
         };
         let frame = Rc::new(frame);
         *self.last_frame.borrow_mut() = Some(frame.clone());
+        self.notify_a11y(&frame);
         let offset = self.with_state(|s| s.term.scrollbar().offset).unwrap_or(0);
         snapshot.append_color(&rgba(frame.bg, self.bg_alpha.get()), &graphene::Rect::new(0.0, 0.0, w, h));
         let (px, py) = self.pad.get();
@@ -473,6 +540,32 @@ impl GhosttyView {
             l.scrollback = lines;
         }
         self.with_state_mut(|s| s.term.set_scrollback_lines((lines >= 0).then_some(lines as usize)));
+    }
+
+    /// The visible screen as a screen reader sees it (from the last drawn frame).
+    fn a11y_snapshot(&self) -> a11y::Snapshot {
+        self.last_frame.borrow().as_ref().map(|f| a11y::Snapshot::from_frame(f)).unwrap_or_default()
+    }
+
+    /// Tell a screen reader what changed since the last frame: text per row, caret, selection.
+    /// GTK drops the calls when no assistive technology is connected; the pass over the cells
+    /// per frame is cheap (GTK's `realized` property of the AT context needs 4.24).
+    fn notify_a11y(&self, frame: &Frame) {
+        let obj = self.obj();
+        let now = a11y::Snapshot::from_frame(frame);
+        let prev = self.a11y_prev.replace(now.clone());
+        for e in a11y::diff(&prev.lines, &now.lines) {
+            match e {
+                a11y::Edit::Remove(a, b) => obj.update_contents(gtk::AccessibleTextContentChange::Remove, a, b),
+                a11y::Edit::Insert(a, b) => obj.update_contents(gtk::AccessibleTextContentChange::Insert, a, b),
+            }
+        }
+        if prev.caret() != now.caret() {
+            obj.update_caret_position();
+        }
+        if prev.selection() != now.selection() {
+            obj.update_selection_bound();
+        }
     }
 
     pub(crate) fn adjustment(&self) -> gtk::Adjustment {

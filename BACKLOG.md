@@ -108,7 +108,9 @@ Open work first, sorted by priority; finished work stays checked at the end. Sou
       restart profile, orphaned shells, session restore and tab titles pass; typing `htop` + Enter through
       real key events (virsh send-key) works, which covers the GDK → key encoder path for plain keys.
       Fixed along the way: `smoke.sh` started the restored instance without `PARKETT_ENV`
-- [ ] Accessibility for the libghostty widget (role terminal, `GtkAccessibleText`; QA-09)
+- [x] Accessibility for the libghostty widget: role terminal, label *Terminal*, `GtkAccessibleText` (visible rows,
+      caret, selection, change notifications, extents); VM smoke test 15/17 = VTE engine and 0.5.0 (QA-09 passes).
+      Not tested with Orca (speech); attributes (colors, bold) are not reported
 - [x] VM smoke test 2026-11-07 (Fedora 44, GNOME 50, VTE 0.84.1) after the Backend refactor and the
       libghostty work (default VTE engine): 15 of 17 checks pass. The two failures (*F10 quits htop*
       QA-01, *Pane title hides nothing* QA-02) fail the same way on the 0.5.0 release (`2b224da`) in the

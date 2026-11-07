@@ -2,6 +2,7 @@
 //! on a `parkett_core::pty::Pty`. Phase 3b of the libghostty backend (docs/LIBGHOSTTY.md): drawing,
 //! keyboard (incl. IME), wheel scrolling, resize. Selection, links, search and mouse reporting
 //! follow in phase 4.
+pub mod a11y;
 mod imp;
 pub mod links;
 pub mod search;
@@ -53,7 +54,7 @@ pub enum ShellEvent {
 glib::wrapper! {
     pub struct GhosttyView(ObjectSubclass<imp::GhosttyView>)
         @extends gtk::Widget,
-        @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget, gtk::Scrollable;
+        @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget, gtk::Scrollable, gtk::AccessibleText;
 }
 
 impl Default for GhosttyView {

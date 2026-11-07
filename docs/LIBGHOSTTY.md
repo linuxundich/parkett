@@ -313,7 +313,7 @@ Not done in 5c (next, 5d and later):
 - `ghostty-vt::on_unknown_osc` (limit 2048 bytes), a test for it.
 
 Still open after 5d: blinking, bold-is-bright, letter spacing, Sixel/Kitty images; Flatpak spawn;
-HiDPI/fractional scaling; accessibility; Ctrl/arrows/IME/dead keys and pointer events through GDK; preferences
+HiDPI/fractional scaling; Ctrl/arrows/IME/dead keys and pointer events through GDK; preferences
 performance against VTE; soft-wrapped links/search;
 `Pty`: environment `COLORTERM`/`TERM` come from `Pty` (VTE sets the same).
 
@@ -330,3 +330,14 @@ PARKETT_ENV=PARKETT_BACKEND=ghostty build-aux/vm/smoke.sh` after copying `~/.loc
 VTE engine and of 0.5.0 plus QA-09, the accessibility gap (focused object is a panel, not a terminal).
 The libghostty-vt build from Arch's glibc runs on Fedora 44 (glibc 2.43). Plain keys through real GDK events
 work (`htop` typed by `virsh send-key`); Ctrl/arrows/IME/dead keys and pointer events are still untested.
+
+Accessibility (done, tested in the VM, not with Orca's speech): `GhosttyView` has the role *Terminal*, the label
+*Terminal* and implements `GtkAccessibleText`. `ghostty-view/src/a11y.rs` (pure, unit-tested) builds a
+`Snapshot` of the visible rows from the last drawn frame: lines without trailing blanks joined by `\n`,
+offsets in characters, caret from the cursor cell, selection from the selected cells, units
+(character, word, line) for `contents_at`, cell columns for `extents`/`offset` (wide characters count
+two columns). Each drawn frame is compared with the one before (`a11y::diff`: one remove/insert per changed
+row, everything at once when more than 4 rows change, e.g. after scrolling) and GTK is told through
+`update_contents`, `update_caret_position`, `update_selection_bound`. Text attributes (color, bold) and
+`set_caret_position`/`set_selection` (GTK 4.22+) are not provided. VM smoke test of the libghostty engine:
+15 of 17 (QA-09 now passes); `atspi.py texts` returns the pane text.
