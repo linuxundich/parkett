@@ -871,7 +871,7 @@ impl GhosttyView {
         let ev = events.clone();
         term.on_unknown_osc(move |c| {
             let text = String::from_utf8_lossy(c);
-            if let Some(pid) = text.strip_prefix("777;parkett-host-pid;").and_then(|p| p.trim().parse().ok()) {
+            if let Some(pid) = text.strip_prefix("6666;parkett-host-pid;").and_then(|p| p.trim().parse().ok()) {
                 ev.borrow_mut().push(Event::HostPid(pid));
             } else if text.starts_with("666;vte.shell.preexec") {
                 ev.borrow_mut().push(Event::Mark(crate::ShellEvent::Preexec));

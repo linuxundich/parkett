@@ -113,9 +113,9 @@ pub fn host_argv(opts: &SpawnOptions) -> Vec<String> {
         v.push(format!("--env={e}"));
     }
     v.push("--".into());
-    // The host shell reports its own pid through the terminal (an unknown OSC the widget picks up):
+    // The host shell reports its own pid through the terminal (an OSC the library does not know, number 6666 – 777 is the desktop notification and is swallowed – which the widget picks up):
     // the sandbox cannot see host pids, and `host_foreground` needs this one to find the foreground job.
-    v.extend(["sh", "-c", r#"printf '\033]777;parkett-host-pid;%s\007' "$$"; exec "$@""#, "sh"].map(String::from));
+    v.extend(["sh", "-c", r#"printf '\033]6666;parkett-host-pid;%s\007' "$$"; exec "$@""#, "sh"].map(String::from));
     v.extend(opts.argv.iter().cloned());
     v
 }
@@ -388,7 +388,7 @@ mod tests {
                 "--",
                 "sh",
                 "-c",
-                r#"printf '\033]777;parkett-host-pid;%s\007' "$$"; exec "$@""#,
+                r#"printf '\033]6666;parkett-host-pid;%s\007' "$$"; exec "$@""#,
                 "sh",
                 "bash",
                 "-l"

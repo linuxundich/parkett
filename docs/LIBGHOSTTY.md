@@ -409,7 +409,7 @@ Login shell in the Flatpak: `Backend::user_shell()` asks the host once (`flatpak
 private session. The VTE engine keeps the sandbox shell (it runs in the sandbox).
 
 Context in the Flatpak (root / SSH colors, command label, template command): the sandbox cannot see host pids or
-`/proc`, so the host is asked. The host shell is started as `sh -c 'printf "\e]777;parkett-host-pid;%s\a" "$$"; exec "$@"' sh <shell>`:
+`/proc`, so the host is asked. The host shell is started as `sh -c 'printf "\e]6666;parkett-host-pid;%s\a" "$$"; exec "$@"' sh <shell>`:
 it reports its own pid through the terminal (an unknown OSC that `Terminal::on_unknown_osc` hands to the widget,
 `GhosttyView::host_pid`). `parkett_core::pty::host_foreground(pid)` runs one `flatpak-spawn --host sh -c …` that reads
 `tpgid` from `/proc/<pid>/stat` (the foreground job of the shell's terminal) and then `comm`, `cmdline` and the
@@ -422,3 +422,9 @@ stays off (OSC 7 only).
 
 Selection: cells after the last character of a row (and empty rows) are no longer drawn as selected, like VTE.
 Before, dragging over empty space painted blocks there; copied text was already trimmed.
+
+Correction to "Context in the Flatpak": the first version reported the host pid with OSC **777**, which libghostty knows
+(desktop notification) and swallows, so no pid ever arrived and the colors stayed off. Now OSC 6666 (unknown to the
+library, so `on_unknown_osc` sees it). Verified end to end in the real Flatpak with a fake `ssh` (a copy of python3
+named `ssh`, `-c CODE bender`): `G_MESSAGES_DEBUG=parkett` logs `host foreground of <pid>: … comm: "ssh" …` and
+`context: Remote("bender")` once per second. `root` (euid 0) goes through the same evaluation; not tried with a real `sudo`.

@@ -594,6 +594,7 @@ impl Terminal {
             let answer = gio::spawn_blocking(move || parkett_core::pty::host_foreground(pid)).await.ok().flatten();
             let Some(inner) = weak.upgrade() else { return };
             inner.host_query_running.set(false);
+            glib::g_debug!("parkett", "host foreground of {pid}: {:?}", answer);
             let fg = answer.map(|h| Foreground {
                 pgid: h.pgid,
                 is_shell: h.pgid as u32 == pid,
@@ -619,6 +620,7 @@ impl Terminal {
         let now = self.context_of(fg.as_ref());
         let mut changed = false;
         if now != *self.0.context.borrow() {
+            glib::g_debug!("parkett", "context: {:?}", now);
             *self.0.context.borrow_mut() = now;
             self.apply_colors();
             changed = true;
