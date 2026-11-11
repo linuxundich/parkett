@@ -17,6 +17,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `Terminal` methods (focus, cursor, character size, selection), and every VTE call now lives in
   `app/src/backend.rs`. No visible change.
 
+### Fixed
+- In the Flatpak the terminal view froze at the first scroll (for example the first long output
+  such as the `yay` update menu): the shell kept running and took input, but nothing was redrawn
+  until the window was resized, with the VTE and the libghostty engine alike. The scrollbar is now
+  always present in the scrolled window (overlay bars still show only while scrolling) instead of
+  appearing on demand.
+
 ### Added
 - Experimental, not wired in: `ghostty-vt-sys` crate with raw bindings to libghostty-vt 1.0.0
   (groundwork for an optional second terminal backend; not a default workspace member), plus

@@ -1102,8 +1102,11 @@ impl Terminal {
             sixel: backend::sixel_supported() && crate::settings::settings().boolean("enable-sixel"),
         });
         // without a bar the mouse wheel keeps working (External = area scrolls, no bar)
+        // `Always`, not `Automatic`: in the Flatpak the view froze at the first scroll (the terminal
+        // kept running, only a window resize repainted it) as soon as the bar appeared late; with
+        // the bar present from the start it does not. Overlay bars are drawn only while scrolling.
         self.0.scroller.set_vscrollbar_policy(if look.scrollbar {
-            gtk::PolicyType::Automatic
+            gtk::PolicyType::Always
         } else {
             gtk::PolicyType::External
         });
